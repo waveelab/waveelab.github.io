@@ -13,18 +13,19 @@
             --text-muted: #666666;
             --border: #1a1a1a;
         }
+        /* 移除 body 的 touch-action: none，释放原生控件的滑动权限 */
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; user-select: none; -webkit-user-select: none; }
-        body { background-color: var(--bg-color); color: var(--text); overflow: hidden; touch-action: none; height: 100vh; display: flex; flex-direction: column; }
+        body { background-color: var(--bg-color); color: var(--text); overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
         
         /* Header */
         header { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: var(--panel-bg); z-index: 100; border-bottom: 1px solid var(--border); }
         .logo { font-size: 13px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--text); }
         .header-actions { display: flex; gap: 15px; }
-        .header-actions button { background: none; border: none; color: var(--accent); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; padding: 5px; }
+        .header-actions button { background: none; border: none; color: var(--accent); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; padding: 10px 5px; }
         .header-actions button:disabled { color: #333; cursor: not-allowed; }
         .header-actions .close-btn { color: #888; }
 
-        /* Workspace */
+        /* Workspace - 严格接管触摸，防止双指缩放时滚动网页 */
         .workspace { flex: 1; position: relative; background: #050505; overflow: hidden; cursor: crosshair; touch-action: none; }
         #mainCanvas { position: absolute; transform-origin: 0 0; image-rendering: -webkit-optimize-contrast; }
         
@@ -32,23 +33,27 @@
 
         /* Upload Overlay */
         .upload-overlay { position: absolute; inset: 0; background: var(--bg-color); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 200; }
-        .upload-btn { background: var(--text); color: var(--bg-color); padding: 14px 36px; border-radius: 0; font-size: 13px; font-weight: 700; cursor: pointer; border: none; text-transform: uppercase; letter-spacing: 2px; transition: background 0.2s; }
+        
+        /* 核心修复：原生 Label 完美兼容所有手机相册唤起 */
+        .upload-btn { display: inline-block; background: var(--text); color: var(--bg-color); padding: 14px 36px; border-radius: 0; font-size: 13px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; transition: background 0.2s; text-align: center; }
         .upload-btn:active { background: #ccc; }
-        #fileInput { display: none; }
+        #fileInput { position: absolute; width: 0; height: 0; opacity: 0; overflow: hidden; }
 
         /* Compact Controls */
-        .controls { background: var(--panel-bg); padding: 15px 20px 20px; border-top: 1px solid var(--border); z-index: 100; }
-        .sliders { display: flex; flex-direction: column; gap: 15px; margin-bottom: 18px; }
+        .controls { background: var(--panel-bg); padding: 15px 20px 25px; border-top: 1px solid var(--border); z-index: 100; touch-action: pan-y; }
+        .sliders { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; }
         .slider-row { display: flex; align-items: center; gap: 15px; }
         .slider-row label { width: 70px; font-size: 10px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
         
-        /* Thin Sliders */
-        input[type=range] { flex: 1; -webkit-appearance: none; background: #222; height: 2px; border-radius: 0; outline: none; }
-        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 18px; width: 8px; border-radius: 0; background: #fff; cursor: pointer; }
+        /* 核心修复：扩大滑块的触摸热区 (height: 30px)，但保持视觉上是一根细线 */
+        input[type=range] { flex: 1; -webkit-appearance: none; background: transparent; height: 30px; border-radius: 0; outline: none; margin: 0; }
+        input[type=range]::-webkit-slider-runnable-track { height: 2px; background: #333; }
+        /* 稍微加宽 Thumb，解决手机端难抓取的问题 */
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 20px; width: 14px; border-radius: 0; background: #fff; cursor: pointer; margin-top: -9px; }
 
         /* Compact Tools */
         .tools { display: flex; justify-content: space-between; }
-        .tool-btn { background: none; border: none; color: var(--text-muted); font-size: 11px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; padding: 6px 0; transition: 0.2s; width: 33%; text-align: center; }
+        .tool-btn { background: none; border: none; color: var(--text-muted); font-size: 11px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; padding: 10px 0; transition: 0.2s; width: 33%; text-align: center; }
         .tool-btn.active { color: var(--accent); position: relative; }
         .tool-btn.active::after { content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 2px; background: var(--accent); }
     </style>
@@ -69,8 +74,10 @@
         <canvas id="mainCanvas"></canvas>
         <div class="brush-cursor" id="brushCursor"></div>
         <div class="upload-overlay" id="uploadOverlay">
-            <button class="upload-btn" onclick="document.getElementById('fileInput').click()">Open Image</button>
-            <input type="file" id="fileInput" accept="image/*">
+            <label class="upload-btn">
+                Open Image
+                <input type="file" id="fileInput" accept="image/*">
+            </label>
         </div>
     </div>
 
@@ -97,7 +104,6 @@
     const canvas = document.getElementById('mainCanvas');
     const ctx = canvas.getContext('2d', { willReadFrequently: true, alpha: false });
     
-    // Core Isolation Buffers
     const snapshotCanvas = document.createElement('canvas');
     const snapshotCtx = snapshotCanvas.getContext('2d', { alpha: false });
     const effectCanvas = document.createElement('canvas');
@@ -109,7 +115,6 @@
     let brushSizeScreen = 50, brushPressure = 0.4;
     let anchorX = 0, anchorY = 0, lastX = 0, lastY = 0;
 
-    // Viewport State
     let viewScale = 1, viewPanX = 0, viewPanY = 0;
 
     function updateTransform() {
@@ -128,21 +133,13 @@
 
     document.getElementById('resetViewBtn').onclick = fitToScreen;
 
-    // --- Close Image Feature ---
     document.getElementById('closeBtn').onclick = () => {
-        // Clear canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         snapshotCtx.clearRect(0, 0, canvas.width, canvas.height);
         effectCtx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // Reset history & file input
-        history = [];
-        document.getElementById('fileInput').value = "";
-        
-        // Reset Viewport
+        history = []; document.getElementById('fileInput').value = "";
         viewScale = 1; viewPanX = 0; viewPanY = 0; updateTransform();
         
-        // Manage UI
         document.getElementById('uploadOverlay').style.display = 'flex';
         document.getElementById('exportBtn').style.display = 'none';
         document.getElementById('resetViewBtn').style.display = 'none';
@@ -150,7 +147,6 @@
         document.getElementById('undoBtn').disabled = true;
     };
 
-    // --- UI Controls ---
     document.getElementById('sizeSlider').oninput = (e) => { 
         brushSizeScreen = parseInt(e.target.value); updateCursorSize(); 
     };
@@ -171,29 +167,33 @@
     }
     updateCursorSize();
 
-    // --- Image Handling ---
+    // --- 极速稳定图片加载 ---
     document.getElementById('fileInput').onchange = (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        const img = new Image();
-        img.onload = () => {
-            const max = 2500; 
-            let w = img.width, h = img.height;
-            if(w > max || h > max) { const r = Math.min(max/w, max/h); w *= r; h *= r; }
-            
-            canvas.width = snapshotCanvas.width = effectCanvas.width = w;
-            canvas.height = snapshotCanvas.height = effectCanvas.height = h;
-            ctx.drawImage(img, 0, 0, w, h);
-            
-            document.getElementById('uploadOverlay').style.display = 'none';
-            document.getElementById('exportBtn').style.display = 'block';
-            document.getElementById('resetViewBtn').style.display = 'block';
-            document.getElementById('closeBtn').style.display = 'block';
-            
-            fitToScreen();
-            saveState();
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                const max = 2048; // 保障移动端不崩溃的最佳画质
+                let w = img.width, h = img.height;
+                if(w > max || h > max) { const r = Math.min(max/w, max/h); w *= r; h *= r; }
+                
+                canvas.width = snapshotCanvas.width = effectCanvas.width = w;
+                canvas.height = snapshotCanvas.height = effectCanvas.height = h;
+                ctx.drawImage(img, 0, 0, w, h);
+                
+                document.getElementById('uploadOverlay').style.display = 'none';
+                document.getElementById('exportBtn').style.display = 'block';
+                document.getElementById('resetViewBtn').style.display = 'block';
+                document.getElementById('closeBtn').style.display = 'block';
+                
+                fitToScreen();
+                saveState();
+            };
+            img.src = event.target.result;
         };
-        img.src = URL.createObjectURL(file);
+        reader.readAsDataURL(file);
     };
 
     function saveState() {
@@ -230,17 +230,12 @@
     };
 
     // --- Interaction (Strict Safari Lock) ---
-    let isPanning = false;
-    let pinchStartDist = 0, pinchStartScale = 1;
-    let pinchCenterX = 0, pinchCenterY = 0;
-    let pinchStartPanX = 0, pinchStartPanY = 0;
+    let isPanning = false, pinchStartDist = 0, pinchStartScale = 1;
+    let pinchCenterX = 0, pinchCenterY = 0, pinchStartPanX = 0, pinchStartPanY = 0;
     let lastPanX = 0, lastPanY = 0;
 
     function screenToImage(screenX, screenY) {
-        return {
-            x: (screenX - viewPanX) / viewScale,
-            y: (screenY - viewPanY) / viewScale
-        };
+        return { x: (screenX - viewPanX) / viewScale, y: (screenY - viewPanY) / viewScale };
     }
 
     workspace.addEventListener('wheel', (e) => {
@@ -258,8 +253,7 @@
     workspace.addEventListener('pointerdown', (e) => {
         if(document.getElementById('uploadOverlay').offsetParent === null) {
             if (e.button === 1 || e.button === 2) {
-                isPanning = true;
-                lastPanX = e.clientX; lastPanY = e.clientY;
+                isPanning = true; lastPanX = e.clientX; lastPanY = e.clientY;
             }
         }
     });
@@ -295,8 +289,6 @@
         anchorY = lastY = imgPos.y;
         
         isDrawing = true;
-        brushCursor.style.opacity = '1';
-        brushCursor.style.left = `${screenX}px`; brushCursor.style.top = `${screenY}px`;
         
         snapshotCtx.drawImage(canvas, 0, 0);
         
@@ -329,10 +321,6 @@
             updateTransform(); return;
         }
         if (isDrawing) moveDrawing(e);
-        const rect = workspace.getBoundingClientRect();
-        brushCursor.style.opacity = isPanning ? '0' : '1';
-        brushCursor.style.left = `${e.clientX - rect.left}px`;
-        brushCursor.style.top = `${e.clientY - rect.top}px`;
     });
 
     function moveDrawing(touchOrMouse) {
@@ -361,21 +349,17 @@
         saveState();
     }
 
-    // --- 1. ADVANCED RESHAPE: Longer Drags, Max Clarity, Zero Tearing ---
+    // --- ALGORITHMS ---
     function applyReshapeAdvanced(curX, curY) {
-        const dx = curX - anchorX;
-        const dy = curY - anchorY;
+        const dx = curX - anchorX, dy = curY - anchorY;
         const distFromAnchor = Math.hypot(dx, dy);
         const r = brushSizeScreen / viewScale; 
         
         renderWarpBilinearFromSnapshot(anchorX, anchorY, dx, dy, r);
 
-        // Increased threshold to 0.35 allows longer drags per anchor without tearing
-        // This keeps the interpolation from becoming blurry while maintaining structural integrity.
         if (distFromAnchor > r * 0.35) {
             snapshotCtx.drawImage(canvas, 0, 0);
-            anchorX = curX;
-            anchorY = curY;
+            anchorX = curX; anchorY = curY;
         }
     }
 
@@ -403,22 +387,16 @@
                 const globalX = readSx + x, globalY = readSy + y;
                 const distToDest = Math.hypot(globalX - (cx + dx), globalY - (cy + dy));
                 
-                let srcGlobalX = globalX;
-                let srcGlobalY = globalY;
+                let srcGlobalX = globalX, srcGlobalY = globalY;
 
                 if (distToDest < r) {
                     const t = distToDest / r;
-                    // [CRITICAL UPGRADE]: Raised Cosine Bell Curve.
-                    // This creates an extremely natural elastic deformation that prevents jagged edges 
-                    // even on very long drags.
                     const weight = Math.pow(0.5 + 0.5 * Math.cos(t * Math.PI), 1.5) * pressure;
                     srcGlobalX = globalX - dx * weight;
                     srcGlobalY = globalY - dy * weight;
                 }
 
-                const localSrcX = srcGlobalX - readSx;
-                const localSrcY = srcGlobalY - readSy;
-
+                const localSrcX = srcGlobalX - readSx, localSrcY = srcGlobalY - readSy;
                 const x1 = Math.floor(localSrcX), y1 = Math.floor(localSrcY);
                 const x2 = x1 + 1, y2 = y1 + 1;
                 const fx = localSrcX - x1, fy = localSrcY - y1;
@@ -428,11 +406,8 @@
                 if (x1 >= 0 && x2 < readW && y1 >= 0 && y2 < readH) {
                     const i11 = (y1 * readW + x1) * 4, i21 = (y1 * readW + x2) * 4;
                     const i12 = (y2 * readW + x1) * 4, i22 = (y2 * readW + x2) * 4;
-
                     for (let c = 0; c < 4; c++) {
-                        dst[dstIdx + c] =
-                            src[i11+c]*(1-fx)*(1-fy) + src[i21+c]*fx*(1-fy) +
-                            src[i12+c]*(1-fx)*fy + src[i22+c]*fx*fy;
+                        dst[dstIdx + c] = src[i11+c]*(1-fx)*(1-fy) + src[i21+c]*fx*(1-fy) + src[i12+c]*(1-fx)*fy + src[i22+c]*fx*fy;
                     }
                 } else {
                     const x1c = Math.max(0, Math.min(readW - 1, x1));
@@ -450,10 +425,8 @@
         ctx.putImageData(outData, readSx, readSy);
     }
 
-    // --- 2. SMOOTH: AIRY CREAMY SKIN ---
     function prepareAirySmoothJS() {
         effectCtx.clearRect(0, 0, canvas.width, canvas.height);
-        
         const scale = 0.25;
         const sw = Math.max(1, Math.floor(canvas.width * scale));
         const sh = Math.max(1, Math.floor(canvas.height * scale));
@@ -461,20 +434,15 @@
         const tCan = document.createElement('canvas'); 
         tCan.width = sw; tCan.height = sh;
         const tCtx = tCan.getContext('2d');
-        tCtx.imageSmoothingEnabled = true;
-        tCtx.imageSmoothingQuality = 'high';
+        tCtx.imageSmoothingEnabled = true; tCtx.imageSmoothingQuality = 'high';
         tCtx.drawImage(canvas, 0, 0, sw, sh);
         
-        const id = tCtx.getImageData(0, 0, sw, sh);
-        const d = id.data;
-        
+        const id = tCtx.getImageData(0, 0, sw, sh), d = id.data;
         let cp = new Uint8ClampedArray(d);
         for (let y = 0; y < sh; y++) {
             for (let x = 1; x < sw - 1; x++) {
                 const i = (y * sw + x) * 4;
-                for(let c=0; c<3; c++) {
-                    d[i+c] = (cp[i+c-4] + cp[i+c] + cp[i+c+4]) / 3;
-                }
+                for(let c=0; c<3; c++) d[i+c] = (cp[i+c-4] + cp[i+c] + cp[i+c+4]) / 3;
             }
         }
         cp = new Uint8ClampedArray(d);
@@ -482,15 +450,12 @@
             for (let y = 1; y < sh - 1; y++) {
                 const i = (y * sw + x) * 4;
                 const step = sw * 4;
-                for(let c=0; c<3; c++) {
-                    d[i+c] = (cp[i+c-step] + cp[i+c] + cp[i+c+step]) / 3;
-                }
+                for(let c=0; c<3; c++) d[i+c] = (cp[i+c-step] + cp[i+c] + cp[i+c+step]) / 3;
             }
         }
         tCtx.putImageData(id, 0, 0);
         
-        effectCtx.imageSmoothingEnabled = true;
-        effectCtx.imageSmoothingQuality = 'high';
+        effectCtx.imageSmoothingEnabled = true; effectCtx.imageSmoothingQuality = 'high';
         effectCtx.drawImage(tCan, 0, 0, sw, sh, 0, 0, canvas.width, canvas.height);
     }
 
@@ -521,16 +486,12 @@
         const cx = x - sx; const cy = y - sy;
         const g = brushCtx.createRadialGradient(cx, cy, 0, cx, cy, r);
         
-        // [CRITICAL UPGRADE] Lowered Max Opacity to 8% for Airy Smooth.
-        // Extremely soft buildup required. Unnoticeable single stroke, perfect multi-stroke.
         const alpha = currentTool === 'smooth' ? brushPressure * 0.08 : brushPressure * 0.45;
         
         g.addColorStop(0, `rgba(0,0,0,${alpha})`); 
         g.addColorStop(1, 'rgba(0,0,0,0)');
         
-        brushCtx.fillStyle = g; 
-        brushCtx.fillRect(0, 0, bw, bh);
-        
+        brushCtx.fillStyle = g; brushCtx.fillRect(0, 0, bw, bh);
         brushCtx.globalCompositeOperation = 'source-in';
         brushCtx.drawImage(effectCanvas, sx, sy, bw, bh, 0, 0, bw, bh);
         
