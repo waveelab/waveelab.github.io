@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>facewavee - mini face editor</title>
+    <title>facewavee</title>
     <style>
         :root {
             --bg-color: #000000;
@@ -14,10 +14,29 @@
             --border: #1a1a1a;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; user-select: none; -webkit-user-select: none; }
-        body { background-color: var(--bg-color); color: var(--text); overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
         
-        /* Header */
-        header { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: var(--panel-bg); z-index: 100; border-bottom: 1px solid var(--border); }
+        /* 核心修复 1：使用 100dvh (Dynamic Viewport Height)，完美解决手机浏览器上下地址栏遮挡问题 */
+        body { 
+            background-color: var(--bg-color); 
+            color: var(--text); 
+            overflow: hidden; 
+            height: 100vh; /* Fallback for older browsers */
+            height: 100dvh; 
+            display: flex; 
+            flex-direction: column; 
+        }
+        
+        /* 核心修复 2：加入 safe-area-inset，完美避开 iPhone 刘海屏和底部 Home 横条 */
+        header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            padding: max(12px, env(safe-area-inset-top)) max(15px, env(safe-area-inset-right)) 12px max(15px, env(safe-area-inset-left)); 
+            background: var(--panel-bg); 
+            z-index: 100; 
+            border-bottom: 1px solid var(--border); 
+            flex-shrink: 0; /* 防止被挤压 */
+        }
         .logo { font-size: 13px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--text); }
         .header-actions { display: flex; gap: 15px; }
         .header-actions button { background: none; border: none; color: var(--accent); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; padding: 5px; touch-action: none; }
@@ -30,32 +49,36 @@
         #mainCanvas { position: absolute; transform-origin: 0 0; image-rendering: -webkit-optimize-contrast; z-index: 1; }
         #originalCanvas { position: absolute; transform-origin: 0 0; image-rendering: -webkit-optimize-contrast; z-index: 5; display: none; pointer-events: none; }
         
-        /* 隐藏画笔光标，保持视野纯净 */
+        /* 隐藏画笔光标 */
         .brush-cursor { display: none !important; }
 
-        /* Upload Overlay - 移出 workspace 避免触摸拦截池污染 */
+        /* Upload Overlay */
         .upload-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-color); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
-        
-        /* 核心修复：按钮相对定位，Input绝对定位铺满，原生解决 iOS 无法打开相册的 Bug */
-        .upload-btn { position: relative; overflow: hidden; display: inline-block; background: var(--text); color: var(--bg-color); padding: 14px 36px; border-radius: 0; font-size: 13px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; transition: background 0.2s; text-align: center; }
+        .upload-btn { position: relative; overflow: hidden; display: inline-block; background: var(--text); color: var(--bg-color); padding: 14px 36px; font-size: 13px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; transition: background 0.2s; text-align: center; }
         .upload-btn:active { background: #ccc; }
         #fileInput { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 
-        /* Compact Controls */
-        .controls { background: var(--panel-bg); padding: 15px 20px 25px; border-top: 1px solid var(--border); z-index: 100; touch-action: pan-y; }
+        /* Controls 适配底部横条 */
+        .controls { 
+            background: var(--panel-bg); 
+            padding: 15px max(20px, env(safe-area-inset-right)) max(25px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); 
+            border-top: 1px solid var(--border); 
+            z-index: 100; 
+            touch-action: none; /* 锁定控制区，防止滑动滑块时整个页面跟着弹跳 */
+            flex-shrink: 0; 
+        }
         .sliders { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; }
-        .slider-row { display: flex; align-items: center; gap: 15px; }
-        .slider-row label { width: 70px; font-size: 10px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+        .slider-row { display: flex; align-items: center; gap: 10px; }
+        .slider-row label { width: 65px; font-size: 10px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
         
         input[type=range] { flex: 1; -webkit-appearance: none; background: transparent; height: 30px; border-radius: 0; outline: none; margin: 0; }
         input[type=range]::-webkit-slider-runnable-track { height: 2px; background: #333; }
-        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 20px; width: 14px; border-radius: 0; background: #fff; cursor: pointer; margin-top: -9px; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 20px; width: 16px; border-radius: 0; background: #fff; cursor: pointer; margin-top: -9px; }
 
-        /* Compact Tools */
         .tools { display: flex; justify-content: space-around; }
         .tool-btn { background: none; border: none; color: var(--text-muted); font-size: 11px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; padding: 10px 0; transition: 0.2s; width: 33%; text-align: center; }
         .tool-btn.active { color: var(--accent); position: relative; }
-        .tool-btn.active::after { content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 2px; background: var(--accent); }
+        .tool-btn.active::after { content: ''; position: absolute; bottom: 0; left: 10%; width: 80%; height: 2px; background: var(--accent); }
     </style>
 </head>
 <body>
@@ -138,7 +161,13 @@
         updateTransform();
     }
 
-    // --- Compare Function ---
+    // 核心修复 3：监听屏幕旋转/大小变化，自动重新居中适配
+    window.addEventListener('resize', () => {
+        if (document.getElementById('uploadOverlay').style.display === 'none') {
+            fitToScreen();
+        }
+    });
+
     const compareBtn = document.getElementById('compareBtn');
     const showOriginal = (e) => { e.preventDefault(); originalCanvas.style.display = 'block'; };
     const hideOriginal = (e) => { e.preventDefault(); originalCanvas.style.display = 'none'; };
@@ -149,7 +178,6 @@
     compareBtn.addEventListener('touchend', hideOriginal);
     compareBtn.addEventListener('touchcancel', hideOriginal);
 
-    // --- Close Feature ---
     document.getElementById('closeBtn').onclick = () => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         originalCtx.clearRect(0, 0, originalCanvas.width, originalCanvas.height);
@@ -166,7 +194,6 @@
         document.getElementById('undoBtn').disabled = true;
     };
 
-    // --- UI Controls ---
     document.getElementById('sizeSlider').oninput = (e) => { brushSizeScreen = parseInt(e.target.value); };
     document.getElementById('pressureSlider').oninput = (e) => { brushPressure = parseFloat(e.target.value); };
     
@@ -178,7 +205,6 @@
         };
     });
 
-    // --- Image Handling ---
     document.getElementById('fileInput').onchange = (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -242,7 +268,6 @@
         a.click();
     };
 
-    // --- Interaction ---
     let isPanning = false, pinchStartDist = 0, pinchStartScale = 1;
     let pinchCenterX = 0, pinchCenterY = 0, pinchStartPanX = 0, pinchStartPanY = 0;
     let lastPanX = 0, lastPanY = 0;
@@ -368,7 +393,7 @@
         saveState();
     }
 
-    // --- 1. ADVANCED RESHAPE: Longer Drags, Enhanced Clarity ---
+    // --- ALGORITHMS ---
     function applyReshapeAdvanced(curX, curY) {
         const dx = curX - anchorX, dy = curY - anchorY;
         const distFromAnchor = Math.hypot(dx, dy);
@@ -376,9 +401,6 @@
         
         renderWarpBilinearFromSnapshot(anchorX, anchorY, dx, dy, r);
 
-        // 【核心优化】：将锚点更新阈值放宽至 r * 0.5
-        // 这意味着在一次划动中，重采样插值的频率降低了，大大减少了递归导致的“糊感”。
-        // 配合升余弦曲线，让你能把轮廓推得更长、更远，同时保留极高的画面锐度。
         if (distFromAnchor > r * 0.5) {
             snapshotCtx.drawImage(canvas, 0, 0);
             anchorX = curX; anchorY = curY;
@@ -413,8 +435,6 @@
 
                 if (distToDest < r) {
                     const t = distToDest / r;
-                    // 【平滑且自然的升余弦形变曲线】 
-                    // 这种曲线能让推拉时的周边像素呈现非常自然的弹性和连续性，杜绝锯齿。
                     const weight = Math.pow(0.5 + 0.5 * Math.cos(t * Math.PI), 1.2) * pressure;
                     srcGlobalX = globalX - dx * weight;
                     srcGlobalY = globalY - dy * weight;
@@ -451,7 +471,6 @@
         ctx.putImageData(outData, readSx, readSy);
     }
 
-    // --- 2. SMOOTH: AIRY CREAMY SKIN ---
     function prepareAirySmoothJS() {
         effectCtx.clearRect(0, 0, canvas.width, canvas.height);
         
