@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>facewavee</title>
+    <title>Facewave - Minimalist Pro Workspace</title>
     <style>
         :root {
             --bg-color: #000000;
@@ -13,7 +13,6 @@
             --text-muted: #666666;
             --border: #1a1a1a;
         }
-        /* 移除 body 的 touch-action: none，释放原生控件的滑动权限 */
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; user-select: none; -webkit-user-select: none; }
         body { background-color: var(--bg-color); color: var(--text); overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
         
@@ -21,23 +20,25 @@
         header { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: var(--panel-bg); z-index: 100; border-bottom: 1px solid var(--border); }
         .logo { font-size: 13px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--text); }
         .header-actions { display: flex; gap: 15px; }
-        .header-actions button { background: none; border: none; color: var(--accent); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; padding: 10px 5px; }
+        .header-actions button { background: none; border: none; color: var(--accent); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; padding: 5px; touch-action: none; }
         .header-actions button:disabled { color: #333; cursor: not-allowed; }
         .header-actions .close-btn { color: #888; }
+        #compareBtn:active { color: #888; }
 
-        /* Workspace - 严格接管触摸，防止双指缩放时滚动网页 */
+        /* Workspace */
         .workspace { flex: 1; position: relative; background: #050505; overflow: hidden; cursor: crosshair; touch-action: none; }
-        #mainCanvas { position: absolute; transform-origin: 0 0; image-rendering: -webkit-optimize-contrast; }
+        #mainCanvas { position: absolute; transform-origin: 0 0; image-rendering: -webkit-optimize-contrast; z-index: 1; }
+        #originalCanvas { position: absolute; transform-origin: 0 0; image-rendering: -webkit-optimize-contrast; z-index: 5; display: none; pointer-events: none; }
         
         .brush-cursor { position: absolute; border: 1px solid rgba(255,255,255,0.8); border-radius: 50%; pointer-events: none; opacity: 0; z-index: 50; transform: translate(-50%, -50%); transition: opacity 0.1s; }
 
         /* Upload Overlay */
         .upload-overlay { position: absolute; inset: 0; background: var(--bg-color); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 200; }
-        
-        /* 核心修复：原生 Label 完美兼容所有手机相册唤起 */
         .upload-btn { display: inline-block; background: var(--text); color: var(--bg-color); padding: 14px 36px; border-radius: 0; font-size: 13px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; transition: background 0.2s; text-align: center; }
         .upload-btn:active { background: #ccc; }
-        #fileInput { position: absolute; width: 0; height: 0; opacity: 0; overflow: hidden; }
+        
+        /* 核心修复 1: 恢复最原生、最安全的 input file 隐藏方式 */
+        #fileInput { display: none; }
 
         /* Compact Controls */
         .controls { background: var(--panel-bg); padding: 15px 20px 25px; border-top: 1px solid var(--border); z-index: 100; touch-action: pan-y; }
@@ -45,10 +46,8 @@
         .slider-row { display: flex; align-items: center; gap: 15px; }
         .slider-row label { width: 70px; font-size: 10px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
         
-        /* 核心修复：扩大滑块的触摸热区 (height: 30px)，但保持视觉上是一根细线 */
         input[type=range] { flex: 1; -webkit-appearance: none; background: transparent; height: 30px; border-radius: 0; outline: none; margin: 0; }
         input[type=range]::-webkit-slider-runnable-track { height: 2px; background: #333; }
-        /* 稍微加宽 Thumb，解决手机端难抓取的问题 */
         input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 20px; width: 14px; border-radius: 0; background: #fff; cursor: pointer; margin-top: -9px; }
 
         /* Compact Tools */
@@ -61,10 +60,10 @@
 <body>
 
     <header>
-        <div class="logo">facewavee</div>
+        <div class="logo">Facewave</div>
         <div class="header-actions">
             <button id="closeBtn" class="close-btn" style="display: none;">Close</button>
-            <button id="resetViewBtn" style="display: none;">Fit</button>
+            <button id="compareBtn" style="display: none;">Compare</button>
             <button id="undoBtn" disabled>Undo</button>
             <button id="exportBtn" style="display: none;">Save</button>
         </div>
@@ -72,6 +71,7 @@
 
     <div class="workspace" id="workspace">
         <canvas id="mainCanvas"></canvas>
+        <canvas id="originalCanvas"></canvas>
         <div class="brush-cursor" id="brushCursor"></div>
         <div class="upload-overlay" id="uploadOverlay">
             <label class="upload-btn">
@@ -104,6 +104,9 @@
     const canvas = document.getElementById('mainCanvas');
     const ctx = canvas.getContext('2d', { willReadFrequently: true, alpha: false });
     
+    const originalCanvas = document.getElementById('originalCanvas');
+    const originalCtx = originalCanvas.getContext('2d', { alpha: false });
+    
     const snapshotCanvas = document.createElement('canvas');
     const snapshotCtx = snapshotCanvas.getContext('2d', { alpha: false });
     const effectCanvas = document.createElement('canvas');
@@ -118,7 +121,9 @@
     let viewScale = 1, viewPanX = 0, viewPanY = 0;
 
     function updateTransform() {
-        canvas.style.transform = `matrix(${viewScale}, 0, 0, ${viewScale}, ${viewPanX}, ${viewPanY})`;
+        const matrix = `matrix(${viewScale}, 0, 0, ${viewScale}, ${viewPanX}, ${viewPanY})`;
+        canvas.style.transform = matrix;
+        originalCanvas.style.transform = matrix;
     }
 
     function fitToScreen() {
@@ -133,16 +138,29 @@
 
     document.getElementById('resetViewBtn').onclick = fitToScreen;
 
+    const compareBtn = document.getElementById('compareBtn');
+    const showOriginal = (e) => { e.preventDefault(); originalCanvas.style.display = 'block'; };
+    const hideOriginal = (e) => { e.preventDefault(); originalCanvas.style.display = 'none'; };
+
+    compareBtn.addEventListener('mousedown', showOriginal);
+    compareBtn.addEventListener('touchstart', showOriginal, {passive: false});
+    compareBtn.addEventListener('mouseup', hideOriginal);
+    compareBtn.addEventListener('mouseleave', hideOriginal); 
+    compareBtn.addEventListener('touchend', hideOriginal);
+    compareBtn.addEventListener('touchcancel', hideOriginal);
+
     document.getElementById('closeBtn').onclick = () => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        originalCtx.clearRect(0, 0, originalCanvas.width, originalCanvas.height);
         snapshotCtx.clearRect(0, 0, canvas.width, canvas.height);
         effectCtx.clearRect(0, 0, canvas.width, canvas.height);
+        
         history = []; document.getElementById('fileInput').value = "";
         viewScale = 1; viewPanX = 0; viewPanY = 0; updateTransform();
         
         document.getElementById('uploadOverlay').style.display = 'flex';
         document.getElementById('exportBtn').style.display = 'none';
-        document.getElementById('resetViewBtn').style.display = 'none';
+        document.getElementById('compareBtn').style.display = 'none';
         document.getElementById('closeBtn').style.display = 'none';
         document.getElementById('undoBtn').disabled = true;
     };
@@ -167,7 +185,7 @@
     }
     updateCursorSize();
 
-    // --- 极速稳定图片加载 ---
+    // --- Image Handling ---
     document.getElementById('fileInput').onchange = (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -175,17 +193,19 @@
         reader.onload = (event) => {
             const img = new Image();
             img.onload = () => {
-                const max = 2048; // 保障移动端不崩溃的最佳画质
+                const max = 2048; 
                 let w = img.width, h = img.height;
                 if(w > max || h > max) { const r = Math.min(max/w, max/h); w *= r; h *= r; }
                 
-                canvas.width = snapshotCanvas.width = effectCanvas.width = w;
-                canvas.height = snapshotCanvas.height = effectCanvas.height = h;
+                canvas.width = snapshotCanvas.width = effectCanvas.width = originalCanvas.width = w;
+                canvas.height = snapshotCanvas.height = effectCanvas.height = originalCanvas.height = h;
+                
                 ctx.drawImage(img, 0, 0, w, h);
+                originalCtx.drawImage(img, 0, 0, w, h);
                 
                 document.getElementById('uploadOverlay').style.display = 'none';
                 document.getElementById('exportBtn').style.display = 'block';
-                document.getElementById('resetViewBtn').style.display = 'block';
+                document.getElementById('compareBtn').style.display = 'block';
                 document.getElementById('closeBtn').style.display = 'block';
                 
                 fitToScreen();
@@ -229,7 +249,7 @@
         a.click();
     };
 
-    // --- Interaction (Strict Safari Lock) ---
+    // --- Interaction (Strict Event Passthrough Fix for Open Image) ---
     let isPanning = false, pinchStartDist = 0, pinchStartScale = 1;
     let pinchCenterX = 0, pinchCenterY = 0, pinchStartPanX = 0, pinchStartPanY = 0;
     let lastPanX = 0, lastPanY = 0;
@@ -239,6 +259,9 @@
     }
 
     workspace.addEventListener('wheel', (e) => {
+        // 【核心修复 2】: 如果事件发生在上传面板区域，绝不拦截！
+        if (e.target.closest('#uploadOverlay')) return;
+        
         e.preventDefault();
         const rect = workspace.getBoundingClientRect();
         const mouseX = e.clientX - rect.left, mouseY = e.clientY - rect.top;
@@ -251,16 +274,18 @@
     }, { passive: false });
 
     workspace.addEventListener('pointerdown', (e) => {
-        if(document.getElementById('uploadOverlay').offsetParent === null) {
-            if (e.button === 1 || e.button === 2) {
-                isPanning = true; lastPanX = e.clientX; lastPanY = e.clientY;
-            }
+        if (e.target.closest('#uploadOverlay')) return;
+        if (e.button === 1 || e.button === 2) {
+            isPanning = true; lastPanX = e.clientX; lastPanY = e.clientY;
         }
     });
 
     workspace.addEventListener('contextmenu', e => e.preventDefault());
 
     workspace.addEventListener('touchstart', (e) => {
+        // 【核心修复 2】: 绝不能拦截上传面板的原始触控事件
+        if (e.target.closest('#uploadOverlay')) return;
+        
         e.preventDefault(); 
         if (e.touches.length === 2) {
             isDrawing = false; isPanning = true; brushCursor.style.opacity = '0';
@@ -277,6 +302,7 @@
     }, {passive: false});
 
     workspace.addEventListener('mousedown', (e) => {
+        if (e.target.closest('#uploadOverlay')) return;
         if (e.button === 0 && !isPanning) startDrawing(e);
     });
 
@@ -297,6 +323,8 @@
     }
 
     workspace.addEventListener('touchmove', (e) => {
+        if (e.target.closest('#uploadOverlay')) return;
+        
         e.preventDefault(); 
         if (isPanning && e.touches.length === 2) {
             const t1 = e.touches[0], t2 = e.touches[1];
@@ -315,6 +343,7 @@
     }, {passive: false});
 
     workspace.addEventListener('mousemove', (e) => {
+        if (e.target.closest('#uploadOverlay')) return;
         if (isPanning) {
             viewPanX += e.clientX - lastPanX; viewPanY += e.clientY - lastPanY;
             lastPanX = e.clientX; lastPanY = e.clientY;
@@ -334,11 +363,13 @@
     }
 
     window.addEventListener('touchend', (e) => {
+        if (e.target && e.target.closest && e.target.closest('#uploadOverlay')) return;
         if (e.touches.length < 2) isPanning = false;
         if (e.touches.length === 0 && isDrawing) endDrawing();
     });
 
     window.addEventListener('mouseup', (e) => {
+        if (e.target && e.target.closest && e.target.closest('#uploadOverlay')) return;
         if (e.button === 1 || e.button === 2) isPanning = false;
         if (e.button === 0 && isDrawing) endDrawing();
     });
@@ -427,6 +458,7 @@
 
     function prepareAirySmoothJS() {
         effectCtx.clearRect(0, 0, canvas.width, canvas.height);
+        
         const scale = 0.25;
         const sw = Math.max(1, Math.floor(canvas.width * scale));
         const sh = Math.max(1, Math.floor(canvas.height * scale));
