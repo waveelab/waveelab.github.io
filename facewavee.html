@@ -34,10 +34,9 @@
 
         /* Upload Overlay */
         .upload-overlay { position: absolute; inset: 0; background: var(--bg-color); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 200; }
+        
         .upload-btn { display: inline-block; background: var(--text); color: var(--bg-color); padding: 14px 36px; border-radius: 0; font-size: 13px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; transition: background 0.2s; text-align: center; }
         .upload-btn:active { background: #ccc; }
-        
-        /* 核心修复 1: 恢复最原生、最安全的 input file 隐藏方式 */
         #fileInput { display: none; }
 
         /* Compact Controls */
@@ -73,7 +72,7 @@
         <canvas id="mainCanvas"></canvas>
         <canvas id="originalCanvas"></canvas>
         <div class="brush-cursor" id="brushCursor"></div>
-        <div class="upload-overlay" id="uploadOverlay">
+        <div class="upload-overlay" id="uploadOverlay" style="display: flex;">
             <label class="upload-btn">
                 Open Image
                 <input type="file" id="fileInput" accept="image/*">
@@ -117,7 +116,6 @@
     let history = [], currentTool = 'reshape', isDrawing = false;
     let brushSizeScreen = 50, brushPressure = 0.4;
     let anchorX = 0, anchorY = 0, lastX = 0, lastY = 0;
-
     let viewScale = 1, viewPanX = 0, viewPanY = 0;
 
     function updateTransform() {
@@ -136,12 +134,10 @@
         updateTransform();
     }
 
-    document.getElementById('resetViewBtn').onclick = fitToScreen;
-
+    // --- Compare Function ---
     const compareBtn = document.getElementById('compareBtn');
     const showOriginal = (e) => { e.preventDefault(); originalCanvas.style.display = 'block'; };
     const hideOriginal = (e) => { e.preventDefault(); originalCanvas.style.display = 'none'; };
-
     compareBtn.addEventListener('mousedown', showOriginal);
     compareBtn.addEventListener('touchstart', showOriginal, {passive: false});
     compareBtn.addEventListener('mouseup', hideOriginal);
@@ -149,6 +145,7 @@
     compareBtn.addEventListener('touchend', hideOriginal);
     compareBtn.addEventListener('touchcancel', hideOriginal);
 
+    // --- Close Feature ---
     document.getElementById('closeBtn').onclick = () => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         originalCtx.clearRect(0, 0, originalCanvas.width, originalCanvas.height);
@@ -165,6 +162,7 @@
         document.getElementById('undoBtn').disabled = true;
     };
 
+    // --- UI Controls ---
     document.getElementById('sizeSlider').oninput = (e) => { 
         brushSizeScreen = parseInt(e.target.value); updateCursorSize(); 
     };
@@ -249,7 +247,7 @@
         a.click();
     };
 
-    // --- Interaction (Strict Event Passthrough Fix for Open Image) ---
+    // --- Interaction (Strict Safari Lock with Upload Overlay Bypass) ---
     let isPanning = false, pinchStartDist = 0, pinchStartScale = 1;
     let pinchCenterX = 0, pinchCenterY = 0, pinchStartPanX = 0, pinchStartPanY = 0;
     let lastPanX = 0, lastPanY = 0;
@@ -258,10 +256,11 @@
         return { x: (screenX - viewPanX) / viewScale, y: (screenY - viewPanY) / viewScale };
     }
 
+    // 核心修复：所有交互事件首行增加状态检测。如果在上传页面，直接 return 放弃接管，把权限还给系统。
+    const isOverlayActive = () => document.getElementById('uploadOverlay').style.display !== 'none';
+
     workspace.addEventListener('wheel', (e) => {
-        // 【核心修复 2】: 如果事件发生在上传面板区域，绝不拦截！
-        if (e.target.closest('#uploadOverlay')) return;
-        
+        if (isOverlayActive()) return;
         e.preventDefault();
         const rect = workspace.getBoundingClientRect();
         const mouseX = e.clientX - rect.left, mouseY = e.clientY - rect.top;
@@ -274,18 +273,18 @@
     }, { passive: false });
 
     workspace.addEventListener('pointerdown', (e) => {
-        if (e.target.closest('#uploadOverlay')) return;
+        if (isOverlayActive()) return;
         if (e.button === 1 || e.button === 2) {
             isPanning = true; lastPanX = e.clientX; lastPanY = e.clientY;
         }
     });
 
-    workspace.addEventListener('contextmenu', e => e.preventDefault());
+    workspace.addEventListener('contextmenu', e => {
+        if (!isOverlayActive()) e.preventDefault();
+    });
 
     workspace.addEventListener('touchstart', (e) => {
-        // 【核心修复 2】: 绝不能拦截上传面板的原始触控事件
-        if (e.target.closest('#uploadOverlay')) return;
-        
+        if (isOverlayActive()) return; // <-- 此句代码彻底解决了打不开相册的BUG
         e.preventDefault(); 
         if (e.touches.length === 2) {
             isDrawing = false; isPanning = true; brushCursor.style.opacity = '0';
@@ -302,7 +301,7 @@
     }, {passive: false});
 
     workspace.addEventListener('mousedown', (e) => {
-        if (e.target.closest('#uploadOverlay')) return;
+        if (isOverlayActive()) return;
         if (e.button === 0 && !isPanning) startDrawing(e);
     });
 
@@ -315,6 +314,8 @@
         anchorY = lastY = imgPos.y;
         
         isDrawing = true;
+        brushCursor.style.opacity = '1';
+        brushCursor.style.left = `${screenX}px`; brushCursor.style.top = `${screenY}px`;
         
         snapshotCtx.drawImage(canvas, 0, 0);
         
@@ -323,8 +324,7 @@
     }
 
     workspace.addEventListener('touchmove', (e) => {
-        if (e.target.closest('#uploadOverlay')) return;
-        
+        if (isOverlayActive()) return;
         e.preventDefault(); 
         if (isPanning && e.touches.length === 2) {
             const t1 = e.touches[0], t2 = e.touches[1];
@@ -343,13 +343,17 @@
     }, {passive: false});
 
     workspace.addEventListener('mousemove', (e) => {
-        if (e.target.closest('#uploadOverlay')) return;
+        if (isOverlayActive()) return;
         if (isPanning) {
             viewPanX += e.clientX - lastPanX; viewPanY += e.clientY - lastPanY;
             lastPanX = e.clientX; lastPanY = e.clientY;
             updateTransform(); return;
         }
         if (isDrawing) moveDrawing(e);
+        const rect = workspace.getBoundingClientRect();
+        brushCursor.style.opacity = isPanning ? '0' : '1';
+        brushCursor.style.left = `${e.clientX - rect.left}px`;
+        brushCursor.style.top = `${e.clientY - rect.top}px`;
     });
 
     function moveDrawing(touchOrMouse) {
@@ -363,13 +367,13 @@
     }
 
     window.addEventListener('touchend', (e) => {
-        if (e.target && e.target.closest && e.target.closest('#uploadOverlay')) return;
+        if (isOverlayActive()) return;
         if (e.touches.length < 2) isPanning = false;
         if (e.touches.length === 0 && isDrawing) endDrawing();
     });
 
     window.addEventListener('mouseup', (e) => {
-        if (e.target && e.target.closest && e.target.closest('#uploadOverlay')) return;
+        if (isOverlayActive()) return;
         if (e.button === 1 || e.button === 2) isPanning = false;
         if (e.button === 0 && isDrawing) endDrawing();
     });
