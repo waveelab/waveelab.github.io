@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Facewave - Minimalist Pro Workspace</title>
+    <title>Facewavee - Minimalist Pro Workspace</title>
     <style>
         :root {
             --bg-color: #000000;
@@ -20,27 +20,26 @@
         header { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: var(--panel-bg); z-index: 100; border-bottom: 1px solid var(--border); }
         .logo { font-size: 13px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--text); }
         .header-actions { display: flex; gap: 15px; }
-        .header-actions button { background: none; border: none; color: var(--accent); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; padding: 10px 5px; touch-action: none; }
+        .header-actions button { background: none; border: none; color: var(--accent); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; padding: 5px; touch-action: none; }
         .header-actions button:disabled { color: #333; cursor: not-allowed; }
         .header-actions .close-btn { color: #888; }
-        /* 增加按压反馈 */
         #compareBtn:active { color: #888; }
 
         /* Workspace */
         .workspace { flex: 1; position: relative; background: #050505; overflow: hidden; cursor: crosshair; touch-action: none; }
         #mainCanvas { position: absolute; transform-origin: 0 0; image-rendering: -webkit-optimize-contrast; z-index: 1; }
-        /* 对比专用的原图层，位于主图上方，不阻挡交互 */
         #originalCanvas { position: absolute; transform-origin: 0 0; image-rendering: -webkit-optimize-contrast; z-index: 5; display: none; pointer-events: none; }
         
-        /* 核心修改：移除画笔光标显示 */
+        /* 隐藏画笔光标，保持视野纯净 */
         .brush-cursor { display: none !important; }
 
-        /* Upload Overlay */
-        .upload-overlay { position: absolute; inset: 0; background: var(--bg-color); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 200; }
+        /* Upload Overlay - 移出 workspace 避免触摸拦截池污染 */
+        .upload-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-color); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
         
-        .upload-btn { display: inline-block; background: var(--text); color: var(--bg-color); padding: 14px 36px; border-radius: 0; font-size: 13px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; transition: background 0.2s; text-align: center; }
+        /* 核心修复：按钮相对定位，Input绝对定位铺满，原生解决 iOS 无法打开相册的 Bug */
+        .upload-btn { position: relative; overflow: hidden; display: inline-block; background: var(--text); color: var(--bg-color); padding: 14px 36px; border-radius: 0; font-size: 13px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; transition: background 0.2s; text-align: center; }
         .upload-btn:active { background: #ccc; }
-        #fileInput { position: absolute; width: 0; height: 0; opacity: 0; overflow: hidden; }
+        #fileInput { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 
         /* Compact Controls */
         .controls { background: var(--panel-bg); padding: 15px 20px 25px; border-top: 1px solid var(--border); z-index: 100; touch-action: pan-y; }
@@ -62,7 +61,7 @@
 <body>
 
     <header>
-        <div class="logo">Facewave</div>
+        <div class="logo">Facewavee</div>
         <div class="header-actions">
             <button id="closeBtn" class="close-btn" style="display: none;">Close</button>
             <button id="compareBtn" style="display: none;">Compare</button>
@@ -75,11 +74,12 @@
         <canvas id="mainCanvas"></canvas>
         <canvas id="originalCanvas"></canvas>
         <div class="brush-cursor" id="brushCursor"></div>
-        <div class="upload-overlay" id="uploadOverlay">
-            <label class="upload-btn">
-                Open Image
-                <input type="file" id="fileInput" accept="image/*">
-            </label>
+    </div>
+
+    <div class="upload-overlay" id="uploadOverlay">
+        <div class="upload-btn">
+            Open Image
+            <input type="file" id="fileInput" accept="image/*">
         </div>
     </div>
 
@@ -106,7 +106,6 @@
     const canvas = document.getElementById('mainCanvas');
     const ctx = canvas.getContext('2d', { willReadFrequently: true, alpha: false });
     
-    // 对比功能专用的原图层
     const originalCanvas = document.getElementById('originalCanvas');
     const originalCtx = originalCanvas.getContext('2d', { alpha: false });
     
@@ -123,11 +122,9 @@
 
     let viewScale = 1, viewPanX = 0, viewPanY = 0;
 
-    // --- 动态同步视角 ---
     function updateTransform() {
         const matrix = `matrix(${viewScale}, 0, 0, ${viewScale}, ${viewPanX}, ${viewPanY})`;
         canvas.style.transform = matrix;
-        // 原图层必须时刻保持与主图一样的视角和缩放，以确保对比时无缝重合
         originalCanvas.style.transform = matrix;
     }
 
@@ -141,29 +138,18 @@
         updateTransform();
     }
 
-    // --- Compare (原图对比) 交互逻辑 ---
+    // --- Compare Function ---
     const compareBtn = document.getElementById('compareBtn');
-    
-    const showOriginal = (e) => {
-        e.preventDefault();
-        originalCanvas.style.display = 'block'; // 按下显示原图
-    };
-    
-    const hideOriginal = (e) => {
-        e.preventDefault();
-        originalCanvas.style.display = 'none'; // 松开隐藏，露出修改后的图
-    };
-
-    // 绑定多端按下与抬起事件
+    const showOriginal = (e) => { e.preventDefault(); originalCanvas.style.display = 'block'; };
+    const hideOriginal = (e) => { e.preventDefault(); originalCanvas.style.display = 'none'; };
     compareBtn.addEventListener('mousedown', showOriginal);
     compareBtn.addEventListener('touchstart', showOriginal, {passive: false});
-    
     compareBtn.addEventListener('mouseup', hideOriginal);
-    compareBtn.addEventListener('mouseleave', hideOriginal); // 鼠标划出时也恢复
+    compareBtn.addEventListener('mouseleave', hideOriginal); 
     compareBtn.addEventListener('touchend', hideOriginal);
     compareBtn.addEventListener('touchcancel', hideOriginal);
 
-    // --- Close Image Feature ---
+    // --- Close Feature ---
     document.getElementById('closeBtn').onclick = () => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         originalCtx.clearRect(0, 0, originalCanvas.width, originalCanvas.height);
@@ -181,9 +167,7 @@
     };
 
     // --- UI Controls ---
-    document.getElementById('sizeSlider').oninput = (e) => { 
-        brushSizeScreen = parseInt(e.target.value); 
-    };
+    document.getElementById('sizeSlider').oninput = (e) => { brushSizeScreen = parseInt(e.target.value); };
     document.getElementById('pressureSlider').oninput = (e) => { brushPressure = parseFloat(e.target.value); };
     
     document.querySelectorAll('.tool-btn').forEach(btn => {
@@ -209,7 +193,6 @@
                 canvas.width = snapshotCanvas.width = effectCanvas.width = originalCanvas.width = w;
                 canvas.height = snapshotCanvas.height = effectCanvas.height = originalCanvas.height = h;
                 
-                // 将图像同时绘制到主画布和原图画布中
                 ctx.drawImage(img, 0, 0, w, h);
                 originalCtx.drawImage(img, 0, 0, w, h);
                 
@@ -264,11 +247,14 @@
     let pinchCenterX = 0, pinchCenterY = 0, pinchStartPanX = 0, pinchStartPanY = 0;
     let lastPanX = 0, lastPanY = 0;
 
+    const isOverlayActive = () => document.getElementById('uploadOverlay').style.display !== 'none';
+
     function screenToImage(screenX, screenY) {
         return { x: (screenX - viewPanX) / viewScale, y: (screenY - viewPanY) / viewScale };
     }
 
     workspace.addEventListener('wheel', (e) => {
+        if (isOverlayActive()) return;
         e.preventDefault();
         const rect = workspace.getBoundingClientRect();
         const mouseX = e.clientX - rect.left, mouseY = e.clientY - rect.top;
@@ -281,16 +267,16 @@
     }, { passive: false });
 
     workspace.addEventListener('pointerdown', (e) => {
-        if(document.getElementById('uploadOverlay').offsetParent === null) {
-            if (e.button === 1 || e.button === 2) {
-                isPanning = true; lastPanX = e.clientX; lastPanY = e.clientY;
-            }
+        if (isOverlayActive()) return;
+        if (e.button === 1 || e.button === 2) {
+            isPanning = true; lastPanX = e.clientX; lastPanY = e.clientY;
         }
     });
 
-    workspace.addEventListener('contextmenu', e => e.preventDefault());
+    workspace.addEventListener('contextmenu', e => { if (!isOverlayActive()) e.preventDefault(); });
 
     workspace.addEventListener('touchstart', (e) => {
+        if (isOverlayActive()) return;
         e.preventDefault(); 
         if (e.touches.length === 2) {
             isDrawing = false; isPanning = true;
@@ -307,6 +293,7 @@
     }, {passive: false});
 
     workspace.addEventListener('mousedown', (e) => {
+        if (isOverlayActive()) return;
         if (e.button === 0 && !isPanning) startDrawing(e);
     });
 
@@ -317,16 +304,15 @@
         
         anchorX = lastX = imgPos.x; 
         anchorY = lastY = imgPos.y;
-        
         isDrawing = true;
         
         snapshotCtx.drawImage(canvas, 0, 0);
-        
         if (currentTool === 'smooth') prepareAirySmoothJS();
         else if (currentTool === 'detail') prepareDetail();
     }
 
     workspace.addEventListener('touchmove', (e) => {
+        if (isOverlayActive()) return;
         e.preventDefault(); 
         if (isPanning && e.touches.length === 2) {
             const t1 = e.touches[0], t2 = e.touches[1];
@@ -345,6 +331,7 @@
     }, {passive: false});
 
     workspace.addEventListener('mousemove', (e) => {
+        if (isOverlayActive()) return;
         if (isPanning) {
             viewPanX += e.clientX - lastPanX; viewPanY += e.clientY - lastPanY;
             lastPanX = e.clientX; lastPanY = e.clientY;
@@ -364,11 +351,13 @@
     }
 
     window.addEventListener('touchend', (e) => {
+        if (isOverlayActive()) return;
         if (e.touches.length < 2) isPanning = false;
         if (e.touches.length === 0 && isDrawing) endDrawing();
     });
 
     window.addEventListener('mouseup', (e) => {
+        if (isOverlayActive()) return;
         if (e.button === 1 || e.button === 2) isPanning = false;
         if (e.button === 0 && isDrawing) endDrawing();
     });
@@ -379,7 +368,7 @@
         saveState();
     }
 
-    // --- ALGORITHMS ---
+    // --- 1. ADVANCED RESHAPE: Longer Drags, Enhanced Clarity ---
     function applyReshapeAdvanced(curX, curY) {
         const dx = curX - anchorX, dy = curY - anchorY;
         const distFromAnchor = Math.hypot(dx, dy);
@@ -387,7 +376,10 @@
         
         renderWarpBilinearFromSnapshot(anchorX, anchorY, dx, dy, r);
 
-        if (distFromAnchor > r * 0.35) {
+        // 【核心优化】：将锚点更新阈值放宽至 r * 0.5
+        // 这意味着在一次划动中，重采样插值的频率降低了，大大减少了递归导致的“糊感”。
+        // 配合升余弦曲线，让你能把轮廓推得更长、更远，同时保留极高的画面锐度。
+        if (distFromAnchor > r * 0.5) {
             snapshotCtx.drawImage(canvas, 0, 0);
             anchorX = curX; anchorY = curY;
         }
@@ -421,7 +413,9 @@
 
                 if (distToDest < r) {
                     const t = distToDest / r;
-                    const weight = Math.pow(0.5 + 0.5 * Math.cos(t * Math.PI), 1.5) * pressure;
+                    // 【平滑且自然的升余弦形变曲线】 
+                    // 这种曲线能让推拉时的周边像素呈现非常自然的弹性和连续性，杜绝锯齿。
+                    const weight = Math.pow(0.5 + 0.5 * Math.cos(t * Math.PI), 1.2) * pressure;
                     srcGlobalX = globalX - dx * weight;
                     srcGlobalY = globalY - dy * weight;
                 }
@@ -437,7 +431,9 @@
                     const i11 = (y1 * readW + x1) * 4, i21 = (y1 * readW + x2) * 4;
                     const i12 = (y2 * readW + x1) * 4, i22 = (y2 * readW + x2) * 4;
                     for (let c = 0; c < 4; c++) {
-                        dst[dstIdx + c] = src[i11+c]*(1-fx)*(1-fy) + src[i21+c]*fx*(1-fy) + src[i12+c]*(1-fx)*fy + src[i22+c]*fx*fy;
+                        dst[dstIdx + c] =
+                            src[i11+c]*(1-fx)*(1-fy) + src[i21+c]*fx*(1-fy) +
+                            src[i12+c]*(1-fx)*fy + src[i22+c]*fx*fy;
                     }
                 } else {
                     const x1c = Math.max(0, Math.min(readW - 1, x1));
@@ -455,6 +451,7 @@
         ctx.putImageData(outData, readSx, readSy);
     }
 
+    // --- 2. SMOOTH: AIRY CREAMY SKIN ---
     function prepareAirySmoothJS() {
         effectCtx.clearRect(0, 0, canvas.width, canvas.height);
         
