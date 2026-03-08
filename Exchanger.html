@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EXCHANGER</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            ios: {
+              bg: '#F5F5F7',
+              bgDark: '#000000',
+              card: '#FFFFFF',
+              cardDark: '#1C1C1E',
+              blue: '#007AFF',
+              blueDark: '#0A84FF',
+              gray: '#8E8E93',
+              gray2: '#AEAEB2'
+            }
+          },
+          fontFamily: {
+            ios: ['-apple-system', 'BlinkMacSystemFont', 'San Francisco', 'Helvetica Neue', 'Arial', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .ios-card {
+        @apply bg-ios-card dark:bg-ios-cardDark rounded-2xl p-6 shadow-sm;
+      }
+      .ios-field {
+        @apply w-full bg-gray-100 dark:bg-[#2C2C2E] rounded-xl px-4 py-4 text-[22px] 
+               text-black dark:text-white outline-none border-0 appearance-none;
+      }
+      .ios-btn {
+        @apply bg-ios-blue dark:bg-ios-blueDark text-white rounded-xl py-5 px-4 
+               text-[22px] font-semibold active:bg-blue-600 dark:active:bg-blue-500 transition-colors;
+      }
+      .result-card {
+        @apply bg-gray-100 dark:bg-[#2C2C2E] rounded-xl px-4 py-6 min-h-[110px]
+               flex items-center justify-center text-center;
+      }
+      .select-wrapper {
+        position: relative;
+      }
+      .select-wrapper::after {
+        content: "▼";
+        font-size: 12px;
+        color: #8E8E93;
+        position: absolute;
+        right: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        pointer-events: none;
+      }
+    }
+  </style>
+</head>
+<body class="bg-ios-bg dark:bg-ios-bgDark font-ios min-h-screen p-4 transition-colors">
+  <div class="max-w-lg mx-auto pt-6 pb-10">
+    <h1 class="text-[42px] font-bold text-black dark:text-white text-center mb-8">EXCHANGER</h1>
+
+    <div class="ios-card space-y-6">
+      <!-- Amount -->
+      <div class="space-y-2">
+        <p class="text-[17px] font-medium text-ios-gray dark:text-ios-gray2">Amount</p>
+        <input id="amount" type="number" class="ios-field" placeholder="1" value="1">
+      </div>
+
+      <!-- From -->
+      <div class="space-y-2">
+        <p class="text-[17px] font-medium text-ios-gray dark:text-ios-gray2">From</p>
+        <div class="select-wrapper">
+          <select id="fromCurrency" class="ios-field"></select>
+        </div>
+      </div>
+
+      <!-- To -->
+      <div class="space-y-2">
+        <p class="text-[17px] font-medium text-ios-gray dark:text-ios-gray2">To</p>
+        <div class="select-wrapper">
+          <select id="toCurrency" class="ios-field"></select>
+        </div>
+      </div>
+
+      <!-- Convert Button -->
+      <button id="convertBtn" class="ios-btn w-full">Convert</button>
+
+      <!-- Result -->
+      <div class="result-card">
+        <span id="result" class="text-[26px] font-semibold text-black dark:text-white">Ready</span>
+      </div>
+
+      <p class="text-[13px] text-ios-gray text-center">Powered by exchangerate-api.com</p>
+    </div>
+  </div>
+
+  <script>
+    const API_KEY = "0b4e703691ae37ace9fc5455";
+    const API_URL = `https://v6.exchangerate-api.com/v6/${API_KEY}/latest/USD`;
+
+    const CURRENCIES = [
+      { code: "USD", name: "US Dollar", emoji: "🇺🇸" },
+      { code: "EUR", name: "Euro", emoji: "🇪🇺" },
+      { code: "GBP", name: "British Pound", emoji: "🇬🇧" },
+      { code: "JPY", name: "Japanese Yen", emoji: "🇯🇵" },
+      { code: "CNY", name: "Chinese Yuan", emoji: "🇨🇳" },
+      { code: "AUD", name: "Australian Dollar", emoji: "🇦🇺" },
+      { code: "CAD", name: "Canadian Dollar", emoji: "🇨🇦" },
+      { code: "CHF", name: "Swiss Franc", emoji: "🇨🇭" },
+      { code: "HKD", name: "Hong Kong Dollar", emoji: "🇭🇰" },
+      { code: "SGD", name: "Singapore Dollar", emoji: "🇸🇬" },
+      { code: "PHP", name: "Philippine Peso", emoji: "🇵🇭" },
+      { code: "MVR", name: "Maldivian Rufiyaa", emoji: "🇲🇻" },
+      { code: "NOK", name: "Norwegian Krone", emoji: "🇳🇴" },
+      { code: "ISK", name: "Icelandic Krona", emoji: "🇮🇸" },
+      { code: "EGP", name: "Egyptian Pound", emoji: "🇪🇬" },
+      { code: "AED", name: "UAE Dirham", emoji: "🇦🇪" },
+      { code: "IRR", name: "Iranian Rial", emoji: "🇮🇷" },
+      { code: "QAR", name: "Qatari Riyal", emoji: "🇶🇦" },
+      { code: "KPW", name: "North Korean Won", emoji: "🇰🇵" },
+      { code: "AFN", name: "Afghan Afghani", emoji: "🇦🇫" },
+      { code: "ALL", name: "Albanian Lek", emoji: "🇦🇱" },
+      { code: "DZD", name: "Algerian Dinar", emoji: "🇩🇿" },
+      { code: "ARS", name: "Argentine Peso", emoji: "🇦🇷" },
+      { code: "AZN", name: "Azerbaijani Manat", emoji: "🇦🇿" },
+      { code: "BHD", name: "Bahraini Dinar", emoji: "🇧🇭" },
+      { code: "BDT", name: "Bangladeshi Taka", emoji: "🇧🇩" },
+      { code: "BRL", name: "Brazilian Real", emoji: "🇧🇷" },
+      { code: "BGN", name: "Bulgarian Lev", emoji: "🇧🇬" },
+      { code: "KHR", name: "Cambodian Riel", emoji: "🇰🇭" },
+      { code: "CLP", name: "Chilean Peso", emoji: "🇨🇱" },
+      { code: "COP", name: "Colombian Peso", emoji: "🇨🇴" },
+      { code: "CRC", name: "Costa Rican Colon", emoji: "🇨🇷" },
+      { code: "HRK", name: "Croatian Kuna", emoji: "🇭🇷" },
+      { code: "CZK", name: "Czech Koruna", emoji: "🇨🇿" },
+      { code: "DKK", name: "Danish Krone", emoji: "🇩🇰" },
+      { code: "DOP", name: "Dominican Peso", emoji: "🇩🇴" },
+      { code: "ETB", name: "Ethiopian Birr", emoji: "🇪🇹" },
+      { code: "GEL", name: "Georgian Lari", emoji: "🇬🇪" },
+      { code: "GHS", name: "Ghanaian Cedi", emoji: "🇬🇭" },
+      { code: "GTQ", name: "Guatemalan Quetzal", emoji: "🇬🇹" },
+      { code: "HNL", name: "Honduran Lempira", emoji: "🇭🇳" },
+      { code: "HUF", name: "Hungarian Forint", emoji: "🇭🇺" },
+      { code: "IDR", name: "Indonesian Rupiah", emoji: "🇮🇩" },
+      { code: "ILS", name: "Israeli Shekel", emoji: "🇮🇱" },
+      { code: "INR", name: "Indian Rupee", emoji: "🇮🇳" },
+      { code: "IQD", name: "Iraqi Dinar", emoji: "🇮🇶" },
+      { code: "JMD", name: "Jamaican Dollar", emoji: "🇯🇲" },
+      { code: "JOD", name: "Jordanian Dinar", emoji: "🇯🇴" },
+      { code: "KZT", name: "Kazakhstani Tenge", emoji: "🇰🇿" },
+      { code: "KES", name: "Kenyan Shilling", emoji: "🇰🇪" },
+      { code: "KWD", name: "Kuwaiti Dinar", emoji: "🇰🇼" },
+      { code: "LBP", name: "Lebanese Pound", emoji: "🇱🇧" },
+      { code: "MYR", name: "Malaysian Ringgit", emoji: "🇲🇾" },
+      { code: "MXN", name: "Mexican Peso", emoji: "🇲🇽" },
+      { code: "MDL", name: "Moldovan Leu", emoji: "🇲🇩" },
+      { code: "MAD", name: "Moroccan Dirham", emoji: "🇲🇦" },
+      { code: "NAD", name: "Namibian Dollar", emoji: "🇳🇦" },
+      { code: "NPR", name: "Nepalese Rupee", emoji: "🇳🇵" },
+      { code: "NZD", name: "New Zealand Dollar", emoji: "🇳🇿" },
+      { code: "NGN", name: "Nigerian Naira", emoji: "🇳🇬" },
+      { code: "OMR", name: "Omani Rial", emoji: "🇴🇲" },
+      { code: "PKR", name: "Pakistani Rupee", emoji: "🇵🇰" },
+      { code: "PYG", name: "Paraguayan Guarani", emoji: "🇵🇾" },
+      { code: "PEN", name: "Peruvian Sol", emoji: "🇵🇪" },
+      { code: "PLN", name: "Polish Zloty", emoji: "🇵🇱" },
+      { code: "RON", name: "Romanian Leu", emoji: "🇷🇴" },
+      { code: "RUB", name: "Russian Ruble", emoji: "🇷🇺" },
+      { code: "SAR", name: "Saudi Riyal", emoji: "🇸🇦" },
+      { code: "RSD", name: "Serbian Dinar", emoji: "🇷🇸" },
+      { code: "ZAR", name: "South African Rand", emoji: "🇿🇦" },
+      { code: "KRW", name: "South Korean Won", emoji: "🇰🇷" },
+      { code: "LKR", name: "Sri Lankan Rupee", emoji: "🇱🇰" },
+      { code: "SEK", name: "Swedish Krona", emoji: "🇸🇪" },
+      { code: "THB", name: "Thai Baht", emoji: "🇹🇭" },
+      { code: "TTD", name: "Trinidad Tobago Dollar", emoji: "🇹🇹" },
+      { code: "TND", name: "Tunisian Dinar", emoji: "🇹🇳" },
+      { code: "TRY", name: "Turkish Lira", emoji: "🇹🇷" },
+      { code: "UGX", name: "Ugandan Shilling", emoji: "🇺🇬" },
+      { code: "UAH", name: "Ukrainian Hryvnia", emoji: "🇺🇦" },
+      { code: "UYU", name: "Uruguayan Peso", emoji: "🇺🇾" },
+      { code: "VND", name: "Vietnamese Dong", emoji: "🇻🇳" },
+      { code: "YER", name: "Yemeni Rial", emoji: "🇾🇪" }
+    ];
+
+    let rates = {};
+    const fromSelect = document.getElementById("fromCurrency");
+    const toSelect = document.getElementById("toCurrency");
+    const amountInput = document.getElementById("amount");
+    const convertBtn = document.getElementById("convertBtn");
+    const resultEl = document.getElementById("result");
+
+    // 自动跟随系统深色模式
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      document.documentElement.classList.add('dark');
+    }
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+      e.matches ? document.documentElement.classList.add('dark') : document.documentElement.classList.remove('dark');
+    });
+
+    // 加载货币列表
+    function loadCurrencies() {
+      CURRENCIES.forEach(c => {
+        const text = `${c.code} ${c.emoji} | ${c.name}`;
+        const o1 = document.createElement("option");
+        o1.value = c.code;
+        o1.textContent = text;
+        fromSelect.appendChild(o1);
+
+        const o2 = document.createElement("option");
+        o2.value = c.code;
+        o2.textContent = text;
+        toSelect.appendChild(o2);
+      });
+      fromSelect.value = "USD";
+      toSelect.value = "EUR";
+    }
+
+    // 获取汇率
+    async function fetchRates() {
+      try {
+        const res = await fetch(API_URL);
+        const data = await res.json();
+        if (data.result === "success") {
+          rates = data.conversion_rates;
+          resultEl.textContent = "Ready to convert";
+        } else {
+          resultEl.textContent = "API Error";
+        }
+      } catch (e) {
+        resultEl.textContent = "Network Error";
+      }
+    }
+
+    // 计算
+    function convert() {
+      const amt = parseFloat(amountInput.value);
+      const from = fromSelect.value;
+      const to = toSelect.value;
+
+      if (!amt || amt <= 0) return resultEl.textContent = "Enter a valid amount";
+      if (!rates[from] || !rates[to]) return resultEl.textContent = "Rate unavailable";
+
+      const rate = rates[to] / rates[from];
+      const total = amt * rate;
+      resultEl.textContent = `${amt.toFixed(2)} ${from} = ${total.toFixed(2)} ${to}`;
+    }
+
+    // 初始化
+    window.onload = () => {
+      loadCurrencies();
+      fetchRates();
+    };
+
+    convertBtn.addEventListener("click", convert);
+    amountInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") convert();
+    });
+  </script>
+</body>
+</html>
