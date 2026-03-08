@@ -1,6 +1,6 @@
 {
-  "name": "waveepod",
-  "short_name": "waveepod",
+  "name": "wavelab",
+  "short_name": "wavelab",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#ffffff",
