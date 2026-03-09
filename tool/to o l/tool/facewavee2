@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>facewavee</title>
+    <style>
+        :root {
+            --bg-color: #000000;
+            --panel-bg: #0a0a0a;
+            --accent: #ffffff;
+            --text: #ffffff;
+            --text-muted: #666666;
+            --border: #1a1a1a;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; user-select: none; -webkit-user-select: none; }
+        
+        body { 
+            background-color: var(--bg-color); 
+            color: var(--text); 
+            overflow: hidden; 
+            height: 100vh; 
+            height: 100dvh; 
+            display: flex; 
+            flex-direction: column; 
+        }
+        
+        header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            padding: max(12px, env(safe-area-inset-top)) max(15px, env(safe-area-inset-right)) 12px max(15px, env(safe-area-inset-left)); 
+            background: var(--panel-bg); 
+            z-index: 100; 
+            border-bottom: 1px solid var(--border); 
+            flex-shrink: 0; 
+        }
+        .logo { font-size: 13px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--text); }
+        .header-actions { display: flex; gap: 15px; }
+        .header-actions button { background: none; border: none; color: var(--accent); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; padding: 5px; touch-action: none; }
+        .header-actions button:disabled { color: #333; cursor: not-allowed; }
+        .header-actions .close-btn { color: #888; }
+        #compareBtn:active { color: #888; }
+
+        .workspace { flex: 1; position: relative; background: #050505; overflow: hidden; cursor: crosshair; touch-action: none; }
+        #mainCanvas { position: absolute; transform-origin: 0 0; image-rendering: -webkit-optimize-contrast; z-index: 1; }
+        #originalCanvas { position: absolute; transform-origin: 0 0; image-rendering: -webkit-optimize-contrast; z-index: 5; display: none; pointer-events: none; }
+        
+        .brush-cursor { display: none !important; }
+
+        .upload-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-color); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
+        .upload-btn { position: relative; overflow: hidden; display: inline-block; background: var(--text); color: var(--bg-color); padding: 14px 36px; font-size: 13px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; transition: background 0.2s; text-align: center; }
+        .upload-btn:active { background: #ccc; }
+        #fileInput { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+        
+        .footer-text { position: absolute; bottom: max(30px, env(safe-area-inset-bottom)); width: 100%; text-align: center; font-size: 10px; color: #444444; letter-spacing: 1.5px; text-transform: uppercase; pointer-events: none; }
+
+        .controls { 
+            background: var(--panel-bg); 
+            padding: 15px max(20px, env(safe-area-inset-right)) max(25px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); 
+            border-top: 1px solid var(--border); 
+            z-index: 100; 
+            touch-action: none; 
+            flex-shrink: 0; 
+        }
+        .sliders { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; }
+        .slider-row { display: flex; align-items: center; gap: 10px; }
+        .slider-row label { width: 65px; font-size: 10px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+        
+        input[type=range] { flex: 1; -webkit-appearance: none; background: transparent; height: 30px; border-radius: 0; outline: none; margin: 0; }
+        input[type=range]::-webkit-slider-runnable-track { height: 2px; background: #333; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 20px; width: 16px; border-radius: 0; background: #fff; cursor: pointer; margin-top: -9px; }
+
+        .tools { display: flex; justify-content: space-around; }
+        .tool-btn { background: none; border: none; color: var(--text-muted); font-size: 11px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; padding: 10px 0; transition: 0.2s; width: 25%; text-align: center; }
+        .tool-btn.active { color: var(--accent); position: relative; }
+        .tool-btn.active::after { content: ''; position: absolute; bottom: 0; left: 15%; width: 70%; height: 2px; background: var(--accent); }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">facewavee</div>
+        <div class="header-actions">
+            <button id="closeBtn" class="close-btn" style="display: none;">Close</button>
+            <button id="compareBtn" style="display: none;">Compare</button>
+            <button id="undoBtn" disabled>Undo</button>
+            <button id="exportBtn" style="display: none;">Save</button>
+        </div>
+    </header>
+
+    <div class="workspace" id="workspace">
+        <canvas id="mainCanvas"></canvas>
+        <canvas id="originalCanvas"></canvas>
+        <div class="brush-cursor" id="brushCursor"></div>
+    </div>
+
+    <div class="upload-overlay" id="uploadOverlay">
+        <div class="upload-btn">
+            Open Image
+            <input type="file" id="fileInput" accept="image/*">
+        </div>
+        <div class="footer-text">designed by wavee</div>
+    </div>
+
+    <div class="controls">
+        <div class="sliders">
+            <div class="slider-row">
+                <label>Size</label>
+                <input type="range" id="sizeSlider" min="10" max="150" value="120">
+            </div>
+            <div class="slider-row">
+                <label>Intensity</label>
+                <input type="range" id="pressureSlider" min="0.05" max="1.0" step="0.05" value="0.2">
+            </div>
+        </div>
+        <div class="tools">
+            <button class="tool-btn active" data-tool="reshape">Reshape</button>
+            <button class="tool-btn" data-tool="smooth">Smooth</button>
+            <button class="tool-btn" data-tool="detail">Detail</button>
+            <button class="tool-btn" data-tool="eraser">Eraser</button>
+        </div>
+    </div>
+
+<script>
+    const workspace = document.getElementById('workspace');
+    
+    const canvas = document.getElementById('mainCanvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true, alpha: false });
+    
+    const originalCanvas = document.getElementById('originalCanvas');
+    const originalCtx = originalCanvas.getContext('2d', { alpha: false });
+    
+    const snapshotCanvas = document.createElement('canvas');
+    const snapshotCtx = snapshotCanvas.getContext('2d', { willReadFrequently: true, alpha: false });
+    
+    const cleanCanvas = document.createElement('canvas');
+    const cleanCtx = cleanCanvas.getContext('2d', { willReadFrequently: true, alpha: false });
+    const cleanSnapshotCanvas = document.createElement('canvas');
+    const cleanSnapshotCtx = cleanSnapshotCanvas.getContext('2d', { willReadFrequently: true, alpha: false });
+
+    const effectCanvas = document.createElement('canvas');
+    const effectCtx = effectCanvas.getContext('2d', { willReadFrequently: true }); 
+    const brushCanvas = document.createElement('canvas');
+    const brushCtx = brushCanvas.getContext('2d'); 
+
+    let history = [], currentTool = 'reshape', isDrawing = false;
+    let brushSizeScreen = 120, brushPressure = 0.2;
+    let anchorX = 0, anchorY = 0, lastX = 0, lastY = 0;
+
+    let viewScale = 1, viewPanX = 0, viewPanY = 0;
+
+    function updateTransform() {
+        const matrix = `matrix(${viewScale}, 0, 0, ${viewScale}, ${viewPanX}, ${viewPanY})`;
+        canvas.style.transform = matrix;
+        originalCanvas.style.transform = matrix;
+    }
+
+    function fitToScreen() {
+        const padding = 20;
+        const scaleX = (workspace.clientWidth - padding) / canvas.width;
+        const scaleY = (workspace.clientHeight - padding) / canvas.height;
+        viewScale = Math.min(scaleX, scaleY);
+        viewPanX = (workspace.clientWidth - canvas.width * viewScale) / 2;
+        viewPanY = (workspace.clientHeight - canvas.height * viewScale) / 2;
+        updateTransform();
+    }
+
+    window.addEventListener('resize', () => {
+        if (document.getElementById('uploadOverlay').style.display === 'none') {
+            fitToScreen();
+        }
+    });
+
+    const compareBtn = document.getElementById('compareBtn');
+    const showOriginal = (e) => { e.preventDefault(); originalCanvas.style.display = 'block'; };
+    const hideOriginal = (e) => { e.preventDefault(); originalCanvas.style.display = 'none'; };
+    compareBtn.addEventListener('mousedown', showOriginal);
+    compareBtn.addEventListener('touchstart', showOriginal, {passive: false});
+    compareBtn.addEventListener('mouseup', hideOriginal);
+    compareBtn.addEventListener('mouseleave', hideOriginal); 
+    compareBtn.addEventListener('touchend', hideOriginal);
+    compareBtn.addEventListener('touchcancel', hideOriginal);
+
+    document.getElementById('closeBtn').onclick = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        originalCtx.clearRect(0, 0, originalCanvas.width, originalCanvas.height);
+        snapshotCtx.clearRect(0, 0, canvas.width, canvas.height);
+        effectCtx.clearRect(0, 0, canvas.width, canvas.height);
+        cleanCtx.clearRect(0, 0, canvas.width, canvas.height);
+        cleanSnapshotCtx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        history = []; document.getElementById('fileInput').value = "";
+        viewScale = 1; viewPanX = 0; viewPanY = 0; updateTransform();
+        
+        document.getElementById('uploadOverlay').style.display = 'flex';
+        document.getElementById('exportBtn').style.display = 'none';
+        document.getElementById('compareBtn').style.display = 'none';
+        document.getElementById('closeBtn').style.display = 'none';
+        document.getElementById('undoBtn').disabled = true;
+    };
+
+    document.getElementById('sizeSlider').oninput = (e) => { brushSizeScreen = parseInt(e.target.value); };
+    document.getElementById('pressureSlider').oninput = (e) => { brushPressure = parseFloat(e.target.value); };
+    
+    document.querySelectorAll('.tool-btn').forEach(btn => {
+        btn.onclick = (e) => {
+            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            currentTool = e.target.getAttribute('data-tool');
+        };
+    });
+
+    document.getElementById('fileInput').onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const img = new Image();
+        img.onload = () => {
+            const MAX_DIMENSION = 3000; 
+            let w = img.width, h = img.height;
+            if(w > MAX_DIMENSION || h > MAX_DIMENSION) { 
+                const r = Math.min(MAX_DIMENSION/w, MAX_DIMENSION/h); 
+                w = Math.round(w * r); h = Math.round(h * r); 
+            }
+            
+            canvas.width = snapshotCanvas.width = effectCanvas.width = originalCanvas.width = w;
+            canvas.height = snapshotCanvas.height = effectCanvas.height = originalCanvas.height = h;
+            cleanCanvas.width = cleanSnapshotCanvas.width = w;
+            cleanCanvas.height = cleanSnapshotCanvas.height = h;
+            
+            ctx.drawImage(img, 0, 0, w, h);
+            originalCtx.drawImage(img, 0, 0, w, h);
+            cleanCtx.drawImage(img, 0, 0, w, h);
+            
+            document.getElementById('uploadOverlay').style.display = 'none';
+            document.getElementById('exportBtn').style.display = 'block';
+            document.getElementById('compareBtn').style.display = 'block';
+            document.getElementById('closeBtn').style.display = 'block';
+            
+            fitToScreen();
+            saveState();
+            URL.revokeObjectURL(img.src);
+        };
+        img.src = URL.createObjectURL(file);
+    };
+
+    function saveState() {
+        if (history.length > 10) history.shift();
+        history.push({
+            main: canvas.toDataURL('image/jpeg', 0.98),
+            clean: cleanCanvas.toDataURL('image/jpeg', 0.98)
+        });
+        document.getElementById('undoBtn').disabled = history.length <= 1;
+    }
+
+    document.getElementById('undoBtn').onclick = () => {
+        if (history.length <= 1) return;
+        history.pop();
+        const state = history[history.length - 1];
+        
+        const imgMain = new Image();
+        imgMain.onload = () => ctx.drawImage(imgMain, 0, 0);
+        imgMain.src = state.main;
+        
+        const imgClean = new Image();
+        imgClean.onload = () => cleanCtx.drawImage(imgClean, 0, 0);
+        imgClean.src = state.clean;
+    };
+
+    document.getElementById('exportBtn').onclick = async () => {
+        const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
+        if (navigator.share) {
+            try {
+                const response = await fetch(dataUrl);
+                const blob = await response.blob();
+                const file = new File([blob], 'facewave_edit.jpg', { type: 'image/jpeg' });
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({ files: [file], title: 'Facewave Edit' });
+                    return; 
+                }
+            } catch (err) { console.log("Share API fallback", err); }
+        }
+        const a = document.createElement('a');
+        a.download = 'facewave_edit.jpg';
+        a.href = dataUrl;
+        a.click();
+    };
+
+    let isPanning = false, pinchStartDist = 0, pinchStartScale = 1;
+    let pinchCenterX = 0, pinchCenterY = 0, pinchStartPanX = 0, pinchStartPanY = 0;
+    let lastPanX = 0, lastPanY = 0;
+
+    const isOverlayActive = () => document.getElementById('uploadOverlay').style.display !== 'none';
+
+    function screenToImage(screenX, screenY) {
+        return { x: (screenX - viewPanX) / viewScale, y: (screenY - viewPanY) / viewScale };
+    }
+
+    workspace.addEventListener('wheel', (e) => {
+        if (isOverlayActive()) return;
+        e.preventDefault();
+        const rect = workspace.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left, mouseY = e.clientY - rect.top;
+        let newScale = viewScale * Math.exp(-e.deltaY * 0.001);
+        newScale = Math.max(0.1, Math.min(newScale, 20)); 
+        viewPanX = mouseX - (mouseX - viewPanX) * (newScale / viewScale);
+        viewPanY = mouseY - (mouseY - viewPanY) * (newScale / viewScale);
+        viewScale = newScale;
+        updateTransform();
+    }, { passive: false });
+
+    workspace.addEventListener('pointerdown', (e) => {
+        if (isOverlayActive()) return;
+        if (e.button === 1 || e.button === 2) {
+            isPanning = true; lastPanX = e.clientX; lastPanY = e.clientY;
+        }
+    });
+
+    workspace.addEventListener('contextmenu', e => { if (!isOverlayActive()) e.preventDefault(); });
+
+    workspace.addEventListener('touchstart', (e) => {
+        if (isOverlayActive()) return;
+        e.preventDefault(); 
+        if (e.touches.length === 2) {
+            isDrawing = false; isPanning = true;
+            const t1 = e.touches[0], t2 = e.touches[1];
+            pinchStartDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+            pinchStartScale = viewScale;
+            const rect = workspace.getBoundingClientRect();
+            pinchCenterX = (t1.clientX + t2.clientX) / 2 - rect.left;
+            pinchCenterY = (t1.clientY + t2.clientY) / 2 - rect.top;
+            pinchStartPanX = viewPanX; pinchStartPanY = viewPanY;
+        } else if (e.touches.length === 1 && !isPanning) {
+            startDrawing(e.touches[0]);
+        }
+    }, {passive: false});
+
+    workspace.addEventListener('mousedown', (e) => {
+        if (isOverlayActive()) return;
+        if (e.button === 0 && !isPanning) startDrawing(e);
+    });
+
+    function startDrawing(touchOrMouse) {
+        const rect = workspace.getBoundingClientRect();
+        const screenX = touchOrMouse.clientX - rect.left, screenY = touchOrMouse.clientY - rect.top;
+        const imgPos = screenToImage(screenX, screenY);
+        
+        anchorX = lastX = imgPos.x; 
+        anchorY = lastY = imgPos.y;
+        isDrawing = true;
+        
+        snapshotCtx.drawImage(canvas, 0, 0);
+        
+        if (currentTool === 'reshape') {
+            cleanSnapshotCtx.drawImage(cleanCanvas, 0, 0); 
+        } else if (currentTool === 'smooth') {
+            // 调用真正的商业级保留肌理修容算法
+            prepareProfessionalRetouch();
+        } else if (currentTool === 'detail') {
+            prepareDetail();
+        } else if (currentTool === 'eraser') {
+            effectCtx.clearRect(0, 0, canvas.width, canvas.height);
+            effectCtx.drawImage(cleanCanvas, 0, 0);
+        }
+    }
+
+    workspace.addEventListener('touchmove', (e) => {
+        if (isOverlayActive()) return;
+        e.preventDefault(); 
+        if (isPanning && e.touches.length === 2) {
+            const t1 = e.touches[0], t2 = e.touches[1];
+            let newScale = pinchStartScale * (Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY) / pinchStartDist);
+            newScale = Math.max(0.1, Math.min(newScale, 20));
+            const rect = workspace.getBoundingClientRect();
+            const currentCenterX = (t1.clientX + t2.clientX) / 2 - rect.left;
+            const currentCenterY = (t1.clientY + t2.clientY) / 2 - rect.top;
+            viewPanX = currentCenterX - (pinchCenterX - pinchStartPanX) * (newScale / pinchStartScale);
+            viewPanY = currentCenterY - (pinchCenterY - pinchStartPanY) * (newScale / pinchStartScale);
+            viewScale = newScale;
+            updateTransform();
+        } else if (isDrawing && e.touches.length === 1) {
+            moveDrawing(e.touches[0]);
+        }
+    }, {passive: false});
+
+    workspace.addEventListener('mousemove', (e) => {
+        if (isOverlayActive()) return;
+        if (isPanning) {
+            viewPanX += e.clientX - lastPanX; viewPanY += e.clientY - lastPanY;
+            lastPanX = e.clientX; lastPanY = e.clientY;
+            updateTransform(); return;
+        }
+        if (isDrawing) moveDrawing(e);
+    });
+
+    function moveDrawing(touchOrMouse) {
+        const rect = workspace.getBoundingClientRect();
+        const imgPos = screenToImage(touchOrMouse.clientX - rect.left, touchOrMouse.clientY - rect.top);
+        
+        if (currentTool === 'reshape') applyReshapeAdvanced(imgPos.x, imgPos.y);
+        else applyBrushTool(imgPos.x, imgPos.y);
+        
+        lastX = imgPos.x; lastY = imgPos.y;
+    }
+
+    window.addEventListener('touchend', (e) => {
+        if (isOverlayActive()) return;
+        if (e.touches.length < 2) isPanning = false;
+        if (e.touches.length === 0 && isDrawing) endDrawing();
+    });
+
+    window.addEventListener('mouseup', (e) => {
+        if (isOverlayActive()) return;
+        if (e.button === 1 || e.button === 2) isPanning = false;
+        if (e.button === 0 && isDrawing) endDrawing();
+    });
+
+    function endDrawing() {
+        if (!isDrawing) return;
+        isDrawing = false; 
+        saveState();
+    }
+
+    // --- ALGORITHMS ---
+    
+    // 1. Reshape
+    function applyReshapeAdvanced(curX, curY) {
+        const dx = curX - anchorX, dy = curY - anchorY;
+        const distFromAnchor = Math.hypot(dx, dy);
+        const r = brushSizeScreen / viewScale; 
+        
+        renderWarpBilinearFromSnapshot(anchorX, anchorY, dx, dy, r);
+
+        if (distFromAnchor > r * 0.5) {
+            snapshotCtx.drawImage(canvas, 0, 0);
+            cleanSnapshotCtx.drawImage(cleanCanvas, 0, 0); 
+            anchorX = curX; anchorY = curY;
+        }
+    }
+
+    function renderWarpBilinearFromSnapshot(cx, cy, dx, dy, r) {
+        const pad = Math.ceil(r + Math.max(Math.abs(dx), Math.abs(dy)) + 2); 
+        const minX = cx - pad, maxX = cx + pad;
+        const minY = cy - pad, maxY = cy + pad;
+
+        const readSx = Math.max(0, Math.floor(minX));
+        const readSy = Math.max(0, Math.floor(minY));
+        const readW = Math.min(canvas.width - readSx, Math.ceil(maxX - minX));
+        const readH = Math.min(canvas.height - readSy, Math.ceil(maxY - minY));
+
+        if (readW <= 0 || readH <= 0) return;
+
+        const imgData = snapshotCtx.getImageData(readSx, readSy, readW, readH);
+        const src = imgData.data;
+        const outData = ctx.createImageData(readW, readH);
+        const dst = outData.data;
+
+        const cImgData = cleanSnapshotCtx.getImageData(readSx, readSy, readW, readH);
+        const cSrc = cImgData.data;
+        const cOutData = cleanCtx.createImageData(readW, readH);
+        const cDst = cOutData.data;
+
+        const pressure = brushPressure;
+
+        for (let y = 0; y < readH; y++) {
+            for (let x = 0; x < readW; x++) {
+                const globalX = readSx + x, globalY = readSy + y;
+                const distToDest = Math.hypot(globalX - (cx + dx), globalY - (cy + dy));
+                
+                let srcGlobalX = globalX, srcGlobalY = globalY;
+
+                if (distToDest < r) {
+                    const t = distToDest / r;
+                    const weight = Math.pow(0.5 + 0.5 * Math.cos(t * Math.PI), 1.2) * pressure;
+                    srcGlobalX = globalX - dx * weight;
+                    srcGlobalY = globalY - dy * weight;
+                }
+
+                const localSrcX = srcGlobalX - readSx, localSrcY = srcGlobalY - readSy;
+                const x1 = Math.floor(localSrcX), y1 = Math.floor(localSrcY);
+                const x2 = x1 + 1, y2 = y1 + 1;
+                const fx = localSrcX - x1, fy = localSrcY - y1;
+                
+                const dstIdx = (y * readW + x) * 4;
+
+                if (x1 >= 0 && x2 < readW && y1 >= 0 && y2 < readH) {
+                    const i11 = (y1 * readW + x1) * 4, i21 = (y1 * readW + x2) * 4;
+                    const i12 = (y2 * readW + x1) * 4, i22 = (y2 * readW + x2) * 4;
+                    for (let c = 0; c < 4; c++) {
+                        const w1 = (1-fx)*(1-fy), w2 = fx*(1-fy), w3 = (1-fx)*fy, w4 = fx*fy;
+                        dst[dstIdx + c] = src[i11+c]*w1 + src[i21+c]*w2 + src[i12+c]*w3 + src[i22+c]*w4;
+                        cDst[dstIdx + c] = cSrc[i11+c]*w1 + cSrc[i21+c]*w2 + cSrc[i12+c]*w3 + cSrc[i22+c]*w4;
+                    }
+                } else {
+                    const x1c = Math.max(0, Math.min(readW - 1, x1));
+                    const x2c = Math.max(0, Math.min(readW - 1, x2));
+                    const y1c = Math.max(0, Math.min(readH - 1, y1));
+                    const y2c = Math.max(0, Math.min(readH - 1, y2));
+                    const i11c = (y1c * readW + x1c) * 4, i21c = (y1c * readW + x2c) * 4;
+                    const i12c = (y2c * readW + x1c) * 4, i22c = (y2c * readW + x2c) * 4;
+                    for (let c = 0; c < 4; c++) {
+                        const w1 = (1-fx)*(1-fy), w2 = fx*(1-fy), w3 = (1-fx)*fy, w4 = fx*fy;
+                        dst[dstIdx + c] = src[i11c+c]*w1 + src[i21c+c]*w2 + src[i12c+c]*w3 + src[i22c+c]*w4;
+                        cDst[dstIdx + c] = cSrc[i11c+c]*w1 + cSrc[i21c+c]*w2 + cSrc[i12c+c]*w3 + cSrc[i22c+c]*w4;
+                    }
+                }
+            }
+        }
+        ctx.putImageData(outData, readSx, readSy);
+        cleanCtx.putImageData(cOutData, readSx, readSy);
+    }
+
+    // ----------------------------------------------------------------------------------
+    // ★ 终极救星：极速无损数学模糊核心 (绝不降采样，绝对无锯齿)
+    function executeFastBoxBlur(src, w, h, radius, passes) {
+        let dst = new Uint8ClampedArray(src);
+        if (radius < 1) return dst;
+        let tmp = new Uint8ClampedArray(src.length);
+        for(let p = 0; p < passes; p++) {
+            // X轴模糊
+            for(let y = 0; y < h; y++) {
+                let r=0, g=0, b=0;
+                let offset = y*w*4;
+                for(let i = -radius; i <= radius; i++) {
+                    let cx = Math.min(Math.max(i, 0), w - 1);
+                    let idx = offset + cx*4;
+                    r += dst[idx]; g += dst[idx+1]; b += dst[idx+2];
+                }
+                let div = radius*2+1;
+                for(let x = 0; x < w; x++) {
+                    let tgt = offset + x*4;
+                    tmp[tgt] = r/div; tmp[tgt+1] = g/div; tmp[tgt+2] = b/div; tmp[tgt+3] = dst[tgt+3];
+                    let prevX = Math.max(x - radius, 0);
+                    let nextX = Math.min(x + radius + 1, w - 1);
+                    let pIdx = offset + prevX*4;
+                    let nIdx = offset + nextX*4;
+                    r += dst[nIdx] - dst[pIdx];
+                    g += dst[nIdx+1] - dst[pIdx+1];
+                    b += dst[nIdx+2] - dst[pIdx+2];
+                }
+            }
+            // Y轴模糊
+            for(let x = 0; x < w; x++) {
+                let r=0, g=0, b=0;
+                for(let i = -radius; i <= radius; i++) {
+                    let cy = Math.min(Math.max(i, 0), h - 1);
+                    let idx = (cy*w+x)*4;
+                    r += tmp[idx]; g += tmp[idx+1]; b += tmp[idx+2];
+                }
+                let div = radius*2+1;
+                for(let y = 0; y < h; y++) {
+                    let tgt = (y*w+x)*4;
+                    dst[tgt] = r/div; dst[tgt+1] = g/div; dst[tgt+2] = b/div; dst[tgt+3] = tmp[tgt+3];
+                    let prevY = Math.max(y - radius, 0);
+                    let nextY = Math.min(y + radius + 1, h - 1);
+                    let pIdx = (prevY*w+x)*4;
+                    let nIdx = (nextY*w+x)*4;
+                    r += tmp[nIdx] - tmp[pIdx];
+                    g += tmp[nIdx+1] - tmp[pIdx+1];
+                    b += tmp[nIdx+2] - tmp[pIdx+2];
+                }
+            }
+        }
+        return dst;
+    }
+
+    // 2. 商业级「频段隔离（Band-pass）」修容算法
+    // 抹平瑕疵的同时，100% 找回原生皮肤毛孔肌理，绝不死白发虚。
+    function prepareProfessionalRetouch() {
+        const w = canvas.width, h = canvas.height;
+        effectCtx.clearRect(0, 0, w, h);
+        
+        // 100% 全尺寸读取，杜绝任何缩放带来的马赛克和摩尔纹
+        const id = cleanCtx.getImageData(0, 0, w, h);
+        const orig = id.data;
+
+        // 【步骤 1】提取极高频（真实毛孔纹理）
+        // 仅使用 2px 半径模糊，用于计算原始毛孔。
+        const radiusSmall = Math.max(1, Math.floor(w * 0.0015)); 
+        const blurSmall = executeFastBoxBlur(orig, w, h, radiusSmall, 1);
+
+        // 【步骤 2】计算底色（低频均值）
+        // 使用较大半径抹平痘印、色斑和泛红。
+        const radiusLarge = Math.max(5, Math.floor(w * 0.008)); 
+        const blurLarge = executeFastBoxBlur(blurSmall, w, h, radiusLarge, 2);
+
+        const resultId = effectCtx.createImageData(w, h);
+        const res = resultId.data;
+
+        // 【核心魔力】肌理保护阈值（Amplitude Clamping）
+        // 毛孔的起伏通常在 ±12 亮度内，而突兀的红痘痘或黑痣起伏会高达 ±50。
+        // 我们强行把超出 12 的瑕疵“削平”，这样痘痘就被物理抹除了，但毛孔被完整留了下来。
+        const poreThreshold = 12;
+
+        for (let i = 0; i < orig.length; i += 4) {
+            // (原始像素 - 微小模糊) = 提取出皮肤表层的凹凸质感
+            let hr = orig[i] - blurSmall[i];
+            let hg = orig[i+1] - blurSmall[i+1];
+            let hb = orig[i+2] - blurSmall[i+2];
+
+            // 钳制边缘：干掉痘痘边缘的硬切线，防止涂抹后留下痘印轮廓
+            hr = Math.max(-poreThreshold, Math.min(poreThreshold, hr));
+            hg = Math.max(-poreThreshold, Math.min(poreThreshold, hg));
+            hb = Math.max(-poreThreshold, Math.min(poreThreshold, hb));
+
+            // 微弱的纯数学抖动，直接从物理层面打碎 8-bit 的断层色阶圈
+            let noise = (Math.random() - 0.5) * 1.5;
+
+            // 最终合成：完美匀净的底色 + 原生毛孔肌理 + 抖动防色阶。这就是真正的专业修图。
+            res[i]   = blurLarge[i]   + hr + noise;
+            res[i+1] = blurLarge[i+1] + hg + noise;
+            res[i+2] = blurLarge[i+2] + hb + noise;
+            res[i+3] = orig[i+3];
+        }
+        
+        effectCtx.putImageData(resultId, 0, 0);
+    }
+    // ----------------------------------------------------------------------------------
+
+    // 3. Detail
+    function prepareDetail() {
+        const w = canvas.width, h = canvas.height;
+        const id = snapshotCtx.getImageData(0,0,w,h);
+        const d = id.data;
+        const cp = new Uint8ClampedArray(d);
+        
+        const mix = 0.3; 
+        
+        for (let y = 1; y < h-1; y++) {
+            for (let x = 1; x < w-1; x++) {
+                const i = (y * w + x) * 4;
+                for (let c = 0; c < 3; c++) {
+                    const top = cp[i - w*4 + c];
+                    const bottom = cp[i + w*4 + c];
+                    const left = cp[i - 4 + c];
+                    const right = cp[i + 4 + c];
+                    const center = cp[i + c];
+                    
+                    const sharpened = center * 5 - top - bottom - left - right;
+                    d[i+c] = center * (1 - mix) + sharpened * mix; 
+                }
+            }
+        }
+        effectCtx.putImageData(id, 0, 0);
+    }
+
+    // 统一遮罩合成输出逻辑
+    function applyBrushTool(x, y) {
+        const r = brushSizeScreen / viewScale;
+        const sx = Math.max(0, Math.floor(x - r)), sy = Math.max(0, Math.floor(y - r));
+        const ex = Math.min(canvas.width, Math.ceil(x + r)), ey = Math.min(canvas.height, Math.ceil(y + r));
+        const bw = ex - sx, bh = ey - sy;
+        
+        if (bw <= 0 || bh <= 0) return;
+
+        brushCanvas.width = bw; brushCanvas.height = bh;
+        const cx = x - sx; const cy = y - sy;
+        
+        const g = brushCtx.createRadialGradient(cx, cy, 0, cx, cy, r);
+        
+        // 【极轻微的微调手感】
+        // 在预设 Intensity 20% (0.2) 下，单笔叠加的透明度被死死压在 0.03 (3%)。
+        // 你每一次扫抹都像极轻的散粉，不仅极其自然，且叠加过渡极度平滑。
+        let alpha = brushPressure * 0.15; 
+        if (currentTool === 'detail') alpha = brushPressure * 0.5;
+        if (currentTool === 'eraser') alpha = brushPressure * 0.2; 
+        
+        // 如云雾般消散的画笔边缘，绝不会有明显的圆圈印记
+        g.addColorStop(0, `rgba(0,0,0,${alpha})`); 
+        g.addColorStop(0.3, `rgba(0,0,0,${alpha * 0.8})`); 
+        g.addColorStop(0.6, `rgba(0,0,0,${alpha * 0.4})`); 
+        g.addColorStop(0.85, `rgba(0,0,0,${alpha * 0.1})`); 
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        
+        brushCtx.globalCompositeOperation = 'source-over';
+        brushCtx.fillStyle = g; 
+        brushCtx.fillRect(0, 0, bw, bh);
+        
+        brushCtx.globalCompositeOperation = 'source-in';
+        brushCtx.drawImage(effectCanvas, sx, sy, bw, bh, 0, 0, bw, bh);
+        
+        ctx.drawImage(brushCanvas, sx, sy);
+    }
+</script>
+</body>
+</html>
