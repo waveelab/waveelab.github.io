@@ -43,8 +43,9 @@
 
         .upload-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-color); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
         .upload-btn { position: relative; overflow: hidden; display: inline-block; background: var(--text); color: var(--bg-color); padding: 14px 36px; font-size: 13px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; transition: background 0.2s; text-align: center; }
-        .upload-btn:active { background: #ccc; }
-        #fileInput { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+        .upload-btn.outline { background: transparent; color: var(--text); border: 1px solid var(--text); padding: 13px 35px; }
+        .upload-btn:active { opacity: 0.7; }
+        .file-input { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
         
         .footer-text { position: absolute; bottom: max(30px, env(safe-area-inset-bottom)); width: 100%; text-align: center; font-size: 10px; color: #444444; letter-spacing: 1.5px; text-transform: uppercase; pointer-events: none; }
 
@@ -108,9 +109,15 @@
     </div>
 
     <div class="upload-overlay" id="uploadOverlay">
-        <div class="upload-btn">
-            Open Image
-            <input type="file" id="fileInput" accept="image/*">
+        <div style="display: flex; flex-direction: column; gap: 15px;">
+            <div class="upload-btn">
+                Open Original
+                <input type="file" id="fileInputOrig" class="file-input" accept="image/*">
+            </div>
+            <div class="upload-btn outline">
+                Open Max 2048
+                <input type="file" id="fileInput2048" class="file-input" accept="image/*">
+            </div>
         </div>
         <div class="footer-text">designed by wavee</div>
     </div>
@@ -138,7 +145,7 @@
 
 <script>
     // ==========================================
-    // WebGL GPU 加速引擎 (零延迟完美复刻算法)
+    // WebGL GPU 加速引擎
     // ==========================================
     const GLFilter = (function() {
         const cvs = document.createElement('canvas');
@@ -249,7 +256,6 @@
                     drawQuad(detailProg, texOrig, null);
                 } else if (type === 'smooth') {
                     if (!isUltra) {
-                        // Bilateral Pass
                         gl.useProgram(bilateralProg);
                         gl.uniform1f(gl.getUniformLocation(bilateralProg, "u_radius"), Math.max(3, Math.floor(w * 0.006)));
                         gl.uniform1f(gl.getUniformLocation(bilateralProg, "u_edge"), 75.0 / 255.0);
@@ -260,7 +266,6 @@
                         gl.uniform2f(gl.getUniformLocation(bilateralProg, "u_dir"), 0.0, 1.0);
                         drawQuad(bilateralProg, texA, fboB);
                     } else {
-                        // 3 Passes of Box Blur to mathematically mimic TripleBoxBlur
                         gl.useProgram(boxProg);
                         gl.uniform1f(gl.getUniformLocation(boxProg, "u_radius"), Math.max(5, Math.floor(w * 0.012)));
                         
@@ -272,7 +277,6 @@
                         }
                     }
                     
-                    // Final Mix Pass with Noise
                     gl.useProgram(mixProg);
                     const posLoc = gl.getAttribLocation(mixProg, "a_pos");
                     gl.enableVertexAttribArray(posLoc); gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
@@ -290,7 +294,6 @@
         };
     })();
     // ==========================================
-
 
     const workspace = document.getElementById('workspace');
     
@@ -383,2303 +386,419 @@
     ['mouseup', 'mouseleave', 'touchend', 'touchcancel'].forEach(evt => compareBtn.addEventListener(evt, hideOriginal));
 
     document.getElementById('closeBtn').onclick = () => {
-        history = []; document.getElementById('fileInput').value = "";
-        viewScale = 1; viewPanX = 0; viewPanY = 0; updateTransform();
-        effectCacheType = cloneSource = toneColor = null; 
-        isSettingCloneSource = isAimingSample = isAimingPatch = isSettingToneSource = isAimingToneSample = isUltraSmooth = false;
-        
-        cloneToast.style.display = cloneCrosshair.style.display = brushCursor.style.display = 'none';
-        document.getElementById('uploadOverlay').style.display = 'flex';
-        document.getElementById('exportBtn').style.display = document.getElementById('compareBtn').style.display = document.getElementById('closeBtn').style.display = 'none';
-        document.getElementById('undoBtn').disabled = true;
-    };
-
-    document.getElementById('sizeSlider').oninput = (e) => { brushSizeScreen = parseInt(e.target.value); updateCursorSize(); };
-    document.getElementById('pressureSlider').oninput = (e) => { brushPressure = parseFloat(e.target.value); };
-    
-    const handleToastClick = (e) => {
-        e.preventDefault(); e.stopPropagation();
-        if (currentTool === 'clone' || currentTool === 'tone') {
-            currentTool === 'clone' ? (cloneSource = null, isSettingCloneSource = true) : (toneColor = null, isSettingToneSource = true);
-            isAimingSample = isAimingPatch = isAimingToneSample = isDrawing = false;
-            cloneToast.innerText = currentTool === 'clone' ? '🎯 拖拽选择 取样点' : '🎯 拖拽选择 取色点';
-            cloneToast.classList.add('active');
-            cloneCrosshair.style.display = brushCursor.style.display = 'none';
-        } else if (currentTool === 'smooth') {
-            isUltraSmooth = !isUltraSmooth;
-            cloneToast.innerText = isUltraSmooth ? '✨ ULTRA SMOOTH: ON' : '✨ ULTRA SMOOTH: OFF';
-            isUltraSmooth ? cloneToast.classList.add('active') : cloneToast.classList.remove('active');
-            effectCacheType = null; 
-        }
-    };
-    cloneToast.addEventListener('mousedown', handleToastClick); cloneToast.addEventListener('touchstart', handleToastClick, {passive: false});
-
-    document.querySelectorAll('.tool-btn').forEach(btn => {
-        btn.onclick = (e) => {
-            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active')); e.target.classList.add('active');
-            currentTool = e.target.getAttribute('data-tool'); effectCacheType = null; 
-
-            if (currentTool === 'clone' || currentTool === 'tone' || currentTool === 'smooth') {
-                cloneToast.style.display = 'flex';
-                if (currentTool === 'clone') {
-                    cloneSource = null; isSettingCloneSource = true; cloneToast.innerText = '🎯 拖拽选择 取样点'; cloneToast.classList.add('active');
-                } else if (currentTool === 'tone') {
-                    toneColor = null; isSettingToneSource = true; cloneToast.innerText = '🎯 拖拽选择 取色点'; cloneToast.classList.add('active');
-                } else {
-                    cloneToast.innerText = isUltraSmooth ? '✨ ULTRA SMOOTH: ON' : '✨ ULTRA SMOOTH: OFF';
-                    isUltraSmooth ? cloneToast.classList.add('active') : cloneToast.classList.remove('active');
-                }
-                cloneCrosshair.style.display = brushCursor.style.display = 'none';
-            } else {
-                cloneToast.style.display = cloneCrosshair.style.display = brushCursor.style.display = 'none';
-                isSettingCloneSource = isSettingToneSource = isAimingSample = isAimingPatch = isAimingToneSample = false;
-            }
-        };
-    });
-
-    document.getElementById('fileInput').onchange = (e) => {
-        const file = e.target.files[0]; if (!file) return;
-        const img = new Image();
-        img.onload = () => {
-            // 【硬核恢复 3000px 限制】 有 GPU 引擎护航，3000px 跑得飞快！
-            const MAX_DIMENSION = 3000; 
-            let w = img.width, h = img.height;
-            if(w > MAX_DIMENSION || h > MAX_DIMENSION) { 
-                const r = Math.min(MAX_DIMENSION/w, MAX_DIMENSION/h); 
-                w = Math.round(w * r); h = Math.round(h * r); 
-            }
-            
-            canvas.width = snapshotCanvas.width = effectCanvas.width = originalCanvas.width = cloneStrokeCanvas.width = w;
-            canvas.height = snapshotCanvas.height = effectCanvas.height = originalCanvas.height = cloneStrokeCanvas.height = h;
-            cleanCanvas.width = cleanSnapshotCanvas.width = w; cleanCanvas.height = cleanSnapshotCanvas.height = h;
-            
-            ctx.drawImage(img, 0, 0, w, h); originalCtx.drawImage(img, 0, 0, w, h); cleanCtx.drawImage(img, 0, 0, w, h);
-            
-            document.getElementById('uploadOverlay').style.display = 'none';
-            document.getElementById('exportBtn').style.display = document.getElementById('compareBtn').style.display = document.getElementById('closeBtn').style.display = 'block';
-            
-            effectCacheType = null; updateCursorSize(); fitToScreen(); saveState(); URL.revokeObjectURL(img.src);
-        };
-        img.src = URL.createObjectURL(file);
-    };
-
-    function saveState() {
-        if (history.length >= 5) history.shift();
-        history.push({ main: ctx.getImageData(0, 0, canvas.width, canvas.height), clean: cleanCtx.getImageData(0, 0, canvas.width, canvas.height) });
-        document.getElementById('undoBtn').disabled = history.length <= 1;
-    }
-
-    document.getElementById('undoBtn').onclick = () => {
-        if (history.length <= 1) return; history.pop();
-        const prevState = history[history.length - 1];
-        ctx.putImageData(prevState.main, 0, 0); cleanCtx.putImageData(prevState.clean, 0, 0);
-        effectCacheType = null; document.getElementById('undoBtn').disabled = history.length <= 1;
-    };
-
-    document.getElementById('exportBtn').onclick = async () => {
-        const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
-        if (navigator.share) {
-            try {
-                const response = await fetch(dataUrl); const file = new File([await response.blob()], 'facewave_edit.jpg', { type: 'image/jpeg' });
-                if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Facewave Edit' }); return; }
-            } catch (err) { console.log("Share fallback", err); }
-        }
-        const a = document.createElement('a'); a.download = 'facewave_edit.jpg'; a.href = dataUrl; a.click();
-    };
-
-    let isPanning = false, pinchStartDist = 0, pinchStartScale = 1, pinchCenterX = 0, pinchCenterY = 0, pinchStartPanX = 0, pinchStartPanY = 0, lastPanX = 0, lastPanY = 0;
-    let pendingDrawEvent = null, drawRAF = null;
-    const isOverlayActive = () => document.getElementById('uploadOverlay').style.display !== 'none';
-
-    function screenToImage(screenX, screenY) { return { x: (screenX - viewPanX) / viewScale, y: (screenY - viewPanY) / viewScale }; }
-
-    workspace.addEventListener('wheel', (e) => {
-        if (isOverlayActive()) return; e.preventDefault();
-        const rect = workspace.getBoundingClientRect(), mouseX = e.clientX - rect.left, mouseY = e.clientY - rect.top;
-        let newScale = Math.max(0.1, Math.min(viewScale * Math.exp(-e.deltaY * 0.001), 20)); 
-        viewPanX = mouseX - (mouseX - viewPanX) * (newScale / viewScale); viewPanY = mouseY - (mouseY - viewPanY) * (newScale / viewScale);
-        viewScale = newScale; updateTransform();
-    }, { passive: false });
-
-    workspace.addEventListener('pointerdown', (e) => {
-        if (e.target === cloneToast || e.target.parentElement === cloneToast || isOverlayActive()) return; 
-        if (e.button === 1 || e.button === 2) { isPanning = true; lastPanX = e.clientX; lastPanY = e.clientY; }
-    });
-
-    workspace.addEventListener('contextmenu', e => { if (!isOverlayActive()) e.preventDefault(); });
-
-    workspace.addEventListener('touchstart', (e) => {
-        if (e.target === cloneToast || e.target.parentElement === cloneToast || isOverlayActive()) return; 
-        e.preventDefault(); 
-        if (e.touches.length === 2) {
-            isDrawing = isAimingSample = isAimingPatch = isAimingToneSample = false;
-            if (currentTool === 'clone' || currentTool === 'tone') {
-                if (currentTool === 'clone' && isSettingCloneSource || currentTool === 'tone' && isSettingToneSource) cloneCrosshair.style.display = 'none';
-                else { brushCursor.style.display = 'none'; if (cloneSource && currentTool === 'clone') setCrosshair(cloneSource.x, cloneSource.y); }
-            }
-            isPanning = true; const t1 = e.touches[0], t2 = e.touches[1];
-            pinchStartDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY); pinchStartScale = viewScale;
-            const rect = workspace.getBoundingClientRect(); pinchCenterX = (t1.clientX + t2.clientX) / 2 - rect.left; pinchCenterY = (t1.clientY + t2.clientY) / 2 - rect.top;
-            pinchStartPanX = viewPanX; pinchStartPanY = viewPanY;
-        } else if (e.touches.length === 1 && !isPanning) startDrawing(e.touches[0]);
-    }, {passive: false});
-
-    workspace.addEventListener('mousedown', (e) => {
-        if (e.target === cloneToast || e.target.parentElement === cloneToast || isOverlayActive()) return;
-        if (e.button === 0 && !isPanning) startDrawing(e);
-    });
-
-    function startDrawing(touchOrMouse) {
-        const rect = workspace.getBoundingClientRect(), imgPos = screenToImage(touchOrMouse.clientX - rect.left, touchOrMouse.clientY - rect.top);
-        snapshotCtx.drawImage(canvas, 0, 0); 
-        
-        if (currentTool === 'clone' || currentTool === 'tone') {
-            const isToolSettingSource = currentTool === 'clone' ? isSettingCloneSource : isSettingToneSource;
-            const sourceVar = currentTool === 'clone' ? cloneSource : toneColor;
-            
-            if (isToolSettingSource || !sourceVar) {
-                currentTool === 'clone' ? isAimingSample = true : isAimingToneSample = true;
-                cloneCrosshair.style.display = 'block'; brushCursor.style.display = 'none'; setCrosshair(imgPos.x, imgPos.y);
-            } else {
-                if(currentTool === 'clone') {
-                    isAimingPatch = true; cloneOffsetX = cloneSource.x - imgPos.x; cloneOffsetY = cloneSource.y - imgPos.y;
-                    cloneCrosshair.style.display = 'block'; setCrosshair(cloneSource.x, cloneSource.y);
-                } else {
-                    strokeBounds = { minX: imgPos.x, minY: imgPos.y, maxX: imgPos.x, maxY: imgPos.y }; lastDabX = imgPos.x; lastDabY = imgPos.y; cloneCrosshair.style.display = 'none'; 
-                }
-                cloneStrokeCtx.clearRect(0, 0, canvas.width, canvas.height);
-                brushCursor.style.display = 'block'; setBrushCursor(imgPos.x, imgPos.y);
-            }
-            anchorX = lastX = imgPos.x; anchorY = lastY = imgPos.y; isDrawing = true; return; 
-        }
-
-        anchorX = lastX = imgPos.x; anchorY = lastY = imgPos.y; isDrawing = true;
-        
-        if (currentTool === 'reshape') cleanSnapshotCtx.drawImage(cleanCanvas, 0, 0); 
-        else if (currentTool === 'smooth') {
-            const requiredCache = isUltraSmooth ? 'smooth_ultra' : 'smooth_regular';
-            if (effectCacheType !== requiredCache) { prepareProfessionalRetouch(); effectCacheType = requiredCache; }
-        } else if (currentTool === 'detail') {
-            if (effectCacheType !== 'detail') { prepareDetail(); effectCacheType = 'detail'; }
-        } else if (currentTool === 'eraser') {
-            if (effectCacheType !== 'eraser') { effectCtx.clearRect(0, 0, canvas.width, canvas.height); effectCtx.drawImage(cleanCanvas, 0, 0); effectCacheType = 'eraser'; }
-        }
-    }
-
-    workspace.addEventListener('touchmove', (e) => {
-        if (isOverlayActive()) return; e.preventDefault(); 
-        if (isPanning && e.touches.length === 2) {
-            const t1 = e.touches[0], t2 = e.touches[1];
-            let newScale = Math.max(0.1, Math.min(pinchStartScale * (Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY) / pinchStartDist), 20));
-            const rect = workspace.getBoundingClientRect();
-            viewPanX = ((t1.clientX + t2.clientX) / 2 - rect.left) - (pinchCenterX - pinchStartPanX) * (newScale / pinchStartScale);
-            viewPanY = ((t1.clientY + t2.clientY) / 2 - rect.top) - (pinchCenterY - pinchStartPanY) * (newScale / pinchStartScale);
-            viewScale = newScale; updateTransform();
-        } else if (isDrawing && e.touches.length === 1) { pendingDrawEvent = e.touches[0]; if (!drawRAF) drawRAF = requestAnimationFrame(processDrawMove); }
-    }, {passive: false});
-
-    workspace.addEventListener('mousemove', (e) => {
-        if (isOverlayActive()) return;
-        if (isPanning) { viewPanX += e.clientX - lastPanX; viewPanY += e.clientY - lastPanY; lastPanX = e.clientX; lastPanY = e.clientY; updateTransform(); return; }
-        if (isDrawing) { pendingDrawEvent = e; if (!drawRAF) drawRAF = requestAnimationFrame(processDrawMove); }
-    });
-    
-    function processDrawMove() {
-        if (!pendingDrawEvent || !isDrawing) { drawRAF = null; return; }
-        moveDrawing(pendingDrawEvent); pendingDrawEvent = null; drawRAF = null;
-    }
-
-    function moveDrawing(touchOrMouse) {
-        const rect = workspace.getBoundingClientRect(), imgPos = screenToImage(touchOrMouse.clientX - rect.left, touchOrMouse.clientY - rect.top);
-        if (currentTool === 'reshape') applyReshapeAdvanced(imgPos.x, imgPos.y);
-        else if (currentTool === 'clone') {
-            if (isAimingSample) setCrosshair(imgPos.x, imgPos.y);
-            else if (isAimingPatch) { setBrushCursor(imgPos.x, imgPos.y); setCrosshair(imgPos.x + cloneOffsetX, imgPos.y + cloneOffsetY); }
-        } else if (currentTool === 'tone') {
-            if (isAimingToneSample) setCrosshair(imgPos.x, imgPos.y);
-            else {
-                const r = (brushSizeScreen / viewScale) * 0.5, dist = Math.hypot(imgPos.x - lastDabX, imgPos.y - lastDabY), step = Math.max(1, r * 0.05); 
-                if (dist > step) {
-                    const stepsCount = Math.ceil(dist / step);
-                    for(let i = 1; i <= stepsCount; i++) applyToneBrush(lastDabX + (imgPos.x - lastDabX) * (i / stepsCount), lastDabY + (imgPos.y - lastDabY) * (i / stepsCount), true);
-                    flushStrokeBuffer(); lastDabX = imgPos.x; lastDabY = imgPos.y;
-                }
-                setBrushCursor(imgPos.x, imgPos.y);
-            }
-        } else {
-            const r = brushSizeScreen / viewScale, dist = Math.hypot(imgPos.x - lastX, imgPos.y - lastY), step = Math.max(1, r * 0.1); 
-            if (dist > step) {
-                const stepsCount = Math.ceil(dist / step);
-                for(let i = 1; i <= stepsCount; i++) applyBrushTool(lastX + (imgPos.x - lastX) * (i / stepsCount), lastY + (imgPos.y - lastY) * (i / stepsCount));
-            } else applyBrushTool(imgPos.x, imgPos.y);
-        }
-        lastX = imgPos.x; lastY = imgPos.y;
-    }
-
-    window.addEventListener('touchend', (e) => { if (isOverlayActive()) return; if (e.touches.length < 2) isPanning = false; if (e.touches.length === 0 && isDrawing) endDrawing(); });
-    window.addEventListener('mouseup', (e) => { if (isOverlayActive()) return; if (e.button === 1 || e.button === 2) isPanning = false; if (e.button === 0 && isDrawing) endDrawing(); });
-
-    function endDrawing() {
-        if (!isDrawing) return;
-        isDrawing = false; if (currentTool === 'reshape') effectCacheType = null; 
-        
-        if (currentTool === 'clone') {
-            if (isAimingSample) {
-                cloneSource = { x: lastX, y: lastY }; isAimingSample = isSettingCloneSource = false;
-                cloneToast.innerText = '🖌️ 拖拽瞄准 涂抹'; cloneToast.classList.remove('active'); setCrosshair(cloneSource.x, cloneSource.y); return; 
-            } else if (isAimingPatch) {
-                applyCloneStamp(lastX, lastY); isAimingPatch = false; brushCursor.style.display = 'none';
-                cloneSource = null; isSettingCloneSource = true;
-                cloneToast.innerText = '🎯 拖拽选择 取样点'; cloneToast.classList.add('active');
-                cloneCrosshair.style.display = 'none'; effectCacheType = null; saveState(); return;
-            }
-        } else if (currentTool === 'tone') {
-            if (isAimingToneSample) {
-                const pxData = snapshotCtx.getImageData(Math.min(canvas.width - 1, Math.max(0, Math.floor(lastX))), Math.min(canvas.height - 1, Math.max(0, Math.floor(lastY))), 1, 1).data;
-                toneColor = { r: pxData[0], g: pxData[1], b: pxData[2] }; isAimingToneSample = isSettingToneSource = false;
-                cloneToast.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:rgb(${toneColor.r},${toneColor.g},${toneColor.b});border:1px solid #fff;margin-right:5px;vertical-align:middle;"></span> 🔄 重新取色`;
-                cloneToast.classList.remove('active'); setCrosshair(lastX, lastY); return; 
-            } else { brushCursor.style.display = 'none'; effectCacheType = null; saveState(); return; }
-        }
-        saveState();
-    }
-
-    function flushStrokeBuffer() {
-        const updateW = Math.ceil(strokeBounds.maxX - strokeBounds.minX), updateH = Math.ceil(strokeBounds.maxY - strokeBounds.minY);
-        if (updateW <= 0 || updateH <= 0) return;
-        ctx.clearRect(strokeBounds.minX, strokeBounds.minY, updateW, updateH);
-        ctx.drawImage(snapshotCanvas, strokeBounds.minX, strokeBounds.minY, updateW, updateH, strokeBounds.minX, strokeBounds.minY, updateW, updateH);
-        ctx.globalAlpha = brushPressure; ctx.drawImage(cloneStrokeCanvas, strokeBounds.minX, strokeBounds.minY, updateW, updateH, strokeBounds.minX, strokeBounds.minY, updateW, updateH);
-        ctx.globalAlpha = 1.0; 
-    }
-
-    function applyToneBrush(x, y, deferRender = false) {
-        if (!toneColor) return;
-        const r = (brushSizeScreen / viewScale) * 0.5, sx = Math.max(0, Math.floor(x - r)), sy = Math.max(0, Math.floor(y - r));
-        const ex = Math.min(canvas.width, Math.ceil(x + r)), ey = Math.min(canvas.height, Math.ceil(y + r)), bw = ex - sx, bh = ey - sy; if (bw <= 0 || bh <= 0) return;
-
-        if (sx < strokeBounds.minX) strokeBounds.minX = sx; if (sy < strokeBounds.minY) strokeBounds.minY = sy;
-        if (ex > strokeBounds.maxX) strokeBounds.maxX = ex; if (ey > strokeBounds.maxY) strokeBounds.maxY = ey;
-
-        brushCanvas.width = bw; brushCanvas.height = bh; brushCtx.clearRect(0, 0, bw, bh);
-        const g = brushCtx.createRadialGradient(x - sx, y - sy, 0, x - sx, y - sy, r);
-        g.addColorStop(0, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0.4)`); g.addColorStop(0.15, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0.15)`);
-        g.addColorStop(0.35, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0.04)`); g.addColorStop(0.6, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0.008)`);
-        g.addColorStop(1, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0)`);
-
-        brushCtx.globalCompositeOperation = 'source-over'; brushCtx.fillStyle = g; brushCtx.fillRect(0, 0, bw, bh);
-        cloneStrokeCtx.globalCompositeOperation = 'source-over'; cloneStrokeCtx.drawImage(brushCanvas, sx, sy);
-        if (!deferRender) flushStrokeBuffer();
-    }
-
-    function applyCloneStamp(x, y) {
-        if (!cloneSource) return;
-        const r = (brushSizeScreen / viewScale) * 0.5, srcX = x + cloneOffsetX, srcY = y + cloneOffsetY;
-        const sx = Math.max(0, Math.floor(x - r)), sy = Math.max(0, Math.floor(y - r));
-        const ex = Math.min(canvas.width, Math.ceil(x + r)), ey = Math.min(canvas.height, Math.ceil(y + r)), bw = ex - sx, bh = ey - sy; if (bw <= 0 || bh <= 0) return;
-
-        brushCanvas.width = bw; brushCanvas.height = bh; brushCtx.clearRect(0, 0, bw, bh);
-        let reqSrcX = srcX - r + sx - (x - r), reqSrcY = srcY - r + sy - (y - r), reqW = bw, reqH = bh, drawDestX = 0, drawDestY = 0;
-
-        if (reqSrcX < 0) { drawDestX = -reqSrcX; reqW += reqSrcX; reqSrcX = 0; }
-        if (reqSrcY < 0) { drawDestY = -reqSrcY; reqH += reqSrcY; reqSrcY = 0; }
-        if (reqSrcX + reqW > canvas.width) reqW = canvas.width - reqSrcX; if (reqSrcY + reqH > canvas.height) reqH = canvas.height - reqSrcY;
-
-        if (reqW > 0 && reqH > 0) brushCtx.drawImage(snapshotCanvas, reqSrcX, reqSrcY, reqW, reqH, drawDestX, drawDestY, reqW, reqH);
-
-        const g = brushCtx.createRadialGradient(x - sx, y - sy, 0, x - sx, y - sy, r);
-        g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(0.2, 'rgba(0,0,0,0.95)'); g.addColorStop(0.5, 'rgba(0,0,0,0.6)'); g.addColorStop(0.8, 'rgba(0,0,0,0.1)'); g.addColorStop(1, 'rgba(0,0,0,0)'); 
-
-        brushCtx.globalCompositeOperation = 'destination-in'; brushCtx.fillStyle = g; brushCtx.fillRect(0, 0, bw, bh);
-
-        if (sx < strokeBounds.minX) strokeBounds.minX = sx; if (sy < strokeBounds.minY) strokeBounds.minY = sy;
-        if (ex > strokeBounds.maxX) strokeBounds.maxX = ex; if (ey > strokeBounds.maxY) strokeBounds.maxY = ey;
-        cloneStrokeCtx.globalCompositeOperation = 'source-over'; cloneStrokeCtx.drawImage(brushCanvas, sx, sy); flushStrokeBuffer();
-    }
-
-    // CPU 原生局部重塑渲染 (由于只获取局部边界的矩形区域，效率本身极高，无需迁移 WebGL)
-    function applyReshapeAdvanced(curX, curY) {
-        const dx = curX - anchorX, dy = curY - anchorY, distFromAnchorSq = dx*dx + dy*dy, r = brushSizeScreen / viewScale; 
-        renderWarpBilinearFromSnapshot(anchorX, anchorY, dx, dy, r);
-        if (distFromAnchorSq > (r * 0.5) * (r * 0.5)) { snapshotCtx.drawImage(canvas, 0, 0); cleanSnapshotCtx.drawImage(cleanCanvas, 0, 0); anchorX = curX; anchorY = curY; }
-    }
-
-    function renderWarpBilinearFromSnapshot(cx, cy, dx, dy, r) {
-        const pad = Math.ceil(r + Math.max(Math.abs(dx), Math.abs(dy)) + 2), minX = cx - pad, maxX = cx + pad, minY = cy - pad, maxY = cy + pad;
-        const readSx = Math.max(0, Math.floor(minX)), readSy = Math.max(0, Math.floor(minY));
-        const readW = Math.min(canvas.width - readSx, Math.ceil(maxX - minX)), readH = Math.min(canvas.height - readSy, Math.ceil(maxY - minY));
-
-        if (readW <= 0 || readH <= 0) return;
-        const imgData = snapshotCtx.getImageData(readSx, readSy, readW, readH), src = imgData.data;
-        const outData = ctx.createImageData(readW, readH), dst = outData.data;
-        const cImgData = cleanSnapshotCtx.getImageData(readSx, readSy, readW, readH), cSrc = cImgData.data;
-        const cOutData = cleanCtx.createImageData(readW, readH), cDst = cOutData.data;
-
-        const pressure = brushPressure, destX = cx + dx, destY = cy + dy, rSq = r * r;
-
-        for (let y = 0; y < readH; y++) {
-            for (let x = 0; x < readW; x++) {
-                const globalX = readSx + x, globalY = readSy + y, dxP = globalX - destX, dyP = globalY - destY, distSq = dxP * dxP + dyP * dyP;
-                let srcGlobalX = globalX, srcGlobalY = globalY;
-
-                if (distSq < rSq) {
-                    const weight = reshapeLUT[Math.floor((Math.sqrt(distSq) / r) * 1023)] * pressure;
-                    srcGlobalX = globalX - dx * weight; srcGlobalY = globalY - dy * weight;
-                }
-
-                const localSrcX = srcGlobalX - readSx, localSrcY = srcGlobalY - readSy, x1 = Math.floor(localSrcX), y1 = Math.floor(localSrcY), x2 = x1 + 1, y2 = y1 + 1, fx = localSrcX - x1, fy = localSrcY - y1;
-                const dstIdx = (y * readW + x) * 4;
-
-                if (x1 >= 0 && x2 < readW && y1 >= 0 && y2 < readH) {
-                    const i11 = (y1 * readW + x1) * 4, i21 = (y1 * readW + x2) * 4, i12 = (y2 * readW + x1) * 4, i22 = (y2 * readW + x2) * 4;
-                    const w1 = (1-fx)*(1-fy), w2 = fx*(1-fy), w3 = (1-fx)*fy, w4 = fx*fy;
-                    for (let c = 0; c < 4; c++) {
-                        dst[dstIdx + c] = src[i11+c]*w1 + src[i21+c]*w2 + src[i12+c]*w3 + src[i22+c]*w4;
-                        cDst[dstIdx + c] = cSrc[i11+c]*w1 + cSrc[i21+c]*w2 + cSrc[i12+c]*w3 + cSrc[i22+c]*w4;
-                    }
-                } else {
-                    const x1c = Math.max(0, Math.min(readW - 1, x1)), x2c = Math.max(0, Math.min(readW - 1, x2));
-                    const y1c = Math.max(0, Math.min(readH - 1, y1)), y2c = Math.max(0, Math.min(readH - 1, y2));
-                    const i11c = (y1c * readW + x1c) * 4, i21c = (y1c * readW + x2c) * 4, i12c = (y2c * readW + x1c) * 4, i22c = (y2c * readW + x2c) * 4;
-                    const w1 = (1-fx)*(1-fy), w2 = fx*(1-fy), w3 = (1-fx)*fy, w4 = fx*fy;
-                    for (let c = 0; c < 4; c++) {
-                        dst[dstIdx + c] = src[i11c+c]*w1 + src[i21c+c]*w2 + src[i12c+c]*w3 + src[i22c+c]*w4;
-                        cDst[dstIdx + c] = cSrc[i11c+c]*w1 + cSrc[i21c+c]*w2 + cSrc[i12c+c]*w3 + cSrc[i22c+c]*w4;
-                    }
-                }
-            }
-        }
-        ctx.putImageData(outData, readSx, readSy); cleanCtx.putImageData(cOutData, readSx, readSy);
-    }
-
-    // ==========================================
-    // 接入 GPU 并行渲染
-    // ==========================================
-    function prepareProfessionalRetouch() {
-        effectCtx.clearRect(0, 0, canvas.width, canvas.height);
-        if(GLFilter) {
-            GLFilter.resize(canvas.width, canvas.height);
-            GLFilter.process('smooth', snapshotCanvas, isUltraSmooth);
-            effectCtx.drawImage(GLFilter.canvas, 0, 0);
-        }
-    }
-
-    function prepareDetail() {
-        effectCtx.clearRect(0, 0, canvas.width, canvas.height);
-        if(GLFilter) {
-            GLFilter.resize(canvas.width, canvas.height);
-            GLFilter.process('detail', snapshotCanvas, false);
-            effectCtx.drawImage(GLFilter.canvas, 0, 0);
-        }
-    }
-    // ==========================================
-
-    function applyBrushTool(x, y) {
-        const r = brushSizeScreen / viewScale, sx = Math.max(0, Math.floor(x - r)), sy = Math.max(0, Math.floor(y - r));
-        const ex = Math.min(canvas.width, Math.ceil(x + r)), ey = Math.min(canvas.height, Math.ceil(y + r)), bw = ex - sx, bh = ey - sy; if (bw <= 0 || bh <= 0) return;
-
-        brushCanvas.width = bw; brushCanvas.height = bh;
-        const g = brushCtx.createRadialGradient(x - sx, y - sy, 0, x - sx, y - sy, r);
-        let alpha = brushPressure * 0.195; 
-        if (currentTool === 'smooth' && isUltraSmooth) alpha *= 2; 
-        if (currentTool === 'detail') alpha = Math.min(1.0, brushPressure * 1.05); 
-        if (currentTool === 'eraser') alpha = brushPressure * 0.2; 
-        alpha = Math.min(1.0, alpha);
-
-        g.addColorStop(0, `rgba(0,0,0,${alpha})`); g.addColorStop(0.3, `rgba(0,0,0,${alpha * 0.8})`); 
-        g.addColorStop(0.6, `rgba(0,0,0,${alpha * 0.4})`); g.addColorStop(0.85, `rgba(0,0,0,${alpha * 0.1})`); g.addColorStop(1, 'rgba(0,0,0,0)');
-        
-        brushCtx.globalCompositeOperation = 'source-over'; brushCtx.fillStyle = g; brushCtx.fillRect(0, 0, bw, bh);
-        brushCtx.globalCompositeOperation = 'source-in'; brushCtx.drawImage(effectCanvas, sx, sy, bw, bh, 0, 0, bw, bh);
-        ctx.drawImage(brushCanvas, sx, sy);
-    }
-</script>
-</body>
-</html>        .crosshair, .brush-cursor {
-            position: absolute; top: 0; left: 0; pointer-events: none; border-radius: 50%;
-            box-shadow: 0 0 0 1px rgba(0,0,0,0.3), inset 0 0 0 1px rgba(0,0,0,0.3);
-        }
-        .crosshair { z-index: 150; border: 1.5px dashed rgba(255,255,255,0.9); }
-        .crosshair::before, .crosshair::after { content: ''; position: absolute; background: rgba(255,255,255,0.9); box-shadow: 0 0 1px rgba(0,0,0,0.5); }
-        .crosshair::before { top: 50%; left: 50%; width: 10px; height: 1.5px; transform: translate(-50%, -50%); }
-        .crosshair::after { top: 50%; left: 50%; width: 1.5px; height: 10px; transform: translate(-50%, -50%); }
-        .brush-cursor { z-index: 160; border: 1.5px solid rgba(255,255,255,0.9); }
-    </style>
-</head>
-<body>
-
-    <header>
-        <div class="logo">facewavee</div>
-        <div class="header-actions">
-            <button id="closeBtn" class="close-btn" style="display: none;">Close</button>
-            <button id="compareBtn" style="display: none;">Compare</button>
-            <button id="undoBtn" disabled>Undo</button>
-            <button id="exportBtn" style="display: none;">Save</button>
-        </div>
-    </header>
-
-    <div class="workspace" id="workspace">
-        <div id="cloneToast" class="floating-toast" style="display:none;">🎯 拖拽选择 取样点</div>
-        <div id="cloneSourceCrosshair" class="crosshair" style="display:none;"></div>
-        <div id="brushCursor" class="brush-cursor" style="display:none;"></div>
-        
-        <canvas id="mainCanvas"></canvas>
-        <canvas id="originalCanvas"></canvas>
-    </div>
-
-    <div class="upload-overlay" id="uploadOverlay">
-        <div class="upload-btn">
-            Open Image
-            <input type="file" id="fileInput" accept="image/*">
-        </div>
-        <div class="footer-text">designed by wavee</div>
-    </div>
-
-    <div class="controls">
-        <div class="sliders">
-            <div class="slider-row">
-                <label>Size</label>
-                <input type="range" id="sizeSlider" min="10" max="150" value="120">
-            </div>
-            <div class="slider-row">
-                <label>Intensity</label>
-                <input type="range" id="pressureSlider" min="0.05" max="1.0" step="0.05" value="0.5">
-            </div>
-        </div>
-        <div class="tools">
-            <button class="tool-btn active" data-tool="reshape">Reshape</button>
-            <button class="tool-btn" data-tool="smooth">Smooth</button>
-            <button class="tool-btn" data-tool="detail">Detail</button>
-            <button class="tool-btn" data-tool="clone">Patch</button>
-            <button class="tool-btn" data-tool="tone">Tone</button>
-            <button class="tool-btn" data-tool="eraser">Eraser</button>
-        </div>
-    </div>
-
-<script>
-    // ==========================================
-    // WebGL GPU 加速引擎 (零延迟完美复刻算法)
-    // ==========================================
-    const GLFilter = (function() {
-        const cvs = document.createElement('canvas');
-        const gl = cvs.getContext('webgl', { premultipliedAlpha: false });
-        if (!gl) return null;
-
-        function compile(type, source) {
-            const shader = gl.createShader(type);
-            gl.shaderSource(shader, source);
-            gl.compileShader(shader);
-            return shader;
-        }
-        function createProgram(fsSource) {
-            const vsSource = `attribute vec2 a_pos; varying vec2 v_uv; void main(){ gl_Position=vec4(a_pos,0.0,1.0); v_uv=a_pos*0.5+0.5; v_uv.y=1.0-v_uv.y; }`;
-            const p = gl.createProgram();
-            gl.attachShader(p, compile(gl.VERTEX_SHADER, vsSource));
-            gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fsSource));
-            gl.linkProgram(p);
-            return p;
-        }
-
-        const detailProg = createProgram(`precision mediump float; varying vec2 v_uv; uniform sampler2D u_tex; uniform vec2 u_px;
-            void main(){
-                vec4 c = texture2D(u_tex, v_uv);
-                vec4 t = texture2D(u_tex, v_uv + vec2(0.0, -u_px.y)), b = texture2D(u_tex, v_uv + vec2(0.0, u_px.y));
-                vec4 l = texture2D(u_tex, v_uv + vec2(-u_px.x, 0.0)), r = texture2D(u_tex, v_uv + vec2(u_px.x, 0.0));
-                vec4 sharp = c * 5.0 - t - b - l - r;
-                gl_FragColor = mix(c, sharp, 0.3); gl_FragColor.a = c.a;
-            }`);
-            
-        const bilateralProg = createProgram(`precision mediump float; varying vec2 v_uv; uniform sampler2D u_tex; uniform vec2 u_px; uniform vec2 u_dir; uniform float u_radius; uniform float u_edge;
-            void main(){
-                vec4 c = texture2D(u_tex, v_uv); vec4 sum = vec4(0.0); float wSum = 0.0; int rad = int(u_radius);
-                for(int i=-25; i<=25; i++) {
-                    if(i < -rad || i > rad) continue;
-                    vec4 s = texture2D(u_tex, v_uv + float(i) * u_px * u_dir);
-                    float diff = abs(s.r-c.r) + abs(s.g-c.g) + abs(s.b-c.b);
-                    float w = max(0.0, 1.0 - diff / u_edge);
-                    sum += s * w; wSum += w;
-                }
-                gl_FragColor = sum / wSum; gl_FragColor.a = c.a;
-            }`);
-
-        const boxProg = createProgram(`precision mediump float; varying vec2 v_uv; uniform sampler2D u_tex; uniform vec2 u_px; uniform vec2 u_dir; uniform float u_radius;
-            void main(){
-                vec4 sum = vec4(0.0); float wSum = 0.0; int rad = int(u_radius);
-                for(int i=-45; i<=45; i++) {
-                    if(i < -rad || i > rad) continue;
-                    sum += texture2D(u_tex, v_uv + float(i) * u_px * u_dir); wSum += 1.0;
-                }
-                gl_FragColor = sum / wSum; vec4 c = texture2D(u_tex, v_uv); gl_FragColor.a = c.a;
-            }`);
-
-        const mixProg = createProgram(`precision mediump float; varying vec2 v_uv; uniform sampler2D u_blurTex; uniform sampler2D u_origTex; uniform float u_mix; uniform float u_noiseScale;
-            float rand(vec2 co){ return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453); }
-            void main(){
-                vec4 orig = texture2D(u_origTex, v_uv); vec4 result = mix(orig, texture2D(u_blurTex, v_uv), u_mix);
-                float noise = (rand(v_uv) + rand(v_uv + vec2(1.0, 1.0)) - 1.0) * u_noiseScale;
-                result.rgb += noise; result.a = orig.a; gl_FragColor = result;
-            }`);
-
-        const quadBuf = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]), gl.STATIC_DRAW);
-
-        let w = 0, h = 0;
-        let texOrig = gl.createTexture(), texA = gl.createTexture(), texB = gl.createTexture();
-        let fboA = gl.createFramebuffer(), fboB = gl.createFramebuffer();
-
-        function initTex(tex) {
-            gl.bindTexture(gl.TEXTURE_2D, tex);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-        }
-
-        return {
-            canvas: cvs,
-            resize: function(nw, nh) {
-                if(w===nw && h===nh) return; w=nw; h=nh; cvs.width=w; cvs.height=h; gl.viewport(0,0,w,h);
-                [texOrig, texA, texB].forEach(t => { initTex(t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); });
-                gl.bindFramebuffer(gl.FRAMEBUFFER, fboA); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texA, 0);
-                gl.bindFramebuffer(gl.FRAMEBUFFER, fboB); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texB, 0);
-            },
-            process: function(type, sourceCanvas, isUltra) {
-                gl.bindTexture(gl.TEXTURE_2D, texOrig);
-                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, sourceCanvas);
-                
-                gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
-                
-                const drawQuad = (prog, inTex, outFbo) => {
-                    gl.useProgram(prog);
-                    const posLoc = gl.getAttribLocation(prog, "a_pos");
-                    gl.enableVertexAttribArray(posLoc);
-                    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
-                    
-                    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, inTex);
-                    gl.uniform1i(gl.getUniformLocation(prog, "u_tex"), 0);
-                    const pxLoc = gl.getUniformLocation(prog, "u_px");
-                    if(pxLoc) gl.uniform2f(pxLoc, 1.0/w, 1.0/h);
-                    
-                    gl.bindFramebuffer(gl.FRAMEBUFFER, outFbo);
-                    gl.drawArrays(gl.TRIANGLES, 0, 6);
-                };
-
-                if (type === 'detail') {
-                    drawQuad(detailProg, texOrig, null);
-                } else if (type === 'smooth') {
-                    if (!isUltra) {
-                        // Bilateral Pass
-                        gl.useProgram(bilateralProg);
-                        gl.uniform1f(gl.getUniformLocation(bilateralProg, "u_radius"), Math.max(3, Math.floor(w * 0.006)));
-                        gl.uniform1f(gl.getUniformLocation(bilateralProg, "u_edge"), 75.0 / 255.0);
-                        
-                        gl.uniform2f(gl.getUniformLocation(bilateralProg, "u_dir"), 1.0, 0.0);
-                        drawQuad(bilateralProg, texOrig, fboA);
-                        
-                        gl.uniform2f(gl.getUniformLocation(bilateralProg, "u_dir"), 0.0, 1.0);
-                        drawQuad(bilateralProg, texA, fboB);
-                    } else {
-                        // 3 Passes of Box Blur to mathematically mimic TripleBoxBlur
-                        gl.useProgram(boxProg);
-                        gl.uniform1f(gl.getUniformLocation(boxProg, "u_radius"), Math.max(5, Math.floor(w * 0.012)));
-                        
-                        let currentIn = texOrig;
-                        for(let i=0; i<3; i++) {
-                            gl.uniform2f(gl.getUniformLocation(boxProg, "u_dir"), 1.0, 0.0); drawQuad(boxProg, currentIn, fboA);
-                            gl.uniform2f(gl.getUniformLocation(boxProg, "u_dir"), 0.0, 1.0); drawQuad(boxProg, texA, fboB);
-                            currentIn = texB;
-                        }
-                    }
-                    
-                    // Final Mix Pass with Noise
-                    gl.useProgram(mixProg);
-                    const posLoc = gl.getAttribLocation(mixProg, "a_pos");
-                    gl.enableVertexAttribArray(posLoc); gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
-                    
-                    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, texB); gl.uniform1i(gl.getUniformLocation(mixProg, "u_blurTex"), 0);
-                    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, texOrig); gl.uniform1i(gl.getUniformLocation(mixProg, "u_origTex"), 1);
-                    
-                    gl.uniform1f(gl.getUniformLocation(mixProg, "u_mix"), isUltra ? 1.0 : 0.85);
-                    gl.uniform1f(gl.getUniformLocation(mixProg, "u_noiseScale"), 1.5 / 255.0);
-                    
-                    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-                    gl.drawArrays(gl.TRIANGLES, 0, 6);
-                }
-            }
-        };
-    })();
-    // ==========================================
-
-
-    const workspace = document.getElementById('workspace');
-    
-    const canvas = document.getElementById('mainCanvas');
-    const ctx = canvas.getContext('2d', { willReadFrequently: true, alpha: false });
-    
-    const originalCanvas = document.getElementById('originalCanvas');
-    const originalCtx = originalCanvas.getContext('2d', { alpha: false });
-    
-    const snapshotCanvas = document.createElement('canvas');
-    const snapshotCtx = snapshotCanvas.getContext('2d', { willReadFrequently: true, alpha: false });
-    
-    const cleanCanvas = document.createElement('canvas');
-    const cleanCtx = cleanCanvas.getContext('2d', { willReadFrequently: true, alpha: false });
-    const cleanSnapshotCanvas = document.createElement('canvas');
-    const cleanSnapshotCtx = cleanSnapshotCanvas.getContext('2d', { willReadFrequently: true, alpha: false });
-
-    const effectCanvas = document.createElement('canvas');
-    const effectCtx = effectCanvas.getContext('2d', { willReadFrequently: true }); 
-    const brushCanvas = document.createElement('canvas');
-    const brushCtx = brushCanvas.getContext('2d'); 
-
-    const cloneStrokeCanvas = document.createElement('canvas');
-    const cloneStrokeCtx = cloneStrokeCanvas.getContext('2d', { willReadFrequently: true });
-
-    let history = [], currentTool = 'reshape', isDrawing = false;
-    let brushSizeScreen = 120, brushPressure = 0.5;
-    let anchorX = 0, anchorY = 0, lastX = 0, lastY = 0;
-    
-    let viewScale = 1, viewPanX = 0, viewPanY = 0;
-    let effectCacheType = null; 
-
-    let cloneSource = null, isSettingCloneSource = false, isAimingSample = false, isAimingPatch = false;
-    let cloneOffsetX = 0, cloneOffsetY = 0;
-    let toneColor = null, isSettingToneSource = false, isAimingToneSample = false;
-    let isUltraSmooth = false; 
-
-    let crosshairImgX = 0, crosshairImgY = 0, brushImgX = 0, brushImgY = 0;
-    let lastDabX = 0, lastDabY = 0; 
-    let strokeBounds = { minX: 0, minY: 0, maxX: 0, maxY: 0 }; 
-
-    const cloneToast = document.getElementById('cloneToast');
-    const cloneCrosshair = document.getElementById('cloneSourceCrosshair');
-    const brushCursor = document.getElementById('brushCursor');
-    
-    const reshapeLUT = new Float32Array(1024);
-    for(let i=0; i<1024; i++){ reshapeLUT[i] = Math.pow(0.5 + 0.5 * Math.cos((i/1023) * Math.PI), 1.2); }
-
-    function updateCursorSize() {
-        const sizeStr = brushSizeScreen + 'px';
-        cloneCrosshair.style.width = cloneCrosshair.style.height = sizeStr;
-        brushCursor.style.width = brushCursor.style.height = sizeStr;
-    }
-
-    function setCrosshair(x, y) {
-        crosshairImgX = x; crosshairImgY = y;
-        const screenX = x * viewScale + viewPanX, screenY = y * viewScale + viewPanY;
-        cloneCrosshair.style.transform = `translate(calc(${screenX}px - 50%), calc(${screenY}px - 50%))`;
-    }
-
-    function setBrushCursor(x, y) {
-        brushImgX = x; brushImgY = y;
-        const screenX = x * viewScale + viewPanX, screenY = y * viewScale + viewPanY;
-        brushCursor.style.transform = `translate(calc(${screenX}px - 50%), calc(${screenY}px - 50%))`;
-    }
-
-    function updateTransform() {
-        const matrix = `matrix(${viewScale}, 0, 0, ${viewScale}, ${viewPanX}, ${viewPanY})`;
-        canvas.style.transform = originalCanvas.style.transform = matrix;
-        if (currentTool === 'clone' || currentTool === 'tone') {
-            if (cloneCrosshair.style.display !== 'none') setCrosshair(crosshairImgX, crosshairImgY);
-            if (brushCursor.style.display !== 'none') setBrushCursor(brushImgX, brushImgY);
-        }
-    }
-
-    function fitToScreen() {
-        const padding = 20;
-        const scaleX = (workspace.clientWidth - padding) / canvas.width, scaleY = (workspace.clientHeight - padding) / canvas.height;
-        viewScale = Math.min(scaleX, scaleY);
-        viewPanX = (workspace.clientWidth - canvas.width * viewScale) / 2; viewPanY = (workspace.clientHeight - canvas.height * viewScale) / 2;
-        updateTransform();
-    }
-
-    window.addEventListener('resize', () => { if (document.getElementById('uploadOverlay').style.display === 'none') fitToScreen(); });
-
-    const compareBtn = document.getElementById('compareBtn');
-    const showOriginal = (e) => { e.preventDefault(); originalCanvas.style.display = 'block'; };
-    const hideOriginal = (e) => { e.preventDefault(); originalCanvas.style.display = 'none'; };
-    compareBtn.addEventListener('mousedown', showOriginal); compareBtn.addEventListener('touchstart', showOriginal, {passive: false});
-    ['mouseup', 'mouseleave', 'touchend', 'touchcancel'].forEach(evt => compareBtn.addEventListener(evt, hideOriginal));
-
-    document.getElementById('closeBtn').onclick = () => {
-        history = []; document.getElementById('fileInput').value = "";
-        viewScale = 1; viewPanX = 0; viewPanY = 0; updateTransform();
-        effectCacheType = cloneSource = toneColor = null; 
-        isSettingCloneSource = isAimingSample = isAimingPatch = isSettingToneSource = isAimingToneSample = isUltraSmooth = false;
-        
-        cloneToast.style.display = cloneCrosshair.style.display = brushCursor.style.display = 'none';
-        document.getElementById('uploadOverlay').style.display = 'flex';
-        document.getElementById('exportBtn').style.display = document.getElementById('compareBtn').style.display = document.getElementById('closeBtn').style.display = 'none';
-        document.getElementById('undoBtn').disabled = true;
-    };
-
-    document.getElementById('sizeSlider').oninput = (e) => { brushSizeScreen = parseInt(e.target.value); updateCursorSize(); };
-    document.getElementById('pressureSlider').oninput = (e) => { brushPressure = parseFloat(e.target.value); };
-    
-    const handleToastClick = (e) => {
-        e.preventDefault(); e.stopPropagation();
-        if (currentTool === 'clone' || currentTool === 'tone') {
-            currentTool === 'clone' ? (cloneSource = null, isSettingCloneSource = true) : (toneColor = null, isSettingToneSource = true);
-            isAimingSample = isAimingPatch = isAimingToneSample = isDrawing = false;
-            cloneToast.innerText = currentTool === 'clone' ? '🎯 拖拽选择 取样点' : '🎯 拖拽选择 取色点';
-            cloneToast.classList.add('active');
-            cloneCrosshair.style.display = brushCursor.style.display = 'none';
-        } else if (currentTool === 'smooth') {
-            isUltraSmooth = !isUltraSmooth;
-            cloneToast.innerText = isUltraSmooth ? '✨ ULTRA SMOOTH: ON' : '✨ ULTRA SMOOTH: OFF';
-            isUltraSmooth ? cloneToast.classList.add('active') : cloneToast.classList.remove('active');
-            effectCacheType = null; 
-        }
-    };
-    cloneToast.addEventListener('mousedown', handleToastClick); cloneToast.addEventListener('touchstart', handleToastClick, {passive: false});
-
-    document.querySelectorAll('.tool-btn').forEach(btn => {
-        btn.onclick = (e) => {
-            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active')); e.target.classList.add('active');
-            currentTool = e.target.getAttribute('data-tool'); effectCacheType = null; 
-
-            if (currentTool === 'clone' || currentTool === 'tone' || currentTool === 'smooth') {
-                cloneToast.style.display = 'flex';
-                if (currentTool === 'clone') {
-                    cloneSource = null; isSettingCloneSource = true; cloneToast.innerText = '🎯 拖拽选择 取样点'; cloneToast.classList.add('active');
-                } else if (currentTool === 'tone') {
-                    toneColor = null; isSettingToneSource = true; cloneToast.innerText = '🎯 拖拽选择 取色点'; cloneToast.classList.add('active');
-                } else {
-                    cloneToast.innerText = isUltraSmooth ? '✨ ULTRA SMOOTH: ON' : '✨ ULTRA SMOOTH: OFF';
-                    isUltraSmooth ? cloneToast.classList.add('active') : cloneToast.classList.remove('active');
-                }
-                cloneCrosshair.style.display = brushCursor.style.display = 'none';
-            } else {
-                cloneToast.style.display = cloneCrosshair.style.display = brushCursor.style.display = 'none';
-                isSettingCloneSource = isSettingToneSource = isAimingSample = isAimingPatch = isAimingToneSample = false;
-            }
-        };
-    });
-
-    document.getElementById('fileInput').onchange = (e) => {
-        const file = e.target.files[0]; if (!file) return;
-        const img = new Image();
-        img.onload = () => {
-            // 【硬核恢复 3000px 限制】 有 GPU 引擎护航，3000px 跑得飞快！
-            const MAX_DIMENSION = 3000; 
-            let w = img.width, h = img.height;
-            if(w > MAX_DIMENSION || h > MAX_DIMENSION) { 
-                const r = Math.min(MAX_DIMENSION/w, MAX_DIMENSION/h); 
-                w = Math.round(w * r); h = Math.round(h * r); 
-            }
-            
-            canvas.width = snapshotCanvas.width = effectCanvas.width = originalCanvas.width = cloneStrokeCanvas.width = w;
-            canvas.height = snapshotCanvas.height = effectCanvas.height = originalCanvas.height = cloneStrokeCanvas.height = h;
-            cleanCanvas.width = cleanSnapshotCanvas.width = w; cleanCanvas.height = cleanSnapshotCanvas.height = h;
-            
-            ctx.drawImage(img, 0, 0, w, h); originalCtx.drawImage(img, 0, 0, w, h); cleanCtx.drawImage(img, 0, 0, w, h);
-            
-            document.getElementById('uploadOverlay').style.display = 'none';
-            document.getElementById('exportBtn').style.display = document.getElementById('compareBtn').style.display = document.getElementById('closeBtn').style.display = 'block';
-            
-            effectCacheType = null; updateCursorSize(); fitToScreen(); saveState(); URL.revokeObjectURL(img.src);
-        };
-        img.src = URL.createObjectURL(file);
-    };
-
-    function saveState() {
-        if (history.length >= 5) history.shift();
-        history.push({ main: ctx.getImageData(0, 0, canvas.width, canvas.height), clean: cleanCtx.getImageData(0, 0, canvas.width, canvas.height) });
-        document.getElementById('undoBtn').disabled = history.length <= 1;
-    }
-
-    document.getElementById('undoBtn').onclick = () => {
-        if (history.length <= 1) return; history.pop();
-        const prevState = history[history.length - 1];
-        ctx.putImageData(prevState.main, 0, 0); cleanCtx.putImageData(prevState.clean, 0, 0);
-        effectCacheType = null; document.getElementById('undoBtn').disabled = history.length <= 1;
-    };
-
-    document.getElementById('exportBtn').onclick = async () => {
-        const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
-        if (navigator.share) {
-            try {
-                const response = await fetch(dataUrl); const file = new File([await response.blob()], 'facewave_edit.jpg', { type: 'image/jpeg' });
-                if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Facewave Edit' }); return; }
-            } catch (err) { console.log("Share fallback", err); }
-        }
-        const a = document.createElement('a'); a.download = 'facewave_edit.jpg'; a.href = dataUrl; a.click();
-    };
-
-    let isPanning = false, pinchStartDist = 0, pinchStartScale = 1, pinchCenterX = 0, pinchCenterY = 0, pinchStartPanX = 0, pinchStartPanY = 0, lastPanX = 0, lastPanY = 0;
-    let pendingDrawEvent = null, drawRAF = null;
-    const isOverlayActive = () => document.getElementById('uploadOverlay').style.display !== 'none';
-
-    function screenToImage(screenX, screenY) { return { x: (screenX - viewPanX) / viewScale, y: (screenY - viewPanY) / viewScale }; }
-
-    workspace.addEventListener('wheel', (e) => {
-        if (isOverlayActive()) return; e.preventDefault();
-        const rect = workspace.getBoundingClientRect(), mouseX = e.clientX - rect.left, mouseY = e.clientY - rect.top;
-        let newScale = Math.max(0.1, Math.min(viewScale * Math.exp(-e.deltaY * 0.001), 20)); 
-        viewPanX = mouseX - (mouseX - viewPanX) * (newScale / viewScale); viewPanY = mouseY - (mouseY - viewPanY) * (newScale / viewScale);
-        viewScale = newScale; updateTransform();
-    }, { passive: false });
-
-    workspace.addEventListener('pointerdown', (e) => {
-        if (e.target === cloneToast || e.target.parentElement === cloneToast || isOverlayActive()) return; 
-        if (e.button === 1 || e.button === 2) { isPanning = true; lastPanX = e.clientX; lastPanY = e.clientY; }
-    });
-
-    workspace.addEventListener('contextmenu', e => { if (!isOverlayActive()) e.preventDefault(); });
-
-    workspace.addEventListener('touchstart', (e) => {
-        if (e.target === cloneToast || e.target.parentElement === cloneToast || isOverlayActive()) return; 
-        e.preventDefault(); 
-        if (e.touches.length === 2) {
-            isDrawing = isAimingSample = isAimingPatch = isAimingToneSample = false;
-            if (currentTool === 'clone' || currentTool === 'tone') {
-                if (currentTool === 'clone' && isSettingCloneSource || currentTool === 'tone' && isSettingToneSource) cloneCrosshair.style.display = 'none';
-                else { brushCursor.style.display = 'none'; if (cloneSource && currentTool === 'clone') setCrosshair(cloneSource.x, cloneSource.y); }
-            }
-            isPanning = true; const t1 = e.touches[0], t2 = e.touches[1];
-            pinchStartDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY); pinchStartScale = viewScale;
-            const rect = workspace.getBoundingClientRect(); pinchCenterX = (t1.clientX + t2.clientX) / 2 - rect.left; pinchCenterY = (t1.clientY + t2.clientY) / 2 - rect.top;
-            pinchStartPanX = viewPanX; pinchStartPanY = viewPanY;
-        } else if (e.touches.length === 1 && !isPanning) startDrawing(e.touches[0]);
-    }, {passive: false});
-
-    workspace.addEventListener('mousedown', (e) => {
-        if (e.target === cloneToast || e.target.parentElement === cloneToast || isOverlayActive()) return;
-        if (e.button === 0 && !isPanning) startDrawing(e);
-    });
-
-    function startDrawing(touchOrMouse) {
-        const rect = workspace.getBoundingClientRect(), imgPos = screenToImage(touchOrMouse.clientX - rect.left, touchOrMouse.clientY - rect.top);
-        snapshotCtx.drawImage(canvas, 0, 0); 
-        
-        if (currentTool === 'clone' || currentTool === 'tone') {
-            const isToolSettingSource = currentTool === 'clone' ? isSettingCloneSource : isSettingToneSource;
-            const sourceVar = currentTool === 'clone' ? cloneSource : toneColor;
-            
-            if (isToolSettingSource || !sourceVar) {
-                currentTool === 'clone' ? isAimingSample = true : isAimingToneSample = true;
-                cloneCrosshair.style.display = 'block'; brushCursor.style.display = 'none'; setCrosshair(imgPos.x, imgPos.y);
-            } else {
-                if(currentTool === 'clone') {
-                    isAimingPatch = true; cloneOffsetX = cloneSource.x - imgPos.x; cloneOffsetY = cloneSource.y - imgPos.y;
-                    cloneCrosshair.style.display = 'block'; setCrosshair(cloneSource.x, cloneSource.y);
-                } else {
-                    strokeBounds = { minX: imgPos.x, minY: imgPos.y, maxX: imgPos.x, maxY: imgPos.y }; lastDabX = imgPos.x; lastDabY = imgPos.y; cloneCrosshair.style.display = 'none'; 
-                }
-                cloneStrokeCtx.clearRect(0, 0, canvas.width, canvas.height);
-                brushCursor.style.display = 'block'; setBrushCursor(imgPos.x, imgPos.y);
-            }
-            anchorX = lastX = imgPos.x; anchorY = lastY = imgPos.y; isDrawing = true; return; 
-        }
-
-        anchorX = lastX = imgPos.x; anchorY = lastY = imgPos.y; isDrawing = true;
-        
-        if (currentTool === 'reshape') cleanSnapshotCtx.drawImage(cleanCanvas, 0, 0); 
-        else if (currentTool === 'smooth') {
-            const requiredCache = isUltraSmooth ? 'smooth_ultra' : 'smooth_regular';
-            if (effectCacheType !== requiredCache) { prepareProfessionalRetouch(); effectCacheType = requiredCache; }
-        } else if (currentTool === 'detail') {
-            if (effectCacheType !== 'detail') { prepareDetail(); effectCacheType = 'detail'; }
-        } else if (currentTool === 'eraser') {
-            if (effectCacheType !== 'eraser') { effectCtx.clearRect(0, 0, canvas.width, canvas.height); effectCtx.drawImage(cleanCanvas, 0, 0); effectCacheType = 'eraser'; }
-        }
-    }
-
-    workspace.addEventListener('touchmove', (e) => {
-        if (isOverlayActive()) return; e.preventDefault(); 
-        if (isPanning && e.touches.length === 2) {
-            const t1 = e.touches[0], t2 = e.touches[1];
-            let newScale = Math.max(0.1, Math.min(pinchStartScale * (Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY) / pinchStartDist), 20));
-            const rect = workspace.getBoundingClientRect();
-            viewPanX = ((t1.clientX + t2.clientX) / 2 - rect.left) - (pinchCenterX - pinchStartPanX) * (newScale / pinchStartScale);
-            viewPanY = ((t1.clientY + t2.clientY) / 2 - rect.top) - (pinchCenterY - pinchStartPanY) * (newScale / pinchStartScale);
-            viewScale = newScale; updateTransform();
-        } else if (isDrawing && e.touches.length === 1) { pendingDrawEvent = e.touches[0]; if (!drawRAF) drawRAF = requestAnimationFrame(processDrawMove); }
-    }, {passive: false});
-
-    workspace.addEventListener('mousemove', (e) => {
-        if (isOverlayActive()) return;
-        if (isPanning) { viewPanX += e.clientX - lastPanX; viewPanY += e.clientY - lastPanY; lastPanX = e.clientX; lastPanY = e.clientY; updateTransform(); return; }
-        if (isDrawing) { pendingDrawEvent = e; if (!drawRAF) drawRAF = requestAnimationFrame(processDrawMove); }
-    });
-    
-    function processDrawMove() {
-        if (!pendingDrawEvent || !isDrawing) { drawRAF = null; return; }
-        moveDrawing(pendingDrawEvent); pendingDrawEvent = null; drawRAF = null;
-    }
-
-    function moveDrawing(touchOrMouse) {
-        const rect = workspace.getBoundingClientRect(), imgPos = screenToImage(touchOrMouse.clientX - rect.left, touchOrMouse.clientY - rect.top);
-        if (currentTool === 'reshape') applyReshapeAdvanced(imgPos.x, imgPos.y);
-        else if (currentTool === 'clone') {
-            if (isAimingSample) setCrosshair(imgPos.x, imgPos.y);
-            else if (isAimingPatch) { setBrushCursor(imgPos.x, imgPos.y); setCrosshair(imgPos.x + cloneOffsetX, imgPos.y + cloneOffsetY); }
-        } else if (currentTool === 'tone') {
-            if (isAimingToneSample) setCrosshair(imgPos.x, imgPos.y);
-            else {
-                const r = (brushSizeScreen / viewScale) * 0.5, dist = Math.hypot(imgPos.x - lastDabX, imgPos.y - lastDabY), step = Math.max(1, r * 0.05); 
-                if (dist > step) {
-                    const stepsCount = Math.ceil(dist / step);
-                    for(let i = 1; i <= stepsCount; i++) applyToneBrush(lastDabX + (imgPos.x - lastDabX) * (i / stepsCount), lastDabY + (imgPos.y - lastDabY) * (i / stepsCount), true);
-                    flushStrokeBuffer(); lastDabX = imgPos.x; lastDabY = imgPos.y;
-                }
-                setBrushCursor(imgPos.x, imgPos.y);
-            }
-        } else {
-            const r = brushSizeScreen / viewScale, dist = Math.hypot(imgPos.x - lastX, imgPos.y - lastY), step = Math.max(1, r * 0.1); 
-            if (dist > step) {
-                const stepsCount = Math.ceil(dist / step);
-                for(let i = 1; i <= stepsCount; i++) applyBrushTool(lastX + (imgPos.x - lastX) * (i / stepsCount), lastY + (imgPos.y - lastY) * (i / stepsCount));
-            } else applyBrushTool(imgPos.x, imgPos.y);
-        }
-        lastX = imgPos.x; lastY = imgPos.y;
-    }
-
-    window.addEventListener('touchend', (e) => { if (isOverlayActive()) return; if (e.touches.length < 2) isPanning = false; if (e.touches.length === 0 && isDrawing) endDrawing(); });
-    window.addEventListener('mouseup', (e) => { if (isOverlayActive()) return; if (e.button === 1 || e.button === 2) isPanning = false; if (e.button === 0 && isDrawing) endDrawing(); });
-
-    function endDrawing() {
-        if (!isDrawing) return;
-        isDrawing = false; if (currentTool === 'reshape') effectCacheType = null; 
-        
-        if (currentTool === 'clone') {
-            if (isAimingSample) {
-                cloneSource = { x: lastX, y: lastY }; isAimingSample = isSettingCloneSource = false;
-                cloneToast.innerText = '🖌️ 拖拽瞄准 涂抹'; cloneToast.classList.remove('active'); setCrosshair(cloneSource.x, cloneSource.y); return; 
-            } else if (isAimingPatch) {
-                applyCloneStamp(lastX, lastY); isAimingPatch = false; brushCursor.style.display = 'none';
-                cloneSource = null; isSettingCloneSource = true;
-                cloneToast.innerText = '🎯 拖拽选择 取样点'; cloneToast.classList.add('active');
-                cloneCrosshair.style.display = 'none'; effectCacheType = null; saveState(); return;
-            }
-        } else if (currentTool === 'tone') {
-            if (isAimingToneSample) {
-                const pxData = snapshotCtx.getImageData(Math.min(canvas.width - 1, Math.max(0, Math.floor(lastX))), Math.min(canvas.height - 1, Math.max(0, Math.floor(lastY))), 1, 1).data;
-                toneColor = { r: pxData[0], g: pxData[1], b: pxData[2] }; isAimingToneSample = isSettingToneSource = false;
-                cloneToast.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:rgb(${toneColor.r},${toneColor.g},${toneColor.b});border:1px solid #fff;margin-right:5px;vertical-align:middle;"></span> 🔄 重新取色`;
-                cloneToast.classList.remove('active'); setCrosshair(lastX, lastY); return; 
-            } else { brushCursor.style.display = 'none'; effectCacheType = null; saveState(); return; }
-        }
-        saveState();
-    }
-
-    function flushStrokeBuffer() {
-        const updateW = Math.ceil(strokeBounds.maxX - strokeBounds.minX), updateH = Math.ceil(strokeBounds.maxY - strokeBounds.minY);
-        if (updateW <= 0 || updateH <= 0) return;
-        ctx.clearRect(strokeBounds.minX, strokeBounds.minY, updateW, updateH);
-        ctx.drawImage(snapshotCanvas, strokeBounds.minX, strokeBounds.minY, updateW, updateH, strokeBounds.minX, strokeBounds.minY, updateW, updateH);
-        ctx.globalAlpha = brushPressure; ctx.drawImage(cloneStrokeCanvas, strokeBounds.minX, strokeBounds.minY, updateW, updateH, strokeBounds.minX, strokeBounds.minY, updateW, updateH);
-        ctx.globalAlpha = 1.0; 
-    }
-
-    function applyToneBrush(x, y, deferRender = false) {
-        if (!toneColor) return;
-        const r = (brushSizeScreen / viewScale) * 0.5, sx = Math.max(0, Math.floor(x - r)), sy = Math.max(0, Math.floor(y - r));
-        const ex = Math.min(canvas.width, Math.ceil(x + r)), ey = Math.min(canvas.height, Math.ceil(y + r)), bw = ex - sx, bh = ey - sy; if (bw <= 0 || bh <= 0) return;
-
-        if (sx < strokeBounds.minX) strokeBounds.minX = sx; if (sy < strokeBounds.minY) strokeBounds.minY = sy;
-        if (ex > strokeBounds.maxX) strokeBounds.maxX = ex; if (ey > strokeBounds.maxY) strokeBounds.maxY = ey;
-
-        brushCanvas.width = bw; brushCanvas.height = bh; brushCtx.clearRect(0, 0, bw, bh);
-        const g = brushCtx.createRadialGradient(x - sx, y - sy, 0, x - sx, y - sy, r);
-        g.addColorStop(0, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0.4)`); g.addColorStop(0.15, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0.15)`);
-        g.addColorStop(0.35, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0.04)`); g.addColorStop(0.6, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0.008)`);
-        g.addColorStop(1, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0)`);
-
-        brushCtx.globalCompositeOperation = 'source-over'; brushCtx.fillStyle = g; brushCtx.fillRect(0, 0, bw, bh);
-        cloneStrokeCtx.globalCompositeOperation = 'source-over'; cloneStrokeCtx.drawImage(brushCanvas, sx, sy);
-        if (!deferRender) flushStrokeBuffer();
-    }
-
-    function applyCloneStamp(x, y) {
-        if (!cloneSource) return;
-        const r = (brushSizeScreen / viewScale) * 0.5, srcX = x + cloneOffsetX, srcY = y + cloneOffsetY;
-        const sx = Math.max(0, Math.floor(x - r)), sy = Math.max(0, Math.floor(y - r));
-        const ex = Math.min(canvas.width, Math.ceil(x + r)), ey = Math.min(canvas.height, Math.ceil(y + r)), bw = ex - sx, bh = ey - sy; if (bw <= 0 || bh <= 0) return;
-
-        brushCanvas.width = bw; brushCanvas.height = bh; brushCtx.clearRect(0, 0, bw, bh);
-        let reqSrcX = srcX - r + sx - (x - r), reqSrcY = srcY - r + sy - (y - r), reqW = bw, reqH = bh, drawDestX = 0, drawDestY = 0;
-
-        if (reqSrcX < 0) { drawDestX = -reqSrcX; reqW += reqSrcX; reqSrcX = 0; }
-        if (reqSrcY < 0) { drawDestY = -reqSrcY; reqH += reqSrcY; reqSrcY = 0; }
-        if (reqSrcX + reqW > canvas.width) reqW = canvas.width - reqSrcX; if (reqSrcY + reqH > canvas.height) reqH = canvas.height - reqSrcY;
-
-        if (reqW > 0 && reqH > 0) brushCtx.drawImage(snapshotCanvas, reqSrcX, reqSrcY, reqW, reqH, drawDestX, drawDestY, reqW, reqH);
-
-        const g = brushCtx.createRadialGradient(x - sx, y - sy, 0, x - sx, y - sy, r);
-        g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(0.2, 'rgba(0,0,0,0.95)'); g.addColorStop(0.5, 'rgba(0,0,0,0.6)'); g.addColorStop(0.8, 'rgba(0,0,0,0.1)'); g.addColorStop(1, 'rgba(0,0,0,0)'); 
-
-        brushCtx.globalCompositeOperation = 'destination-in'; brushCtx.fillStyle = g; brushCtx.fillRect(0, 0, bw, bh);
-
-        if (sx < strokeBounds.minX) strokeBounds.minX = sx; if (sy < strokeBounds.minY) strokeBounds.minY = sy;
-        if (ex > strokeBounds.maxX) strokeBounds.maxX = ex; if (ey > strokeBounds.maxY) strokeBounds.maxY = ey;
-        cloneStrokeCtx.globalCompositeOperation = 'source-over'; cloneStrokeCtx.drawImage(brushCanvas, sx, sy); flushStrokeBuffer();
-    }
-
-    // CPU 原生局部重塑渲染 (由于只获取局部边界的矩形区域，效率本身极高，无需迁移 WebGL)
-    function applyReshapeAdvanced(curX, curY) {
-        const dx = curX - anchorX, dy = curY - anchorY, distFromAnchorSq = dx*dx + dy*dy, r = brushSizeScreen / viewScale; 
-        renderWarpBilinearFromSnapshot(anchorX, anchorY, dx, dy, r);
-        if (distFromAnchorSq > (r * 0.5) * (r * 0.5)) { snapshotCtx.drawImage(canvas, 0, 0); cleanSnapshotCtx.drawImage(cleanCanvas, 0, 0); anchorX = curX; anchorY = curY; }
-    }
-
-    function renderWarpBilinearFromSnapshot(cx, cy, dx, dy, r) {
-        const pad = Math.ceil(r + Math.max(Math.abs(dx), Math.abs(dy)) + 2), minX = cx - pad, maxX = cx + pad, minY = cy - pad, maxY = cy + pad;
-        const readSx = Math.max(0, Math.floor(minX)), readSy = Math.max(0, Math.floor(minY));
-        const readW = Math.min(canvas.width - readSx, Math.ceil(maxX - minX)), readH = Math.min(canvas.height - readSy, Math.ceil(maxY - minY));
-
-        if (readW <= 0 || readH <= 0) return;
-        const imgData = snapshotCtx.getImageData(readSx, readSy, readW, readH), src = imgData.data;
-        const outData = ctx.createImageData(readW, readH), dst = outData.data;
-        const cImgData = cleanSnapshotCtx.getImageData(readSx, readSy, readW, readH), cSrc = cImgData.data;
-        const cOutData = cleanCtx.createImageData(readW, readH), cDst = cOutData.data;
-
-        const pressure = brushPressure, destX = cx + dx, destY = cy + dy, rSq = r * r;
-
-        for (let y = 0; y < readH; y++) {
-            for (let x = 0; x < readW; x++) {
-                const globalX = readSx + x, globalY = readSy + y, dxP = globalX - destX, dyP = globalY - destY, distSq = dxP * dxP + dyP * dyP;
-                let srcGlobalX = globalX, srcGlobalY = globalY;
-
-                if (distSq < rSq) {
-                    const weight = reshapeLUT[Math.floor((Math.sqrt(distSq) / r) * 1023)] * pressure;
-                    srcGlobalX = globalX - dx * weight; srcGlobalY = globalY - dy * weight;
-                }
-
-                const localSrcX = srcGlobalX - readSx, localSrcY = srcGlobalY - readSy, x1 = Math.floor(localSrcX), y1 = Math.floor(localSrcY), x2 = x1 + 1, y2 = y1 + 1, fx = localSrcX - x1, fy = localSrcY - y1;
-                const dstIdx = (y * readW + x) * 4;
-
-                if (x1 >= 0 && x2 < readW && y1 >= 0 && y2 < readH) {
-                    const i11 = (y1 * readW + x1) * 4, i21 = (y1 * readW + x2) * 4, i12 = (y2 * readW + x1) * 4, i22 = (y2 * readW + x2) * 4;
-                    const w1 = (1-fx)*(1-fy), w2 = fx*(1-fy), w3 = (1-fx)*fy, w4 = fx*fy;
-                    for (let c = 0; c < 4; c++) {
-                        dst[dstIdx + c] = src[i11+c]*w1 + src[i21+c]*w2 + src[i12+c]*w3 + src[i22+c]*w4;
-                        cDst[dstIdx + c] = cSrc[i11+c]*w1 + cSrc[i21+c]*w2 + cSrc[i12+c]*w3 + cSrc[i22+c]*w4;
-                    }
-                } else {
-                    const x1c = Math.max(0, Math.min(readW - 1, x1)), x2c = Math.max(0, Math.min(readW - 1, x2));
-                    const y1c = Math.max(0, Math.min(readH - 1, y1)), y2c = Math.max(0, Math.min(readH - 1, y2));
-                    const i11c = (y1c * readW + x1c) * 4, i21c = (y1c * readW + x2c) * 4, i12c = (y2c * readW + x1c) * 4, i22c = (y2c * readW + x2c) * 4;
-                    const w1 = (1-fx)*(1-fy), w2 = fx*(1-fy), w3 = (1-fx)*fy, w4 = fx*fy;
-                    for (let c = 0; c < 4; c++) {
-                        dst[dstIdx + c] = src[i11c+c]*w1 + src[i21c+c]*w2 + src[i12c+c]*w3 + src[i22c+c]*w4;
-                        cDst[dstIdx + c] = cSrc[i11c+c]*w1 + cSrc[i21c+c]*w2 + cSrc[i12c+c]*w3 + cSrc[i22c+c]*w4;
-                    }
-                }
-            }
-        }
-        ctx.putImageData(outData, readSx, readSy); cleanCtx.putImageData(cOutData, readSx, readSy);
-    }
-
-    // ==========================================
-    // 接入 GPU 并行渲染
-    // ==========================================
-    function prepareProfessionalRetouch() {
-        effectCtx.clearRect(0, 0, canvas.width, canvas.height);
-        if(GLFilter) {
-            GLFilter.resize(canvas.width, canvas.height);
-            GLFilter.process('smooth', snapshotCanvas, isUltraSmooth);
-            effectCtx.drawImage(GLFilter.canvas, 0, 0);
-        }
-    }
-
-    function prepareDetail() {
-        effectCtx.clearRect(0, 0, canvas.width, canvas.height);
-        if(GLFilter) {
-            GLFilter.resize(canvas.width, canvas.height);
-            GLFilter.process('detail', snapshotCanvas, false);
-            effectCtx.drawImage(GLFilter.canvas, 0, 0);
-        }
-    }
-    // ==========================================
-
-    function applyBrushTool(x, y) {
-        const r = brushSizeScreen / viewScale, sx = Math.max(0, Math.floor(x - r)), sy = Math.max(0, Math.floor(y - r));
-        const ex = Math.min(canvas.width, Math.ceil(x + r)), ey = Math.min(canvas.height, Math.ceil(y + r)), bw = ex - sx, bh = ey - sy; if (bw <= 0 || bh <= 0) return;
-
-        brushCanvas.width = bw; brushCanvas.height = bh;
-        const g = brushCtx.createRadialGradient(x - sx, y - sy, 0, x - sx, y - sy, r);
-        let alpha = brushPressure * 0.195; 
-        if (currentTool === 'smooth' && isUltraSmooth) alpha *= 2; 
-        if (currentTool === 'detail') alpha = Math.min(1.0, brushPressure * 1.05); 
-        if (currentTool === 'eraser') alpha = brushPressure * 0.2; 
-        alpha = Math.min(1.0, alpha);
-
-        g.addColorStop(0, `rgba(0,0,0,${alpha})`); g.addColorStop(0.3, `rgba(0,0,0,${alpha * 0.8})`); 
-        g.addColorStop(0.6, `rgba(0,0,0,${alpha * 0.4})`); g.addColorStop(0.85, `rgba(0,0,0,${alpha * 0.1})`); g.addColorStop(1, 'rgba(0,0,0,0)');
-        
-        brushCtx.globalCompositeOperation = 'source-over'; brushCtx.fillStyle = g; brushCtx.fillRect(0, 0, bw, bh);
-        brushCtx.globalCompositeOperation = 'source-in'; brushCtx.drawImage(effectCanvas, sx, sy, bw, bh, 0, 0, bw, bh);
-        ctx.drawImage(brushCanvas, sx, sy);
-    }
-</script>
-</body>
-</html>            position: absolute;
-            top: 15px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.75);
-            color: #fff;
-            padding: 8px 20px;
-            border-radius: 20px;
-            font-size: 11px;
-            font-weight: 700;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            z-index: 200;
-            cursor: pointer;
-            border: 1px solid rgba(255,255,255,0.2);
-            backdrop-filter: blur(5px);
-            transition: all 0.2s;
-            pointer-events: auto;
-            display: flex;
-            align-items: center;
-        }
-        .floating-toast.active {
-            background: rgba(255, 255, 255, 0.95);
-            color: #000;
-            box-shadow: 0 0 15px rgba(255,255,255,0.2);
-        }
-
-        .crosshair {
-            position: absolute;
-            top: 0; left: 0;
-            pointer-events: none;
-            z-index: 150;
-            border: 1.5px dashed rgba(255,255,255,0.9);
-            box-shadow: 0 0 0 1px rgba(0,0,0,0.3), inset 0 0 0 1px rgba(0,0,0,0.3);
-            border-radius: 50%;
-        }
-        .crosshair::before, .crosshair::after {
-            content: '';
-            position: absolute;
-            background: rgba(255,255,255,0.9);
-            box-shadow: 0 0 1px rgba(0,0,0,0.5);
-        }
-        .crosshair::before { top: 50%; left: 50%; width: 10px; height: 1.5px; transform: translate(-50%, -50%); }
-        .crosshair::after { top: 50%; left: 50%; width: 1.5px; height: 10px; transform: translate(-50%, -50%); }
-
-        .brush-cursor {
-            position: absolute;
-            top: 0; left: 0;
-            pointer-events: none;
-            z-index: 160;
-            border: 1.5px solid rgba(255,255,255,0.9);
-            box-shadow: 0 0 0 1px rgba(0,0,0,0.3), inset 0 0 0 1px rgba(0,0,0,0.3);
-            border-radius: 50%;
-        }
-    </style>
-</head>
-<body>
-
-    <header>
-        <div class="logo">facewavee</div>
-        <div class="header-actions">
-            <button id="closeBtn" class="close-btn" style="display: none;">Close</button>
-            <button id="compareBtn" style="display: none;">Compare</button>
-            <button id="undoBtn" disabled>Undo</button>
-            <button id="exportBtn" style="display: none;">Save</button>
-        </div>
-    </header>
-
-    <div class="workspace" id="workspace">
-        <div id="cloneToast" class="floating-toast" style="display:none;">🎯 拖拽选择 取样点</div>
-        <div id="cloneSourceCrosshair" class="crosshair" style="display:none;"></div>
-        <div id="brushCursor" class="brush-cursor" style="display:none;"></div>
-        
-        <canvas id="mainCanvas"></canvas>
-        <canvas id="originalCanvas"></canvas>
-    </div>
-
-    <div class="upload-overlay" id="uploadOverlay">
-        <div class="upload-btn">
-            Open Image
-            <input type="file" id="fileInput" accept="image/*">
-        </div>
-        <div class="footer-text">designed by wavee</div>
-    </div>
-
-    <div class="controls">
-        <div class="sliders">
-            <div class="slider-row">
-                <label>Size</label>
-                <input type="range" id="sizeSlider" min="10" max="150" value="120">
-            </div>
-            <div class="slider-row">
-                <label>Intensity</label>
-                <input type="range" id="pressureSlider" min="0.05" max="1.0" step="0.05" value="0.5">
-            </div>
-        </div>
-        <div class="tools">
-            <button class="tool-btn active" data-tool="reshape">Reshape</button>
-            <button class="tool-btn" data-tool="smooth">Smooth</button>
-            <button class="tool-btn" data-tool="detail">Detail</button>
-            <button class="tool-btn" data-tool="clone">Patch</button>
-            <button class="tool-btn" data-tool="tone">Tone</button>
-            <button class="tool-btn" data-tool="eraser">Eraser</button>
-        </div>
-    </div>
-
-<script>
-    const workspace = document.getElementById('workspace');
-    
-    const canvas = document.getElementById('mainCanvas');
-    // 添加 context 参数优化内存
-    const ctx = canvas.getContext('2d', { willReadFrequently: true, alpha: false });
-    
-    const originalCanvas = document.getElementById('originalCanvas');
-    const originalCtx = originalCanvas.getContext('2d', { alpha: false });
-    
-    const snapshotCanvas = document.createElement('canvas');
-    const snapshotCtx = snapshotCanvas.getContext('2d', { willReadFrequently: true, alpha: false });
-    
-    const cleanCanvas = document.createElement('canvas');
-    const cleanCtx = cleanCanvas.getContext('2d', { willReadFrequently: true, alpha: false });
-    const cleanSnapshotCanvas = document.createElement('canvas');
-    const cleanSnapshotCtx = cleanSnapshotCanvas.getContext('2d', { willReadFrequently: true, alpha: false });
-
-    const effectCanvas = document.createElement('canvas');
-    const effectCtx = effectCanvas.getContext('2d', { willReadFrequently: true }); 
-    const brushCanvas = document.createElement('canvas');
-    const brushCtx = brushCanvas.getContext('2d'); 
-
-    const cloneStrokeCanvas = document.createElement('canvas');
-    const cloneStrokeCtx = cloneStrokeCanvas.getContext('2d', { willReadFrequently: true });
-
-    let history = [], currentTool = 'reshape', isDrawing = false;
-    let brushSizeScreen = 120, brushPressure = 0.5;
-    let anchorX = 0, anchorY = 0, lastX = 0, lastY = 0;
-    
-    let viewScale = 1, viewPanX = 0, viewPanY = 0;
-    let effectCacheType = null; 
-
-    // --- 状态变量 ---
-    let cloneSource = null; 
-    let isSettingCloneSource = false;
-    let isAimingSample = false; 
-    let isAimingPatch = false;  
-    let cloneOffsetX = 0, cloneOffsetY = 0;
-    
-    let toneColor = null; 
-    let isSettingToneSource = false;
-    let isAimingToneSample = false;
-    
-    let isUltraSmooth = false; 
-
-    let crosshairImgX = 0, crosshairImgY = 0;
-    let brushImgX = 0, brushImgY = 0;
-    let lastDabX = 0, lastDabY = 0; 
-    let strokeBounds = { minX: 0, minY: 0, maxX: 0, maxY: 0 }; 
-
-    const cloneToast = document.getElementById('cloneToast');
-    const cloneCrosshair = document.getElementById('cloneSourceCrosshair');
-    const brushCursor = document.getElementById('brushCursor');
-    
-    // 已删除下方的 smoothToolbar 和 ultraSmoothBtn 定义
-
-    const reshapeLUT = new Float32Array(1024);
-    for(let i=0; i<1024; i++){ reshapeLUT[i] = Math.pow(0.5 + 0.5 * Math.cos((i/1023) * Math.PI), 1.2); }
-
-    function updateCursorSize() {
-        const sizeStr = brushSizeScreen + 'px';
-        cloneCrosshair.style.width = sizeStr;
-        cloneCrosshair.style.height = sizeStr;
-        brushCursor.style.width = sizeStr;
-        brushCursor.style.height = sizeStr;
-    }
-
-    function setCrosshair(x, y) {
-        crosshairImgX = x; crosshairImgY = y;
-        const screenX = x * viewScale + viewPanX;
-        const screenY = y * viewScale + viewPanY;
-        cloneCrosshair.style.transform = `translate(calc(${screenX}px - 50%), calc(${screenY}px - 50%))`;
-    }
-
-    function setBrushCursor(x, y) {
-        brushImgX = x; brushImgY = y;
-        const screenX = x * viewScale + viewPanX;
-        const screenY = y * viewScale + viewPanY;
-        brushCursor.style.transform = `translate(calc(${screenX}px - 50%), calc(${screenY}px - 50%))`;
-    }
-
-    function updateTransform() {
-        const matrix = `matrix(${viewScale}, 0, 0, ${viewScale}, ${viewPanX}, ${viewPanY})`;
-        canvas.style.transform = matrix;
-        originalCanvas.style.transform = matrix;
-        
-        if (currentTool === 'clone' || currentTool === 'tone') {
-            if (cloneCrosshair.style.display !== 'none') setCrosshair(crosshairImgX, crosshairImgY);
-            if (brushCursor.style.display !== 'none') setBrushCursor(brushImgX, brushImgY);
-        }
-    }
-
-    function fitToScreen() {
-        const padding = 20;
-        const scaleX = (workspace.clientWidth - padding) / canvas.width;
-        const scaleY = (workspace.clientHeight - padding) / canvas.height;
-        viewScale = Math.min(scaleX, scaleY);
-        viewPanX = (workspace.clientWidth - canvas.width * viewScale) / 2;
-        viewPanY = (workspace.clientHeight - canvas.height * viewScale) / 2;
-        updateTransform();
-    }
-
-    window.addEventListener('resize', () => {
-        if (document.getElementById('uploadOverlay').style.display === 'none') fitToScreen();
-    });
-
-    const compareBtn = document.getElementById('compareBtn');
-    const showOriginal = (e) => { e.preventDefault(); originalCanvas.style.display = 'block'; };
-    const hideOriginal = (e) => { e.preventDefault(); originalCanvas.style.display = 'none'; };
-    compareBtn.addEventListener('mousedown', showOriginal);
-    compareBtn.addEventListener('touchstart', showOriginal, {passive: false});
-    compareBtn.addEventListener('mouseup', hideOriginal);
-    compareBtn.addEventListener('mouseleave', hideOriginal); 
-    compareBtn.addEventListener('touchend', hideOriginal);
-    compareBtn.addEventListener('touchcancel', hideOriginal);
-
-    document.getElementById('closeBtn').onclick = () => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        originalCtx.clearRect(0, 0, originalCanvas.width, originalCanvas.height);
-        snapshotCtx.clearRect(0, 0, canvas.width, canvas.height);
-        effectCtx.clearRect(0, 0, canvas.width, canvas.height);
-        cleanCtx.clearRect(0, 0, canvas.width, canvas.height);
-        cleanSnapshotCtx.clearRect(0, 0, canvas.width, canvas.height);
-        cloneStrokeCtx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // 【核心修复】：彻底释放所有克隆 Canvas 的内存，防止 iOS Safari 白屏
-        history.forEach(state => {
-            if (state.main) { state.main.width = 0; state.main.height = 0; }
-            if (state.clean) { state.clean.width = 0; state.clean.height = 0; }
-        });
         history = []; 
-        
-        document.getElementById('fileInput').value = "";
+        document.getElementById('fileInputOrig').value = "";
+        document.getElementById('fileInput2048').value = "";
         viewScale = 1; viewPanX = 0; viewPanY = 0; updateTransform();
-        effectCacheType = null; 
+        effectCacheType = cloneSource = toneColor = null; 
+        isSettingCloneSource = isAimingSample = isAimingPatch = isSettingToneSource = isAimingToneSample = isUltraSmooth = false;
         
-        cloneSource = null;
-        isSettingCloneSource = false;
-        isAimingSample = false;
-        isAimingPatch = false;
-        toneColor = null;
-        isSettingToneSource = false;
-        isAimingToneSample = false;
-        isUltraSmooth = false;
-        
-        cloneToast.style.display = 'none';
-        cloneCrosshair.style.display = 'none';
-        brushCursor.style.display = 'none';
-        // smoothToolbar 也已删除，不需要隐藏
-        
+        cloneToast.style.display = cloneCrosshair.style.display = brushCursor.style.display = 'none';
         document.getElementById('uploadOverlay').style.display = 'flex';
-        document.getElementById('exportBtn').style.display = 'none';
-        document.getElementById('compareBtn').style.display = 'none';
-        document.getElementById('closeBtn').style.display = 'none';
+        document.getElementById('exportBtn').style.display = document.getElementById('compareBtn').style.display = document.getElementById('closeBtn').style.display = 'none';
         document.getElementById('undoBtn').disabled = true;
     };
 
-    document.getElementById('sizeSlider').oninput = (e) => { 
-        brushSizeScreen = parseInt(e.target.value); 
-        updateCursorSize(); 
-    };
+    document.getElementById('sizeSlider').oninput = (e) => { brushSizeScreen = parseInt(e.target.value); updateCursorSize(); };
     document.getElementById('pressureSlider').oninput = (e) => { brushPressure = parseFloat(e.target.value); };
     
     const handleToastClick = (e) => {
         e.preventDefault(); e.stopPropagation();
-        if (currentTool === 'clone') {
-            cloneSource = null;
-            isSettingCloneSource = true;
-            isAimingSample = false;
-            isAimingPatch = false;
-            isDrawing = false;
-            cloneToast.innerText = '🎯 拖拽选择 取样点';
+        if (currentTool === 'clone' || currentTool === 'tone') {
+            currentTool === 'clone' ? (cloneSource = null, isSettingCloneSource = true) : (toneColor = null, isSettingToneSource = true);
+            isAimingSample = isAimingPatch = isAimingToneSample = isDrawing = false;
+            cloneToast.innerText = currentTool === 'clone' ? '🎯 拖拽选择 取样点' : '🎯 拖拽选择 取色点';
             cloneToast.classList.add('active');
-            cloneCrosshair.style.display = 'none';
-            brushCursor.style.display = 'none';
-        } else if (currentTool === 'tone') {
-            toneColor = null;
-            isSettingToneSource = true;
-            isAimingToneSample = false;
-            isDrawing = false;
-            cloneToast.innerText = '🎯 拖拽选择 取色点';
-            cloneToast.classList.add('active');
-            cloneCrosshair.style.display = 'none';
-            brushCursor.style.display = 'none';
+            cloneCrosshair.style.display = brushCursor.style.display = 'none';
         } else if (currentTool === 'smooth') {
-            // 【UI修改】：顶部 Toast 点击切换 Ultra Smooth 状态
             isUltraSmooth = !isUltraSmooth;
             cloneToast.innerText = isUltraSmooth ? '✨ ULTRA SMOOTH: ON' : '✨ ULTRA SMOOTH: OFF';
-            if (isUltraSmooth) cloneToast.classList.add('active');
-            else cloneToast.classList.remove('active');
+            isUltraSmooth ? cloneToast.classList.add('active') : cloneToast.classList.remove('active');
             effectCacheType = null; 
         }
     };
-    cloneToast.addEventListener('mousedown', handleToastClick);
-    cloneToast.addEventListener('touchstart', handleToastClick, {passive: false});
+    cloneToast.addEventListener('mousedown', handleToastClick); cloneToast.addEventListener('touchstart', handleToastClick, {passive: false});
 
     document.querySelectorAll('.tool-btn').forEach(btn => {
         btn.onclick = (e) => {
-            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-            e.target.classList.add('active');
-            currentTool = e.target.getAttribute('data-tool');
-            
-            effectCacheType = null; 
-            
-            // 已删除 smoothToolbar.style.display 的切换
+            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active')); e.target.classList.add('active');
+            currentTool = e.target.getAttribute('data-tool'); effectCacheType = null; 
 
-            if (currentTool === 'clone') {
+            if (currentTool === 'clone' || currentTool === 'tone' || currentTool === 'smooth') {
                 cloneToast.style.display = 'flex';
-                cloneSource = null;
-                isSettingCloneSource = true;
-                cloneToast.innerText = '🎯 拖拽选择 取样点';
-                cloneToast.classList.add('active');
-                cloneCrosshair.style.display = 'none';
-                brushCursor.style.display = 'none';
-            } else if (currentTool === 'tone') {
-                cloneToast.style.display = 'flex';
-                toneColor = null;
-                isSettingToneSource = true;
-                cloneToast.innerText = '🎯 拖拽选择 取色点';
-                cloneToast.classList.add('active');
-                cloneCrosshair.style.display = 'none';
-                brushCursor.style.display = 'none';
-            } else if (currentTool === 'smooth') {
-                // 【UI修改】：切换到 Smooth，显示 Toast 作为 ON/OFF 开关
-                cloneToast.style.display = 'flex';
-                cloneToast.innerText = isUltraSmooth ? '✨ ULTRA SMOOTH: ON' : '✨ ULTRA SMOOTH: OFF';
-                if (isUltraSmooth) cloneToast.classList.add('active');
-                else cloneToast.classList.remove('active');
-                cloneCrosshair.style.display = 'none';
-                brushCursor.style.display = 'none';
+                if (currentTool === 'clone') {
+                    cloneSource = null; isSettingCloneSource = true; cloneToast.innerText = '🎯 拖拽选择 取样点'; cloneToast.classList.add('active');
+                } else if (currentTool === 'tone') {
+                    toneColor = null; isSettingToneSource = true; cloneToast.innerText = '🎯 拖拽选择 取色点'; cloneToast.classList.add('active');
+                } else {
+                    cloneToast.innerText = isUltraSmooth ? '✨ ULTRA SMOOTH: ON' : '✨ ULTRA SMOOTH: OFF';
+                    isUltraSmooth ? cloneToast.classList.add('active') : cloneToast.classList.remove('active');
+                }
+                cloneCrosshair.style.display = brushCursor.style.display = 'none';
             } else {
-                cloneToast.style.display = 'none';
-                cloneCrosshair.style.display = 'none';
-                brushCursor.style.display = 'none';
-                isSettingCloneSource = false;
-                isSettingToneSource = false;
-                isAimingSample = false;
-                isAimingPatch = false;
-                isAimingToneSample = false;
+                cloneToast.style.display = cloneCrosshair.style.display = brushCursor.style.display = 'none';
+                isSettingCloneSource = isSettingToneSource = isAimingSample = isAimingPatch = isAimingToneSample = false;
             }
         };
     });
 
-    document.getElementById('fileInput').onchange = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+    // 核心重构：双轨图片上传逻辑
+    function handleImageUpload(e, maxSize) {
+        const file = e.target.files[0]; if (!file) return;
+        e.target.value = ""; // 允许重新选择同名文件
         
         const img = new Image();
         img.onload = () => {
-            const MAX_DIMENSION = 3000; 
             let w = img.width, h = img.height;
-            if(w > MAX_DIMENSION || h > MAX_DIMENSION) { 
-                const r = Math.min(MAX_DIMENSION/w, MAX_DIMENSION/h); 
+            if (maxSize && (w > maxSize || h > maxSize)) { 
+                const r = Math.min(maxSize/w, maxSize/h); 
                 w = Math.round(w * r); h = Math.round(h * r); 
             }
             
             canvas.width = snapshotCanvas.width = effectCanvas.width = originalCanvas.width = cloneStrokeCanvas.width = w;
             canvas.height = snapshotCanvas.height = effectCanvas.height = originalCanvas.height = cloneStrokeCanvas.height = h;
-            cleanCanvas.width = cleanSnapshotCanvas.width = w;
-            cleanCanvas.height = cleanSnapshotCanvas.height = h;
+            cleanCanvas.width = cleanSnapshotCanvas.width = w; cleanCanvas.height = cleanSnapshotCanvas.height = h;
             
-            ctx.drawImage(img, 0, 0, w, h);
-            originalCtx.drawImage(img, 0, 0, w, h);
-            cleanCtx.drawImage(img, 0, 0, w, h);
+            ctx.drawImage(img, 0, 0, w, h); originalCtx.drawImage(img, 0, 0, w, h); cleanCtx.drawImage(img, 0, 0, w, h);
             
             document.getElementById('uploadOverlay').style.display = 'none';
-            document.getElementById('exportBtn').style.display = 'block';
-            document.getElementById('compareBtn').style.display = 'block';
-            document.getElementById('closeBtn').style.display = 'block';
+            document.getElementById('exportBtn').style.display = document.getElementById('compareBtn').style.display = document.getElementById('closeBtn').style.display = 'block';
             
-            effectCacheType = null; 
-            updateCursorSize(); 
-            fitToScreen();
-            saveState();
+            effectCacheType = null; updateCursorSize(); fitToScreen(); 
+            history = []; // 每次换图清空历史
+            saveState(); 
             URL.revokeObjectURL(img.src);
         };
         img.src = URL.createObjectURL(file);
-    };
+    }
 
-    // ==========================================
-    // 重写历史记录存储方案：利用离屏 Canvas (内存克隆) 替代 toDataURL 
-    // ==========================================
+    document.getElementById('fileInputOrig').onchange = (e) => handleImageUpload(e, null);
+    document.getElementById('fileInput2048').onchange = (e) => handleImageUpload(e, 2048);
+
+    // 历史记录放开至 10 步
     function saveState() {
-        if (history.length > 10) {
-            const oldState = history.shift();
-            // 主动释放克隆 Canvas 的内存
-            if (oldState.main) { oldState.main.width = 0; oldState.main.height = 0; }
-            if (oldState.clean) { oldState.clean.width = 0; oldState.clean.height = 0; }
-        }
-
-        // 创建轻量级的内存 Canvas 作为当前状态的快照，不开启 willReadFrequently 以利用硬件加速
-        const mainClone = document.createElement('canvas');
-        mainClone.width = canvas.width;
-        mainClone.height = canvas.height;
-        mainClone.getContext('2d', { alpha: false }).drawImage(canvas, 0, 0);
-
-        const cleanClone = document.createElement('canvas');
-        cleanClone.width = cleanCanvas.width;
-        cleanClone.height = cleanCanvas.height;
-        cleanClone.getContext('2d', { alpha: false }).drawImage(cleanCanvas, 0, 0);
-
-        history.push({
-            main: mainClone,
-            clean: cleanClone
-        });
+        if (history.length >= 10) history.shift();
+        history.push({ main: ctx.getImageData(0, 0, canvas.width, canvas.height), clean: cleanCtx.getImageData(0, 0, canvas.width, canvas.height) });
         document.getElementById('undoBtn').disabled = history.length <= 1;
     }
 
     document.getElementById('undoBtn').onclick = () => {
-        if (history.length <= 1) return;
-        
-        // 弹出当前状态
-        const currentState = history.pop();
-        // 主动释放弹出状态的 Canvas 内存
-        if (currentState.main) { currentState.main.width = 0; currentState.main.height = 0; }
-        if (currentState.clean) { currentState.clean.width = 0; currentState.clean.height = 0; }
-
+        if (history.length <= 1) return; history.pop();
         const prevState = history[history.length - 1];
-        
-        // 直接从内存 Canvas 瞬间恢复，在 iPhone 13 上几乎无延迟
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(prevState.main, 0, 0);
-        
-        cleanCtx.clearRect(0, 0, cleanCanvas.width, cleanCanvas.height);
-        cleanCtx.drawImage(prevState.clean, 0, 0);
-        
-        effectCacheType = null; // 清空高速缓存，底图已变
-        document.getElementById('undoBtn').disabled = history.length <= 1;
+        ctx.putImageData(prevState.main, 0, 0); cleanCtx.putImageData(prevState.clean, 0, 0);
+        effectCacheType = null; document.getElementById('undoBtn').disabled = history.length <= 1;
     };
-    // ==========================================
 
     document.getElementById('exportBtn').onclick = async () => {
-        // 保存时使用 toDataURL 没问题，因为这是非高频的一次性操作
         const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
         if (navigator.share) {
             try {
-                const response = await fetch(dataUrl);
-                const blob = await response.blob();
-                const file = new File([blob], 'facewave_edit.jpg', { type: 'image/jpeg' });
-                if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                    await navigator.share({ files: [file], title: 'Facewave Edit' });
-                    return; 
-                }
-            } catch (err) { console.log("Share API fallback", err); }
+                const response = await fetch(dataUrl); const file = new File([await response.blob()], 'facewave_edit.jpg', { type: 'image/jpeg' });
+                if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Facewave Edit' }); return; }
+            } catch (err) { console.log("Share fallback", err); }
         }
-        const a = document.createElement('a');
-        a.download = 'facewave_edit.jpg';
-        a.href = dataUrl;
-        a.click();
+        const a = document.createElement('a'); a.download = 'facewave_edit.jpg'; a.href = dataUrl; a.click();
     };
 
-    let isPanning = false, pinchStartDist = 0, pinchStartScale = 1;
-    let pinchCenterX = 0, pinchCenterY = 0, pinchStartPanX = 0, pinchStartPanY = 0;
-    let lastPanX = 0, lastPanY = 0;
-    
-    let pendingDrawEvent = null;
-    let drawRAF = null;
-
+    let isPanning = false, pinchStartDist = 0, pinchStartScale = 1, pinchCenterX = 0, pinchCenterY = 0, pinchStartPanX = 0, pinchStartPanY = 0, lastPanX = 0, lastPanY = 0;
+    let pendingDrawEvent = null, drawRAF = null;
     const isOverlayActive = () => document.getElementById('uploadOverlay').style.display !== 'none';
 
-    function screenToImage(screenX, screenY) {
-        return { x: (screenX - viewPanX) / viewScale, y: (screenY - viewPanY) / viewScale };
-    }
+    function screenToImage(screenX, screenY) { return { x: (screenX - viewPanX) / viewScale, y: (screenY - viewPanY) / viewScale }; }
 
     workspace.addEventListener('wheel', (e) => {
-        if (isOverlayActive()) return;
-        e.preventDefault();
-        const rect = workspace.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left, mouseY = e.clientY - rect.top;
-        let newScale = viewScale * Math.exp(-e.deltaY * 0.001);
-        newScale = Math.max(0.1, Math.min(newScale, 20)); 
-        viewPanX = mouseX - (mouseX - viewPanX) * (newScale / viewScale);
-        viewPanY = mouseY - (mouseY - viewPanY) * (newScale / viewScale);
-        viewScale = newScale;
-        updateTransform();
+        if (isOverlayActive()) return; e.preventDefault();
+        const rect = workspace.getBoundingClientRect(), mouseX = e.clientX - rect.left, mouseY = e.clientY - rect.top;
+        let newScale = Math.max(0.1, Math.min(viewScale * Math.exp(-e.deltaY * 0.001), 20)); 
+        viewPanX = mouseX - (mouseX - viewPanX) * (newScale / viewScale); viewPanY = mouseY - (mouseY - viewPanY) * (newScale / viewScale);
+        viewScale = newScale; updateTransform();
     }, { passive: false });
 
     workspace.addEventListener('pointerdown', (e) => {
-        if (e.target === cloneToast || e.target.parentElement === cloneToast) return; 
-        if (isOverlayActive()) return;
-        if (e.button === 1 || e.button === 2) {
-            isPanning = true; lastPanX = e.clientX; lastPanY = e.clientY;
-        }
+        if (e.target === cloneToast || e.target.parentElement === cloneToast || isOverlayActive()) return; 
+        if (e.button === 1 || e.button === 2) { isPanning = true; lastPanX = e.clientX; lastPanY = e.clientY; }
     });
 
     workspace.addEventListener('contextmenu', e => { if (!isOverlayActive()) e.preventDefault(); });
 
     workspace.addEventListener('touchstart', (e) => {
-        if (e.target === cloneToast || e.target.parentElement === cloneToast) return; 
-        if (isOverlayActive()) return;
+        if (e.target === cloneToast || e.target.parentElement === cloneToast || isOverlayActive()) return; 
         e.preventDefault(); 
         if (e.touches.length === 2) {
-            isDrawing = false; 
-            isAimingSample = false; 
-            isAimingPatch = false;
-            isAimingToneSample = false;
-            
-            if (currentTool === 'clone') {
-                if (isSettingCloneSource) cloneCrosshair.style.display = 'none';
-                else { brushCursor.style.display = 'none'; if (cloneSource) setCrosshair(cloneSource.x, cloneSource.y); }
-            } else if (currentTool === 'tone') {
-                if (isSettingToneSource) cloneCrosshair.style.display = 'none';
-                else { brushCursor.style.display = 'none'; }
+            isDrawing = isAimingSample = isAimingPatch = isAimingToneSample = false;
+            if (currentTool === 'clone' || currentTool === 'tone') {
+                if (currentTool === 'clone' && isSettingCloneSource || currentTool === 'tone' && isSettingToneSource) cloneCrosshair.style.display = 'none';
+                else { brushCursor.style.display = 'none'; if (cloneSource && currentTool === 'clone') setCrosshair(cloneSource.x, cloneSource.y); }
             }
-            
-            isPanning = true;
-            const t1 = e.touches[0], t2 = e.touches[1];
-            pinchStartDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
-            pinchStartScale = viewScale;
-            const rect = workspace.getBoundingClientRect();
-            pinchCenterX = (t1.clientX + t2.clientX) / 2 - rect.left;
-            pinchCenterY = (t1.clientY + t2.clientY) / 2 - rect.top;
+            isPanning = true; const t1 = e.touches[0], t2 = e.touches[1];
+            pinchStartDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY); pinchStartScale = viewScale;
+            const rect = workspace.getBoundingClientRect(); pinchCenterX = (t1.clientX + t2.clientX) / 2 - rect.left; pinchCenterY = (t1.clientY + t2.clientY) / 2 - rect.top;
             pinchStartPanX = viewPanX; pinchStartPanY = viewPanY;
-        } else if (e.touches.length === 1 && !isPanning) {
-            startDrawing(e.touches[0]);
-        }
+        } else if (e.touches.length === 1 && !isPanning) startDrawing(e.touches[0]);
     }, {passive: false});
 
     workspace.addEventListener('mousedown', (e) => {
-        if (e.target === cloneToast || e.target.parentElement === cloneToast) return; 
-        if (isOverlayActive()) return;
+        if (e.target === cloneToast || e.target.parentElement === cloneToast || isOverlayActive()) return;
         if (e.button === 0 && !isPanning) startDrawing(e);
     });
 
     function startDrawing(touchOrMouse) {
-        const rect = workspace.getBoundingClientRect();
-        const screenX = touchOrMouse.clientX - rect.left, screenY = touchOrMouse.clientY - rect.top;
-        const imgPos = screenToImage(screenX, screenY);
-        
+        const rect = workspace.getBoundingClientRect(), imgPos = screenToImage(touchOrMouse.clientX - rect.left, touchOrMouse.clientY - rect.top);
         snapshotCtx.drawImage(canvas, 0, 0); 
         
-        if (currentTool === 'clone') {
-            if (isSettingCloneSource || !cloneSource) {
-                isAimingSample = true;
-                cloneCrosshair.style.display = 'block';
-                brushCursor.style.display = 'none';
-                setCrosshair(imgPos.x, imgPos.y);
+        if (currentTool === 'clone' || currentTool === 'tone') {
+            const isToolSettingSource = currentTool === 'clone' ? isSettingCloneSource : isSettingToneSource;
+            const sourceVar = currentTool === 'clone' ? cloneSource : toneColor;
+            
+            if (isToolSettingSource || !sourceVar) {
+                currentTool === 'clone' ? isAimingSample = true : isAimingToneSample = true;
+                cloneCrosshair.style.display = 'block'; brushCursor.style.display = 'none'; setCrosshair(imgPos.x, imgPos.y);
             } else {
-                isAimingPatch = true;
-                cloneOffsetX = cloneSource.x - imgPos.x;
-                cloneOffsetY = cloneSource.y - imgPos.y;
+                if(currentTool === 'clone') {
+                    isAimingPatch = true; cloneOffsetX = cloneSource.x - imgPos.x; cloneOffsetY = cloneSource.y - imgPos.y;
+                    cloneCrosshair.style.display = 'block'; setCrosshair(cloneSource.x, cloneSource.y);
+                } else {
+                    strokeBounds = { minX: imgPos.x, minY: imgPos.y, maxX: imgPos.x, maxY: imgPos.y }; lastDabX = imgPos.x; lastDabY = imgPos.y; cloneCrosshair.style.display = 'none'; 
+                }
                 cloneStrokeCtx.clearRect(0, 0, canvas.width, canvas.height);
-                
-                cloneCrosshair.style.display = 'block';
-                brushCursor.style.display = 'block';
-                setCrosshair(cloneSource.x, cloneSource.y);
-                setBrushCursor(imgPos.x, imgPos.y);
+                brushCursor.style.display = 'block'; setBrushCursor(imgPos.x, imgPos.y);
             }
-            anchorX = lastX = imgPos.x; anchorY = lastY = imgPos.y;
-            isDrawing = true; 
-            return; 
+            anchorX = lastX = imgPos.x; anchorY = lastY = imgPos.y; isDrawing = true; return; 
         }
 
-        if (currentTool === 'tone') {
-            if (isSettingToneSource || !toneColor) {
-                isAimingToneSample = true;
-                cloneCrosshair.style.display = 'block';
-                brushCursor.style.display = 'none';
-                setCrosshair(imgPos.x, imgPos.y);
-            } else {
-                cloneStrokeCtx.clearRect(0, 0, canvas.width, canvas.height);
-                strokeBounds = { minX: imgPos.x, minY: imgPos.y, maxX: imgPos.x, maxY: imgPos.y };
-                lastDabX = imgPos.x; 
-                lastDabY = imgPos.y;
-                
-                cloneCrosshair.style.display = 'none'; 
-                brushCursor.style.display = 'block';
-                setBrushCursor(imgPos.x, imgPos.y);
-            }
-            anchorX = lastX = imgPos.x; anchorY = lastY = imgPos.y;
-            isDrawing = true; 
-            return;
-        }
-
-        anchorX = lastX = imgPos.x; 
-        anchorY = lastY = imgPos.y;
-        isDrawing = true;
+        anchorX = lastX = imgPos.x; anchorY = lastY = imgPos.y; isDrawing = true;
         
-        if (currentTool === 'reshape') {
-            cleanSnapshotCtx.drawImage(cleanCanvas, 0, 0); 
-        } else if (currentTool === 'smooth') {
+        if (currentTool === 'reshape') cleanSnapshotCtx.drawImage(cleanCanvas, 0, 0); 
+        else if (currentTool === 'smooth') {
             const requiredCache = isUltraSmooth ? 'smooth_ultra' : 'smooth_regular';
-            if (effectCacheType !== requiredCache) { 
-                prepareProfessionalRetouch(); 
-                effectCacheType = requiredCache; 
-            }
+            if (effectCacheType !== requiredCache) { prepareProfessionalRetouch(); effectCacheType = requiredCache; }
         } else if (currentTool === 'detail') {
             if (effectCacheType !== 'detail') { prepareDetail(); effectCacheType = 'detail'; }
         } else if (currentTool === 'eraser') {
-            if (effectCacheType !== 'eraser') {
-                effectCtx.clearRect(0, 0, canvas.width, canvas.height);
-                effectCtx.drawImage(cleanCanvas, 0, 0);
-                effectCacheType = 'eraser';
-            }
+            if (effectCacheType !== 'eraser') { effectCtx.clearRect(0, 0, canvas.width, canvas.height); effectCtx.drawImage(cleanCanvas, 0, 0); effectCacheType = 'eraser'; }
         }
     }
 
     workspace.addEventListener('touchmove', (e) => {
-        if (isOverlayActive()) return;
-        e.preventDefault(); 
+        if (isOverlayActive()) return; e.preventDefault(); 
         if (isPanning && e.touches.length === 2) {
             const t1 = e.touches[0], t2 = e.touches[1];
-            let newScale = pinchStartScale * (Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY) / pinchStartDist);
-            newScale = Math.max(0.1, Math.min(newScale, 20));
+            let newScale = Math.max(0.1, Math.min(pinchStartScale * (Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY) / pinchStartDist), 20));
             const rect = workspace.getBoundingClientRect();
-            const currentCenterX = (t1.clientX + t2.clientX) / 2 - rect.left;
-            const currentCenterY = (t1.clientY + t2.clientY) / 2 - rect.top;
-            viewPanX = currentCenterX - (pinchCenterX - pinchStartPanX) * (newScale / pinchStartScale);
-            viewPanY = currentCenterY - (pinchCenterY - pinchStartPanY) * (newScale / pinchStartScale);
-            viewScale = newScale;
-            updateTransform();
-        } else if (isDrawing && e.touches.length === 1) {
-            pendingDrawEvent = e.touches[0];
-            if (!drawRAF) drawRAF = requestAnimationFrame(processDrawMove);
-        }
+            viewPanX = ((t1.clientX + t2.clientX) / 2 - rect.left) - (pinchCenterX - pinchStartPanX) * (newScale / pinchStartScale);
+            viewPanY = ((t1.clientY + t2.clientY) / 2 - rect.top) - (pinchCenterY - pinchStartPanY) * (newScale / pinchStartScale);
+            viewScale = newScale; updateTransform();
+        } else if (isDrawing && e.touches.length === 1) { pendingDrawEvent = e.touches[0]; if (!drawRAF) drawRAF = requestAnimationFrame(processDrawMove); }
     }, {passive: false});
 
     workspace.addEventListener('mousemove', (e) => {
         if (isOverlayActive()) return;
-        if (isPanning) {
-            viewPanX += e.clientX - lastPanX; viewPanY += e.clientY - lastPanY;
-            lastPanX = e.clientX; lastPanY = e.clientY;
-            updateTransform(); return;
-        }
-        if (isDrawing) {
-            pendingDrawEvent = e;
-            if (!drawRAF) drawRAF = requestAnimationFrame(processDrawMove);
-        }
+        if (isPanning) { viewPanX += e.clientX - lastPanX; viewPanY += e.clientY - lastPanY; lastPanX = e.clientX; lastPanY = e.clientY; updateTransform(); return; }
+        if (isDrawing) { pendingDrawEvent = e; if (!drawRAF) drawRAF = requestAnimationFrame(processDrawMove); }
     });
     
     function processDrawMove() {
         if (!pendingDrawEvent || !isDrawing) { drawRAF = null; return; }
-        moveDrawing(pendingDrawEvent);
-        pendingDrawEvent = null;
-        drawRAF = null;
+        moveDrawing(pendingDrawEvent); pendingDrawEvent = null; drawRAF = null;
     }
 
     function moveDrawing(touchOrMouse) {
-        const rect = workspace.getBoundingClientRect();
-        const screenX = touchOrMouse.clientX - rect.left;
-        const screenY = touchOrMouse.clientY - rect.top;
-        const imgPos = screenToImage(screenX, screenY);
-        
-        if (currentTool === 'reshape') {
-            applyReshapeAdvanced(imgPos.x, imgPos.y);
-        } else if (currentTool === 'clone') {
-            if (isAimingSample) {
-                setCrosshair(imgPos.x, imgPos.y);
-            } else if (isAimingPatch) {
-                setBrushCursor(imgPos.x, imgPos.y);
-                setCrosshair(imgPos.x + cloneOffsetX, imgPos.y + cloneOffsetY); 
-            }
+        const rect = workspace.getBoundingClientRect(), imgPos = screenToImage(touchOrMouse.clientX - rect.left, touchOrMouse.clientY - rect.top);
+        if (currentTool === 'reshape') applyReshapeAdvanced(imgPos.x, imgPos.y);
+        else if (currentTool === 'clone') {
+            if (isAimingSample) setCrosshair(imgPos.x, imgPos.y);
+            else if (isAimingPatch) { setBrushCursor(imgPos.x, imgPos.y); setCrosshair(imgPos.x + cloneOffsetX, imgPos.y + cloneOffsetY); }
         } else if (currentTool === 'tone') {
-            if (isAimingToneSample) {
-                setCrosshair(imgPos.x, imgPos.y);
-            } else {
-                const r = (brushSizeScreen / viewScale) * 0.5;
-                const dist = Math.hypot(imgPos.x - lastDabX, imgPos.y - lastDabY);
-                const step = Math.max(1, r * 0.05); 
-                
+            if (isAimingToneSample) setCrosshair(imgPos.x, imgPos.y);
+            else {
+                const r = (brushSizeScreen / viewScale) * 0.5, dist = Math.hypot(imgPos.x - lastDabX, imgPos.y - lastDabY), step = Math.max(1, r * 0.05); 
                 if (dist > step) {
                     const stepsCount = Math.ceil(dist / step);
-                    for(let i = 1; i <= stepsCount; i++) {
-                        const ix = lastDabX + (imgPos.x - lastDabX) * (i / stepsCount);
-                        const iy = lastDabY + (imgPos.y - lastDabY) * (i / stepsCount);
-                        applyToneBrush(ix, iy, true);
-                    }
-                    flushStrokeBuffer();
-                    lastDabX = imgPos.x; lastDabY = imgPos.y;
+                    for(let i = 1; i <= stepsCount; i++) applyToneBrush(lastDabX + (imgPos.x - lastDabX) * (i / stepsCount), lastDabY + (imgPos.y - lastDabY) * (i / stepsCount), true);
+                    flushStrokeBuffer(); lastDabX = imgPos.x; lastDabY = imgPos.y;
                 }
                 setBrushCursor(imgPos.x, imgPos.y);
             }
         } else {
-            const r = brushSizeScreen / viewScale;
-            const dist = Math.hypot(imgPos.x - lastX, imgPos.y - lastY);
-            const step = Math.max(1, r * 0.1); 
-            
+            const r = brushSizeScreen / viewScale, dist = Math.hypot(imgPos.x - lastX, imgPos.y - lastY), step = Math.max(1, r * 0.1); 
             if (dist > step) {
                 const stepsCount = Math.ceil(dist / step);
-                for(let i = 1; i <= stepsCount; i++) {
-                    const ix = lastX + (imgPos.x - lastX) * (i / stepsCount);
-                    const iy = lastY + (imgPos.y - lastY) * (i / stepsCount);
-                    applyBrushTool(ix, iy);
-                }
-            } else {
-                applyBrushTool(imgPos.x, imgPos.y);
-            }
+                for(let i = 1; i <= stepsCount; i++) applyBrushTool(lastX + (imgPos.x - lastX) * (i / stepsCount), lastY + (imgPos.y - lastY) * (i / stepsCount));
+            } else applyBrushTool(imgPos.x, imgPos.y);
         }
-        
         lastX = imgPos.x; lastY = imgPos.y;
     }
 
-    window.addEventListener('touchend', (e) => {
-        if (isOverlayActive()) return;
-        if (e.touches.length < 2) isPanning = false;
-        if (e.touches.length === 0 && isDrawing) endDrawing();
-    });
-
-    window.addEventListener('mouseup', (e) => {
-        if (isOverlayActive()) return;
-        if (e.button === 1 || e.button === 2) isPanning = false;
-        if (e.button === 0 && isDrawing) endDrawing();
-    });
+    window.addEventListener('touchend', (e) => { if (isOverlayActive()) return; if (e.touches.length < 2) isPanning = false; if (e.touches.length === 0 && isDrawing) endDrawing(); });
+    window.addEventListener('mouseup', (e) => { if (isOverlayActive()) return; if (e.button === 1 || e.button === 2) isPanning = false; if (e.button === 0 && isDrawing) endDrawing(); });
 
     function endDrawing() {
         if (!isDrawing) return;
-        isDrawing = false; 
-        
-        if (currentTool === 'reshape') effectCacheType = null; 
+        isDrawing = false; if (currentTool === 'reshape') effectCacheType = null; 
         
         if (currentTool === 'clone') {
             if (isAimingSample) {
-                cloneSource = { x: lastX, y: lastY };
-                isAimingSample = false;
-                isSettingCloneSource = false;
-                cloneToast.innerText = '🖌️ 拖拽瞄准 涂抹';
-                cloneToast.classList.remove('active');
-                setCrosshair(cloneSource.x, cloneSource.y);
-                return; 
+                cloneSource = { x: lastX, y: lastY }; isAimingSample = isSettingCloneSource = false;
+                cloneToast.innerText = '🖌️ 拖拽瞄准 涂抹'; cloneToast.classList.remove('active'); setCrosshair(cloneSource.x, cloneSource.y); return; 
             } else if (isAimingPatch) {
-                applyCloneStamp(lastX, lastY);
-                isAimingPatch = false;
-                
-                brushCursor.style.display = 'none';
-                cloneSource = null;
-                isSettingCloneSource = true;
-                cloneToast.innerText = '🎯 拖拽选择 取样点';
-                cloneToast.classList.add('active');
-                cloneCrosshair.style.display = 'none';
-                effectCacheType = null;
-                saveState(); 
-                return;
+                applyCloneStamp(lastX, lastY); isAimingPatch = false; brushCursor.style.display = 'none';
+                cloneSource = null; isSettingCloneSource = true;
+                cloneToast.innerText = '🎯 拖拽选择 取样点'; cloneToast.classList.add('active');
+                cloneCrosshair.style.display = 'none'; effectCacheType = null; saveState(); return;
             }
         } else if (currentTool === 'tone') {
             if (isAimingToneSample) {
-                const pxX = Math.min(canvas.width - 1, Math.max(0, Math.floor(lastX)));
-                const pxY = Math.min(canvas.height - 1, Math.max(0, Math.floor(lastY)));
-                const pxData = snapshotCtx.getImageData(pxX, pxY, 1, 1).data;
-                toneColor = { r: pxData[0], g: pxData[1], b: pxData[2] };
-                
-                isAimingToneSample = false;
-                isSettingToneSource = false;
-                
+                const pxData = snapshotCtx.getImageData(Math.min(canvas.width - 1, Math.max(0, Math.floor(lastX))), Math.min(canvas.height - 1, Math.max(0, Math.floor(lastY))), 1, 1).data;
+                toneColor = { r: pxData[0], g: pxData[1], b: pxData[2] }; isAimingToneSample = isSettingToneSource = false;
                 cloneToast.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:rgb(${toneColor.r},${toneColor.g},${toneColor.b});border:1px solid #fff;margin-right:5px;vertical-align:middle;"></span> 🔄 重新取色`;
-                cloneToast.classList.remove('active');
-                setCrosshair(lastX, lastY);
-                return; 
-            } else {
-                brushCursor.style.display = 'none';
-                effectCacheType = null; 
-                saveState(); 
-                return;
-            }
+                cloneToast.classList.remove('active'); setCrosshair(lastX, lastY); return; 
+            } else { brushCursor.style.display = 'none'; effectCacheType = null; saveState(); return; }
         }
-        
         saveState();
     }
 
-    // --- ALGORITHMS ---
-
     function flushStrokeBuffer() {
-        const updateW = Math.ceil(strokeBounds.maxX - strokeBounds.minX);
-        const updateH = Math.ceil(strokeBounds.maxY - strokeBounds.minY);
+        const updateW = Math.ceil(strokeBounds.maxX - strokeBounds.minX), updateH = Math.ceil(strokeBounds.maxY - strokeBounds.minY);
         if (updateW <= 0 || updateH <= 0) return;
-
         ctx.clearRect(strokeBounds.minX, strokeBounds.minY, updateW, updateH);
-        ctx.drawImage(snapshotCanvas, 
-            strokeBounds.minX, strokeBounds.minY, updateW, updateH,
-            strokeBounds.minX, strokeBounds.minY, updateW, updateH);
-
-        ctx.globalAlpha = brushPressure; 
-        ctx.drawImage(cloneStrokeCanvas,
-            strokeBounds.minX, strokeBounds.minY, updateW, updateH,
-            strokeBounds.minX, strokeBounds.minY, updateW, updateH);
-        
+        ctx.drawImage(snapshotCanvas, strokeBounds.minX, strokeBounds.minY, updateW, updateH, strokeBounds.minX, strokeBounds.minY, updateW, updateH);
+        ctx.globalAlpha = brushPressure; ctx.drawImage(cloneStrokeCanvas, strokeBounds.minX, strokeBounds.minY, updateW, updateH, strokeBounds.minX, strokeBounds.minY, updateW, updateH);
         ctx.globalAlpha = 1.0; 
-    }
-
-    function fastTripleBoxBlur(srcData, width, height, radius) {
-        radius = Math.floor(radius);
-        if (radius < 1) return new Uint8ClampedArray(srcData);
-        
-        let dst = new Uint8ClampedArray(srcData.length);
-        let tmp = new Uint8ClampedArray(srcData.length);
-        
-        for (let pass = 0; pass < 3; pass++) {
-            let source = (pass === 0) ? srcData : dst;
-            for (let y = 0; y < height; y++) {
-                let r = 0, g = 0, b = 0;
-                let offset = y * width * 4;
-                for (let i = -radius; i <= radius; i++) {
-                    let cx = Math.min(Math.max(i, 0), width - 1);
-                    let idx = offset + cx * 4;
-                    r += source[idx]; g += source[idx+1]; b += source[idx+2];
-                }
-                let div = radius * 2 + 1;
-                for (let x = 0; x < width; x++) {
-                    let tgt = offset + x * 4;
-                    tmp[tgt] = r / div; tmp[tgt+1] = g / div; tmp[tgt+2] = b / div; tmp[tgt+3] = source[tgt+3];
-                    let prevX = Math.max(x - radius, 0);
-                    let nextX = Math.min(x + radius + 1, width - 1);
-                    let pIdx = offset + prevX * 4;
-                    let nIdx = offset + nextX * 4;
-                    r += source[nIdx] - source[pIdx];
-                    g += source[nIdx+1] - source[pIdx+1];
-                    b += source[nIdx+2] - source[pIdx+2];
-                }
-            }
-            for (let x = 0; x < width; x++) {
-                let r = 0, g = 0, b = 0;
-                for (let i = -radius; i <= radius; i++) {
-                    let cy = Math.min(Math.max(i, 0), height - 1);
-                    let idx = (cy * width + x) * 4;
-                    r += tmp[idx]; g += tmp[idx+1]; b += tmp[idx+2]; 
-                }
-                let div = radius * 2 + 1;
-                for (let y = 0; y < height; y++) {
-                    let tgt = (y * width + x) * 4;
-                    dst[tgt] = r / div; dst[tgt+1] = g / div; dst[tgt+2] = b / div; dst[tgt+3] = tmp[tgt+3];
-                    let prevY = Math.max(y - radius, 0);
-                    let nextY = Math.min(y + radius + 1, height - 1);
-                    let pIdx = (prevY * width + x) * 4;
-                    let nIdx = (nextY * width + x) * 4;
-                    r += tmp[nIdx] - tmp[pIdx];
-                    g += tmp[nIdx+1] - tmp[pIdx+1];
-                    b += tmp[nIdx+2] - tmp[pIdx+2];
-                }
-            }
-        }
-        return dst;
     }
 
     function applyToneBrush(x, y, deferRender = false) {
         if (!toneColor) return;
+        const r = (brushSizeScreen / viewScale) * 0.5, sx = Math.max(0, Math.floor(x - r)), sy = Math.max(0, Math.floor(y - r));
+        const ex = Math.min(canvas.width, Math.ceil(x + r)), ey = Math.min(canvas.height, Math.ceil(y + r)), bw = ex - sx, bh = ey - sy; if (bw <= 0 || bh <= 0) return;
 
-        const r = (brushSizeScreen / viewScale) * 0.5; 
-        const sx = Math.max(0, Math.floor(x - r));
-        const sy = Math.max(0, Math.floor(y - r));
-        const ex = Math.min(canvas.width, Math.ceil(x + r));
-        const ey = Math.min(canvas.height, Math.ceil(y + r));
-        const bw = ex - sx, bh = ey - sy;
+        if (sx < strokeBounds.minX) strokeBounds.minX = sx; if (sy < strokeBounds.minY) strokeBounds.minY = sy;
+        if (ex > strokeBounds.maxX) strokeBounds.maxX = ex; if (ey > strokeBounds.maxY) strokeBounds.maxY = ey;
 
-        if (bw <= 0 || bh <= 0) return;
+        brushCanvas.width = bw; brushCanvas.height = bh; brushCtx.clearRect(0, 0, bw, bh);
+        const g = brushCtx.createRadialGradient(x - sx, y - sy, 0, x - sx, y - sy, r);
+        g.addColorStop(0, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0.4)`); g.addColorStop(0.15, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0.15)`);
+        g.addColorStop(0.35, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0.04)`); g.addColorStop(0.6, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0.008)`);
+        g.addColorStop(1, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0)`);
 
-        if (sx < strokeBounds.minX) strokeBounds.minX = sx;
-        if (sy < strokeBounds.minY) strokeBounds.minY = sy;
-        if (ex > strokeBounds.maxX) strokeBounds.maxX = ex;
-        if (ey > strokeBounds.maxY) strokeBounds.maxY = ey;
-
-        brushCanvas.width = bw; brushCanvas.height = bh;
-        brushCtx.clearRect(0, 0, bw, bh);
-
-        const cx = x - sx; const cy = y - sy;
-
-        const g = brushCtx.createRadialGradient(cx, cy, 0, cx, cy, r);
-        let alpha = 1; 
-        g.addColorStop(0,    `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0.4)`);
-        g.addColorStop(0.15, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0.15)`);
-        g.addColorStop(0.35, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0.04)`);
-        g.addColorStop(0.6,  `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0.008)`);
-        g.addColorStop(0.85, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0.001)`);
-        g.addColorStop(1,    `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0)`);
-
-        brushCtx.globalCompositeOperation = 'source-over';
-        brushCtx.fillStyle = g;
-        brushCtx.fillRect(0, 0, bw, bh);
-
-        cloneStrokeCtx.globalCompositeOperation = 'source-over';
-        cloneStrokeCtx.drawImage(brushCanvas, sx, sy);
-
-        if (!deferRender) {
-            flushStrokeBuffer();
-        }
+        brushCtx.globalCompositeOperation = 'source-over'; brushCtx.fillStyle = g; brushCtx.fillRect(0, 0, bw, bh);
+        cloneStrokeCtx.globalCompositeOperation = 'source-over'; cloneStrokeCtx.drawImage(brushCanvas, sx, sy);
+        if (!deferRender) flushStrokeBuffer();
     }
 
     function applyCloneStamp(x, y) {
         if (!cloneSource) return;
+        const r = (brushSizeScreen / viewScale) * 0.5, srcX = x + cloneOffsetX, srcY = y + cloneOffsetY;
+        const sx = Math.max(0, Math.floor(x - r)), sy = Math.max(0, Math.floor(y - r));
+        const ex = Math.min(canvas.width, Math.ceil(x + r)), ey = Math.min(canvas.height, Math.ceil(y + r)), bw = ex - sx, bh = ey - sy; if (bw <= 0 || bh <= 0) return;
 
-        const r = (brushSizeScreen / viewScale) * 0.5; 
-        const srcX = x + cloneOffsetX;
-        const srcY = y + cloneOffsetY;
-
-        const sx = Math.max(0, Math.floor(x - r));
-        const sy = Math.max(0, Math.floor(y - r));
-        const ex = Math.min(canvas.width, Math.ceil(x + r));
-        const ey = Math.min(canvas.height, Math.ceil(y + r));
-        const bw = ex - sx, bh = ey - sy;
-
-        if (bw <= 0 || bh <= 0) return;
-
-        brushCanvas.width = bw; brushCanvas.height = bh;
-        brushCtx.clearRect(0, 0, bw, bh);
-
-        const clipOffsetX = sx - (x - r);
-        const clipOffsetY = sy - (y - r);
-        let reqSrcX = srcX - r + clipOffsetX;
-        let reqSrcY = srcY - r + clipOffsetY;
-        let reqW = bw, reqH = bh;
-        let drawDestX = 0, drawDestY = 0;
+        brushCanvas.width = bw; brushCanvas.height = bh; brushCtx.clearRect(0, 0, bw, bh);
+        let reqSrcX = srcX - r + sx - (x - r), reqSrcY = srcY - r + sy - (y - r), reqW = bw, reqH = bh, drawDestX = 0, drawDestY = 0;
 
         if (reqSrcX < 0) { drawDestX = -reqSrcX; reqW += reqSrcX; reqSrcX = 0; }
         if (reqSrcY < 0) { drawDestY = -reqSrcY; reqH += reqSrcY; reqSrcY = 0; }
-        if (reqSrcX + reqW > canvas.width) reqW = canvas.width - reqSrcX;
-        if (reqSrcY + reqH > canvas.height) reqH = canvas.height - reqSrcY;
+        if (reqSrcX + reqW > canvas.width) reqW = canvas.width - reqSrcX; if (reqSrcY + reqH > canvas.height) reqH = canvas.height - reqSrcY;
 
-        if (reqW > 0 && reqH > 0) {
-            brushCtx.drawImage(snapshotCanvas, reqSrcX, reqSrcY, reqW, reqH, drawDestX, drawDestY, reqW, reqH);
-        }
+        if (reqW > 0 && reqH > 0) brushCtx.drawImage(snapshotCanvas, reqSrcX, reqSrcY, reqW, reqH, drawDestX, drawDestY, reqW, reqH);
 
-        const cx = x - sx;
-        const cy = y - sy;
+        const g = brushCtx.createRadialGradient(x - sx, y - sy, 0, x - sx, y - sy, r);
+        g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(0.2, 'rgba(0,0,0,0.95)'); g.addColorStop(0.5, 'rgba(0,0,0,0.6)'); g.addColorStop(0.8, 'rgba(0,0,0,0.1)'); g.addColorStop(1, 'rgba(0,0,0,0)'); 
 
-        const g = brushCtx.createRadialGradient(cx, cy, 0, cx, cy, r);
-        g.addColorStop(0, 'rgba(0,0,0,1)');     
-        g.addColorStop(0.2, 'rgba(0,0,0,0.95)'); 
-        g.addColorStop(0.5, 'rgba(0,0,0,0.6)'); 
-        g.addColorStop(0.8, 'rgba(0,0,0,0.1)');
-        g.addColorStop(0.95, 'rgba(0,0,0,0.01)');
-        g.addColorStop(1, 'rgba(0,0,0,0)');     
+        brushCtx.globalCompositeOperation = 'destination-in'; brushCtx.fillStyle = g; brushCtx.fillRect(0, 0, bw, bh);
 
-        brushCtx.globalCompositeOperation = 'destination-in';
-        brushCtx.fillStyle = g;
-        brushCtx.fillRect(0, 0, bw, bh);
-
-        if (sx < strokeBounds.minX) strokeBounds.minX = sx;
-        if (sy < strokeBounds.minY) strokeBounds.minY = sy;
-        if (ex > strokeBounds.maxX) strokeBounds.maxX = ex;
-        if (ey > strokeBounds.maxY) strokeBounds.maxY = ey;
-        
-        cloneStrokeCtx.globalCompositeOperation = 'source-over';
-        cloneStrokeCtx.drawImage(brushCanvas, sx, sy);
-
-        flushStrokeBuffer();
+        if (sx < strokeBounds.minX) strokeBounds.minX = sx; if (sy < strokeBounds.minY) strokeBounds.minY = sy;
+        if (ex > strokeBounds.maxX) strokeBounds.maxX = ex; if (ey > strokeBounds.maxY) strokeBounds.maxY = ey;
+        cloneStrokeCtx.globalCompositeOperation = 'source-over'; cloneStrokeCtx.drawImage(brushCanvas, sx, sy); flushStrokeBuffer();
     }
 
     function applyReshapeAdvanced(curX, curY) {
-        const dx = curX - anchorX, dy = curY - anchorY;
-        const distFromAnchorSq = dx*dx + dy*dy;
-        const r = brushSizeScreen / viewScale; 
+        const dx = curX - anchorX, dy = curY - anchorY, distFromAnchorSq = dx*dx + dy*dy, r = brushSizeScreen / viewScale; 
         renderWarpBilinearFromSnapshot(anchorX, anchorY, dx, dy, r);
-        if (distFromAnchorSq > (r * 0.5) * (r * 0.5)) {
-            snapshotCtx.drawImage(canvas, 0, 0);
-            cleanSnapshotCtx.drawImage(cleanCanvas, 0, 0); 
-            anchorX = curX; anchorY = curY;
-        }
+        if (distFromAnchorSq > (r * 0.5) * (r * 0.5)) { snapshotCtx.drawImage(canvas, 0, 0); cleanSnapshotCtx.drawImage(cleanCanvas, 0, 0); anchorX = curX; anchorY = curY; }
     }
 
     function renderWarpBilinearFromSnapshot(cx, cy, dx, dy, r) {
-        const pad = Math.ceil(r + Math.max(Math.abs(dx), Math.abs(dy)) + 2); 
-        const minX = cx - pad, maxX = cx + pad;
-        const minY = cy - pad, maxY = cy + pad;
-        const readSx = Math.max(0, Math.floor(minX));
-        const readSy = Math.max(0, Math.floor(minY));
-        const readW = Math.min(canvas.width - readSx, Math.ceil(maxX - minX));
-        const readH = Math.min(canvas.height - readSy, Math.ceil(maxY - minY));
+        const pad = Math.ceil(r + Math.max(Math.abs(dx), Math.abs(dy)) + 2), minX = cx - pad, maxX = cx + pad, minY = cy - pad, maxY = cy + pad;
+        const readSx = Math.max(0, Math.floor(minX)), readSy = Math.max(0, Math.floor(minY));
+        const readW = Math.min(canvas.width - readSx, Math.ceil(maxX - minX)), readH = Math.min(canvas.height - readSy, Math.ceil(maxY - minY));
 
         if (readW <= 0 || readH <= 0) return;
+        const imgData = snapshotCtx.getImageData(readSx, readSy, readW, readH), src = imgData.data;
+        const outData = ctx.createImageData(readW, readH), dst = outData.data;
+        const cImgData = cleanSnapshotCtx.getImageData(readSx, readSy, readW, readH), cSrc = cImgData.data;
+        const cOutData = cleanCtx.createImageData(readW, readH), cDst = cOutData.data;
 
-        const imgData = snapshotCtx.getImageData(readSx, readSy, readW, readH);
-        const src = imgData.data;
-        const outData = ctx.createImageData(readW, readH);
-        const dst = outData.data;
-
-        const cImgData = cleanSnapshotCtx.getImageData(readSx, readSy, readW, readH);
-        const cSrc = cImgData.data;
-        const cOutData = cleanCtx.createImageData(readW, readH);
-        const cDst = cOutData.data;
-
-        const pressure = brushPressure;
-        const destX = cx + dx;
-        const destY = cy + dy;
-        const rSq = r * r;
+        const pressure = brushPressure, destX = cx + dx, destY = cy + dy, rSq = r * r;
 
         for (let y = 0; y < readH; y++) {
             for (let x = 0; x < readW; x++) {
-                const globalX = readSx + x, globalY = readSy + y;
-                const dxP = globalX - destX, dyP = globalY - destY;
-                const distSq = dxP * dxP + dyP * dyP;
+                const globalX = readSx + x, globalY = readSy + y, dxP = globalX - destX, dyP = globalY - destY, distSq = dxP * dxP + dyP * dyP;
                 let srcGlobalX = globalX, srcGlobalY = globalY;
 
                 if (distSq < rSq) {
-                    const distToDest = Math.sqrt(distSq);
-                    const tIdx = Math.floor((distToDest / r) * 1023);
-                    const weight = reshapeLUT[tIdx] * pressure;
-                    srcGlobalX = globalX - dx * weight;
-                    srcGlobalY = globalY - dy * weight;
+                    const weight = reshapeLUT[Math.floor((Math.sqrt(distSq) / r) * 1023)] * pressure;
+                    srcGlobalX = globalX - dx * weight; srcGlobalY = globalY - dy * weight;
                 }
 
-                const localSrcX = srcGlobalX - readSx, localSrcY = srcGlobalY - readSy;
-                const x1 = Math.floor(localSrcX), y1 = Math.floor(localSrcY);
-                const x2 = x1 + 1, y2 = y1 + 1;
-                const fx = localSrcX - x1, fy = localSrcY - y1;
+                const localSrcX = srcGlobalX - readSx, localSrcY = srcGlobalY - readSy, x1 = Math.floor(localSrcX), y1 = Math.floor(localSrcY), x2 = x1 + 1, y2 = y1 + 1, fx = localSrcX - x1, fy = localSrcY - y1;
                 const dstIdx = (y * readW + x) * 4;
 
                 if (x1 >= 0 && x2 < readW && y1 >= 0 && y2 < readH) {
-                    const i11 = (y1 * readW + x1) * 4, i21 = (y1 * readW + x2) * 4;
-                    const i12 = (y2 * readW + x1) * 4, i22 = (y2 * readW + x2) * 4;
+                    const i11 = (y1 * readW + x1) * 4, i21 = (y1 * readW + x2) * 4, i12 = (y2 * readW + x1) * 4, i22 = (y2 * readW + x2) * 4;
+                    const w1 = (1-fx)*(1-fy), w2 = fx*(1-fy), w3 = (1-fx)*fy, w4 = fx*fy;
                     for (let c = 0; c < 4; c++) {
-                        const w1 = (1-fx)*(1-fy), w2 = fx*(1-fy), w3 = (1-fx)*fy, w4 = fx*fy;
                         dst[dstIdx + c] = src[i11+c]*w1 + src[i21+c]*w2 + src[i12+c]*w3 + src[i22+c]*w4;
                         cDst[dstIdx + c] = cSrc[i11+c]*w1 + cSrc[i21+c]*w2 + cSrc[i12+c]*w3 + cSrc[i22+c]*w4;
                     }
                 } else {
                     const x1c = Math.max(0, Math.min(readW - 1, x1)), x2c = Math.max(0, Math.min(readW - 1, x2));
                     const y1c = Math.max(0, Math.min(readH - 1, y1)), y2c = Math.max(0, Math.min(readH - 1, y2));
-                    const i11c = (y1c * readW + x1c) * 4, i21c = (y1c * readW + x2c) * 4;
-                    const i12c = (y2c * readW + x1c) * 4, i22c = (y2c * readW + x2c) * 4;
+                    const i11c = (y1c * readW + x1c) * 4, i21c = (y1c * readW + x2c) * 4, i12c = (y2c * readW + x1c) * 4, i22c = (y2c * readW + x2c) * 4;
+                    const w1 = (1-fx)*(1-fy), w2 = fx*(1-fy), w3 = (1-fx)*fy, w4 = fx*fy;
                     for (let c = 0; c < 4; c++) {
-                        const w1 = (1-fx)*(1-fy), w2 = fx*(1-fy), w3 = (1-fx)*fy, w4 = fx*fy;
                         dst[dstIdx + c] = src[i11c+c]*w1 + src[i21c+c]*w2 + src[i12c+c]*w3 + src[i22c+c]*w4;
                         cDst[dstIdx + c] = cSrc[i11c+c]*w1 + cSrc[i21c+c]*w2 + cSrc[i12c+c]*w3 + cSrc[i22c+c]*w4;
                     }
                 }
             }
         }
-        ctx.putImageData(outData, readSx, readSy);
-        cleanCtx.putImageData(cOutData, readSx, readSy);
-    }
-
-    function fastSeparableBilateral(srcData, width, height, radius, edgeThreshold) {
-        let size = width * height * 4;
-        let tmp = new Float32Array(size), dst = new Float32Array(size);
-        let r_int = Math.floor(radius);
-
-        for (let y = 0; y < height; y++) {
-            for (let x = 0; x < width; x++) {
-                let idx = (y * width + x) * 4;
-                let cr = srcData[idx], cg = srcData[idx+1], cb = srcData[idx+2];
-                let sumR = 0, sumG = 0, sumB = 0, weightSum = 0;
-
-                for (let i = -r_int; i <= r_int; i++) {
-                    let nx = Math.max(0, Math.min(width - 1, x + i));
-                    let nidx = (y * width + nx) * 4;
-                    let nr = srcData[nidx], ng = srcData[nidx+1], nb = srcData[nidx+2];
-                    let diff = Math.abs(nr - cr) + Math.abs(ng - cg) + Math.abs(nb - cb);
-                    let weight = Math.max(0, 1.0 - diff / edgeThreshold);
-                    sumR += nr * weight; sumG += ng * weight; sumB += nb * weight; weightSum += weight;
-                }
-                tmp[idx] = sumR / weightSum; tmp[idx+1] = sumG / weightSum; tmp[idx+2] = sumB / weightSum; tmp[idx+3] = srcData[idx+3];
-            }
-        }
-
-        for (let x = 0; x < width; x++) {
-            for (let y = 0; y < height; y++) {
-                let idx = (y * width + x) * 4;
-                let cr = tmp[idx], cg = tmp[idx+1], cb = tmp[idx+2];
-                let sumR = 0, sumG = 0, sumB = 0, weightSum = 0;
-
-                for (let i = -r_int; i <= r_int; i++) {
-                    let ny = Math.max(0, Math.min(height - 1, y + i));
-                    let nidx = (ny * width + x) * 4;
-                    let nr = tmp[nidx], ng = tmp[nidx+1], nb = tmp[nidx+2];
-                    let diff = Math.abs(nr - cr) + Math.abs(ng - cg) + Math.abs(nb - cb);
-                    let weight = Math.max(0, 1.0 - diff / edgeThreshold);
-                    sumR += nr * weight; sumG += ng * weight; sumB += nb * weight; weightSum += weight;
-                }
-                dst[idx] = sumR / weightSum; dst[idx+1] = sumG / weightSum; dst[idx+2] = sumB / weightSum; dst[idx+3] = tmp[idx+3];
-            }
-        }
-        return dst;
+        ctx.putImageData(outData, readSx, readSy); cleanCtx.putImageData(cOutData, readSx, readSy);
     }
 
     function prepareProfessionalRetouch() {
-        const w = canvas.width, h = canvas.height;
-        effectCtx.clearRect(0, 0, w, h);
-        const origData = snapshotCtx.getImageData(0, 0, w, h).data;
-        let resultData;
-
-        if (isUltraSmooth) {
-            const blurRadius = Math.max(5, Math.floor(w * 0.012)); 
-            const blurred = fastTripleBoxBlur(origData, w, h, blurRadius);
-            resultData = new Uint8ClampedArray(origData.length);
-            for (let i = 0; i < origData.length; i += 4) {
-                let noise = (Math.random() + Math.random() - 1.0) * 1.5; 
-                resultData[i]   = blurred[i] + noise;
-                resultData[i+1] = blurred[i+1] + noise;
-                resultData[i+2] = blurred[i+2] + noise;
-                resultData[i+3] = origData[i+3];
-            }
-        } else {
-            const radius = Math.max(3, Math.floor(w * 0.006));
-            const colorThreshold = 75;
-            const smoothedData = fastSeparableBilateral(origData, w, h, radius, colorThreshold);
-            resultData = new Uint8ClampedArray(origData.length);
-            for (let i = 0; i < origData.length; i += 4) {
-                let or = origData[i], og = origData[i+1], ob = origData[i+2];
-                let sr = smoothedData[i], sg = smoothedData[i+1], sb = smoothedData[i+2];
-                let noise = (Math.random() + Math.random() - 1.0) * 1.5;
-                resultData[i]   = sr * 0.85 + or * 0.15 + noise;
-                resultData[i+1] = sg * 0.85 + og * 0.15 + noise;
-                resultData[i+2] = sb * 0.85 + ob * 0.15 + noise;
-                resultData[i+3] = origData[i+3];
-            }
+        effectCtx.clearRect(0, 0, canvas.width, canvas.height);
+        if(GLFilter) {
+            GLFilter.resize(canvas.width, canvas.height);
+            GLFilter.process('smooth', snapshotCanvas, isUltraSmooth);
+            effectCtx.drawImage(GLFilter.canvas, 0, 0);
         }
-
-        const resultId = effectCtx.createImageData(w, h);
-        resultId.data.set(resultData);
-        effectCtx.putImageData(resultId, 0, 0);
     }
 
     function prepareDetail() {
-        const w = canvas.width, h = canvas.height;
-        const id = snapshotCtx.getImageData(0,0,w,h);
-        const d = id.data;
-        const cp = new Uint8ClampedArray(d);
-        const mix = 0.3; 
-        
-        for (let y = 1; y < h-1; y++) {
-            for (let x = 1; x < w-1; x++) {
-                const i = (y * w + x) * 4;
-                for (let c = 0; c < 3; c++) {
-                    const top = cp[i - w*4 + c];
-                    const bottom = cp[i + w*4 + c];
-                    const left = cp[i - 4 + c];
-                    const right = cp[i + 4 + c];
-                    const center = cp[i + c];
-                    const sharpened = center * 5 - top - bottom - left - right;
-                    d[i+c] = center * (1 - mix) + sharpened * mix; 
-                }
-            }
+        effectCtx.clearRect(0, 0, canvas.width, canvas.height);
+        if(GLFilter) {
+            GLFilter.resize(canvas.width, canvas.height);
+            GLFilter.process('detail', snapshotCanvas, false);
+            effectCtx.drawImage(GLFilter.canvas, 0, 0);
         }
-        effectCtx.putImageData(id, 0, 0);
     }
 
     function applyBrushTool(x, y) {
-        const r = brushSizeScreen / viewScale;
-        const sx = Math.max(0, Math.floor(x - r)), sy = Math.max(0, Math.floor(y - r));
-        const ex = Math.min(canvas.width, Math.ceil(x + r)), ey = Math.min(canvas.height, Math.ceil(y + r));
-        const bw = ex - sx, bh = ey - sy;
-        
-        if (bw <= 0 || bh <= 0) return;
+        const r = brushSizeScreen / viewScale, sx = Math.max(0, Math.floor(x - r)), sy = Math.max(0, Math.floor(y - r));
+        const ex = Math.min(canvas.width, Math.ceil(x + r)), ey = Math.min(canvas.height, Math.ceil(y + r)), bw = ex - sx, bh = ey - sy; if (bw <= 0 || bh <= 0) return;
 
         brushCanvas.width = bw; brushCanvas.height = bh;
-        const cx = x - sx; const cy = y - sy;
-        
-        const g = brushCtx.createRadialGradient(cx, cy, 0, cx, cy, r);
-        
+        const g = brushCtx.createRadialGradient(x - sx, y - sy, 0, x - sx, y - sy, r);
         let alpha = brushPressure * 0.195; 
         if (currentTool === 'smooth' && isUltraSmooth) alpha *= 2; 
-        // 【修改核心】：Detail 压力增加 50% (原 0.7 -> 1.05，封顶 1.0)
         if (currentTool === 'detail') alpha = Math.min(1.0, brushPressure * 1.05); 
         if (currentTool === 'eraser') alpha = brushPressure * 0.2; 
-        
         alpha = Math.min(1.0, alpha);
 
-        g.addColorStop(0, `rgba(0,0,0,${alpha})`); 
-        g.addColorStop(0.3, `rgba(0,0,0,${alpha * 0.8})`); 
-        g.addColorStop(0.6, `rgba(0,0,0,${alpha * 0.4})`); 
-        g.addColorStop(0.85, `rgba(0,0,0,${alpha * 0.1})`); 
-        g.addColorStop(1, 'rgba(0,0,0,0)');
+        g.addColorStop(0, `rgba(0,0,0,${alpha})`); g.addColorStop(0.3, `rgba(0,0,0,${alpha * 0.8})`); 
+        g.addColorStop(0.6, `rgba(0,0,0,${alpha * 0.4})`); g.addColorStop(0.85, `rgba(0,0,0,${alpha * 0.1})`); g.addColorStop(1, 'rgba(0,0,0,0)');
         
-        brushCtx.globalCompositeOperation = 'source-over';
-        brushCtx.fillStyle = g; 
-        brushCtx.fillRect(0, 0, bw, bh);
-        
-        brushCtx.globalCompositeOperation = 'source-in';
-        brushCtx.drawImage(effectCanvas, sx, sy, bw, bh, 0, 0, bw, bh);
-        
+        brushCtx.globalCompositeOperation = 'source-over'; brushCtx.fillStyle = g; brushCtx.fillRect(0, 0, bw, bh);
+        brushCtx.globalCompositeOperation = 'source-in'; brushCtx.drawImage(effectCanvas, sx, sy, bw, bh, 0, 0, bw, bh);
         ctx.drawImage(brushCanvas, sx, sy);
     }
 </script>
