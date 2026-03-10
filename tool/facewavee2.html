@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>facewavee</title>
+    <title>facewavee - Optimized</title>
     <style>
         :root {
             --bg-color: #000000;
@@ -149,6 +149,15 @@
     let anchorX = 0, anchorY = 0, lastX = 0, lastY = 0;
 
     let viewScale = 1, viewPanX = 0, viewPanY = 0;
+    
+    // 【优化2】效果缓存标记，避免全图重复运算
+    let effectCacheType = null; 
+
+    // 【优化1】预计算 Reshape 的缓动曲线 LUT (查找表)
+    const reshapeLUT = new Float32Array(1024);
+    for(let i=0; i<1024; i++){
+        reshapeLUT[i] = Math.pow(0.5 + 0.5 * Math.cos((i/1023) * Math.PI), 1.2);
+    }
 
     function updateTransform() {
         const matrix = `matrix(${viewScale}, 0, 0, ${viewScale}, ${viewPanX}, ${viewPanY})`;
@@ -167,9 +176,7 @@
     }
 
     window.addEventListener('resize', () => {
-        if (document.getElementById('uploadOverlay').style.display === 'none') {
-            fitToScreen();
-        }
+        if (document.getElementById('uploadOverlay').style.display === 'none') fitToScreen();
     });
 
     const compareBtn = document.getElementById('compareBtn');
@@ -192,6 +199,7 @@
         
         history = []; document.getElementById('fileInput').value = "";
         viewScale = 1; viewPanX = 0; viewPanY = 0; updateTransform();
+        effectCacheType = null; // 清除缓存
         
         document.getElementById('uploadOverlay').style.display = 'flex';
         document.getElementById('exportBtn').style.display = 'none';
@@ -238,6 +246,7 @@
             document.getElementById('compareBtn').style.display = 'block';
             document.getElementById('closeBtn').style.display = 'block';
             
+            effectCacheType = null; // 清除缓存
             fitToScreen();
             saveState();
             URL.revokeObjectURL(img.src);
@@ -266,6 +275,8 @@
         const imgClean = new Image();
         imgClean.onload = () => cleanCtx.drawImage(imgClean, 0, 0);
         imgClean.src = state.clean;
+        
+        effectCacheType = null; // 清除缓存
     };
 
     document.getElementById('exportBtn').onclick = async () => {
@@ -290,6 +301,10 @@
     let isPanning = false, pinchStartDist = 0, pinchStartScale = 1;
     let pinchCenterX = 0, pinchCenterY = 0, pinchStartPanX = 0, pinchStartPanY = 0;
     let lastPanX = 0, lastPanY = 0;
+    
+    // 【优化3】节流绘制，防止高频触发卡顿
+    let pendingDrawEvent = null;
+    let drawRAF = null;
 
     const isOverlayActive = () => document.getElementById('uploadOverlay').style.display !== 'none';
 
@@ -352,16 +367,25 @@
         
         snapshotCtx.drawImage(canvas, 0, 0);
         
+        // 【优化2落地】使用缓存，避免每笔下去都重新生成全图滤镜
         if (currentTool === 'reshape') {
             cleanSnapshotCtx.drawImage(cleanCanvas, 0, 0); 
         } else if (currentTool === 'smooth') {
-            // 调用真正的商业级保留肌理修容算法
-            prepareProfessionalRetouch();
+            if (effectCacheType !== 'smooth') {
+                prepareProfessionalRetouch();
+                effectCacheType = 'smooth';
+            }
         } else if (currentTool === 'detail') {
-            prepareDetail();
+            if (effectCacheType !== 'detail') {
+                prepareDetail();
+                effectCacheType = 'detail';
+            }
         } else if (currentTool === 'eraser') {
-            effectCtx.clearRect(0, 0, canvas.width, canvas.height);
-            effectCtx.drawImage(cleanCanvas, 0, 0);
+            if (effectCacheType !== 'eraser') {
+                effectCtx.clearRect(0, 0, canvas.width, canvas.height);
+                effectCtx.drawImage(cleanCanvas, 0, 0);
+                effectCacheType = 'eraser';
+            }
         }
     }
 
@@ -380,7 +404,9 @@
             viewScale = newScale;
             updateTransform();
         } else if (isDrawing && e.touches.length === 1) {
-            moveDrawing(e.touches[0]);
+            // 【优化3落地】事件挂起，交由 RAF 处理
+            pendingDrawEvent = e.touches[0];
+            if (!drawRAF) drawRAF = requestAnimationFrame(processDrawMove);
         }
     }, {passive: false});
 
@@ -391,8 +417,19 @@
             lastPanX = e.clientX; lastPanY = e.clientY;
             updateTransform(); return;
         }
-        if (isDrawing) moveDrawing(e);
+        if (isDrawing) {
+            // 【优化3落地】事件挂起，交由 RAF 处理
+            pendingDrawEvent = e;
+            if (!drawRAF) drawRAF = requestAnimationFrame(processDrawMove);
+        }
     });
+    
+    function processDrawMove() {
+        if (!pendingDrawEvent || !isDrawing) { drawRAF = null; return; }
+        moveDrawing(pendingDrawEvent);
+        pendingDrawEvent = null;
+        drawRAF = null;
+    }
 
     function moveDrawing(touchOrMouse) {
         const rect = workspace.getBoundingClientRect();
@@ -420,6 +457,8 @@
         if (!isDrawing) return;
         isDrawing = false; 
         saveState();
+        // Reshape会改变底图，必须清除效果缓存，下次切换Smooth才会重新计算最新形态
+        if (currentTool === 'reshape') effectCacheType = null; 
     }
 
     // --- ALGORITHMS ---
@@ -427,12 +466,12 @@
     // 1. Reshape
     function applyReshapeAdvanced(curX, curY) {
         const dx = curX - anchorX, dy = curY - anchorY;
-        const distFromAnchor = Math.hypot(dx, dy);
+        const distFromAnchorSq = dx*dx + dy*dy;
         const r = brushSizeScreen / viewScale; 
         
         renderWarpBilinearFromSnapshot(anchorX, anchorY, dx, dy, r);
 
-        if (distFromAnchor > r * 0.5) {
+        if (distFromAnchorSq > (r * 0.5) * (r * 0.5)) {
             snapshotCtx.drawImage(canvas, 0, 0);
             cleanSnapshotCtx.drawImage(cleanCanvas, 0, 0); 
             anchorX = curX; anchorY = curY;
@@ -462,17 +501,28 @@
         const cDst = cOutData.data;
 
         const pressure = brushPressure;
+        
+        // 【优化1落地】前置计算目标圆心坐标与半径平方，彻底抛弃循环内的慢速数学函数
+        const destX = cx + dx;
+        const destY = cy + dy;
+        const rSq = r * r;
 
         for (let y = 0; y < readH; y++) {
             for (let x = 0; x < readW; x++) {
                 const globalX = readSx + x, globalY = readSy + y;
-                const distToDest = Math.hypot(globalX - (cx + dx), globalY - (cy + dy));
+                
+                // 平方比计算，避免内部消耗极大的 Math.hypot()
+                const dxP = globalX - destX;
+                const dyP = globalY - destY;
+                const distSq = dxP * dxP + dyP * dyP;
                 
                 let srcGlobalX = globalX, srcGlobalY = globalY;
 
-                if (distToDest < r) {
-                    const t = distToDest / r;
-                    const weight = Math.pow(0.5 + 0.5 * Math.cos(t * Math.PI), 1.2) * pressure;
+                if (distSq < rSq) {
+                    const distToDest = Math.sqrt(distSq);
+                    // 查表法代替 Math.cos 和 Math.pow
+                    const tIdx = Math.floor((distToDest / r) * 1023);
+                    const weight = reshapeLUT[tIdx] * pressure;
                     srcGlobalX = globalX - dx * weight;
                     srcGlobalY = globalY - dy * weight;
                 }
@@ -512,7 +562,6 @@
     }
 
     // ----------------------------------------------------------------------------------
-    // ★ 终极救星：极速无损数学模糊核心 (绝不降采样，绝对无锯齿)
     function executeFastBoxBlur(src, w, h, radius, passes) {
         let dst = new Uint8ClampedArray(src);
         if (radius < 1) return dst;
@@ -565,55 +614,177 @@
         return dst;
     }
 
-    // 2. 商业级「频段隔离（Band-pass）」修容算法
-    // 抹平瑕疵的同时，100% 找回原生皮肤毛孔肌理，绝不死白发虚。
+    // 手机端终极方案：纯数学 3 次分离式盒式模糊，完美拟合高斯曲线，彻底消灭马赛克，且运行极速
+    function fastTripleBoxBlur(srcData, width, height, radius) {
+        radius = Math.floor(radius);
+        if (radius < 1) return new Uint8ClampedArray(srcData);
+        
+        let dst = new Uint8ClampedArray(srcData.length);
+        let tmp = new Uint8ClampedArray(srcData.length);
+        
+        // 核心：强制执行 3 次循环，消除一切方形锯齿
+        for (let pass = 0; pass < 3; pass++) {
+            let source = (pass === 0) ? srcData : dst;
+            
+            // X轴水平模糊
+            for (let y = 0; y < height; y++) {
+                let r = 0, g = 0, b = 0;
+                let offset = y * width * 4;
+                
+                // 初始化滑动窗口
+                for (let i = -radius; i <= radius; i++) {
+                    let cx = Math.min(Math.max(i, 0), width - 1);
+                    let idx = offset + cx * 4;
+                    r += source[idx]; g += source[idx+1]; b += source[idx+2];
+                }
+                
+                let div = radius * 2 + 1;
+                for (let x = 0; x < width; x++) {
+                    let tgt = offset + x * 4;
+                    tmp[tgt] = r / div; tmp[tgt+1] = g / div; tmp[tgt+2] = b / div; tmp[tgt+3] = source[tgt+3];
+                    
+                    // 窗口滑动：加上右边新进来的像素，减去左边出去的像素 (O(1) 极速计算)
+                    let prevX = Math.max(x - radius, 0);
+                    let nextX = Math.min(x + radius + 1, width - 1);
+                    let pIdx = offset + prevX * 4;
+                    let nIdx = offset + nextX * 4;
+                    
+                    r += source[nIdx] - source[pIdx];
+                    g += source[nIdx+1] - source[pIdx+1];
+                    b += source[nIdx+2] - source[pIdx+2];
+                }
+            }
+            
+            // Y轴垂直模糊
+            for (let x = 0; x < width; x++) {
+                let r = 0, g = 0, b = 0;
+                
+                // 初始化滑动窗口
+                for (let i = -radius; i <= radius; i++) {
+                    let cy = Math.min(Math.max(i, 0), height - 1);
+                    let idx = (cy * width + x) * 4;
+                    r += tmp[idx]; g += tmp[idx+1]; b += tmp[idx+2];
+                }
+                
+                let div = radius * 2 + 1;
+                for (let y = 0; y < height; y++) {
+                    let tgt = (y * width + x) * 4;
+                    dst[tgt] = r / div; dst[tgt+1] = g / div; dst[tgt+2] = b / div; dst[tgt+3] = tmp[tgt+3];
+                    
+                    let prevY = Math.max(y - radius, 0);
+                    let nextY = Math.min(y + radius + 1, height - 1);
+                    let pIdx = (prevY * width + x) * 4;
+                    let nIdx = (nextY * width + x) * 4;
+                    
+                    r += tmp[nIdx] - tmp[pIdx];
+                    g += tmp[nIdx+1] - tmp[pIdx+1];
+                    b += tmp[nIdx+2] - tmp[pIdx+2];
+                }
+            }
+        }
+        return dst;
+    }
+
+    // 1. 极速分离式双边滤波 (Separable Bilateral Filter)
+    // 医疗级平滑：绝不渗色、无遮罩锯齿、完美保留物理边缘
+    function fastSeparableBilateral(srcData, width, height, radius, edgeThreshold) {
+        let size = width * height * 4;
+        // 使用 Float32 保证全流程无色阶断层
+        let tmp = new Float32Array(size);
+        let dst = new Float32Array(size);
+        let r_int = Math.floor(radius);
+
+        // 第一步：X轴水平保边模糊
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                let idx = (y * width + x) * 4;
+                let cr = srcData[idx], cg = srcData[idx+1], cb = srcData[idx+2];
+                let sumR = 0, sumG = 0, sumB = 0, weightSum = 0;
+
+                for (let i = -r_int; i <= r_int; i++) {
+                    let nx = Math.max(0, Math.min(width - 1, x + i));
+                    let nidx = (y * width + nx) * 4;
+                    let nr = srcData[nidx], ng = srcData[nidx+1], nb = srcData[nidx+2];
+
+                    // 核心逻辑：计算色彩曼哈顿距离。色差越大，权重越趋近于 0
+                    let diff = Math.abs(nr - cr) + Math.abs(ng - cg) + Math.abs(nb - cb);
+                    let weight = Math.max(0, 1.0 - diff / edgeThreshold);
+
+                    sumR += nr * weight;
+                    sumG += ng * weight;
+                    sumB += nb * weight;
+                    weightSum += weight;
+                }
+                tmp[idx] = sumR / weightSum;
+                tmp[idx+1] = sumG / weightSum;
+                tmp[idx+2] = sumB / weightSum;
+                tmp[idx+3] = srcData[idx+3];
+            }
+        }
+
+        // 第二步：Y轴垂直保边模糊
+        for (let x = 0; x < width; x++) {
+            for (let y = 0; y < height; y++) {
+                let idx = (y * width + x) * 4;
+                // 基于水平模糊后的结果继续处理
+                let cr = tmp[idx], cg = tmp[idx+1], cb = tmp[idx+2];
+                let sumR = 0, sumG = 0, sumB = 0, weightSum = 0;
+
+                for (let i = -r_int; i <= r_int; i++) {
+                    let ny = Math.max(0, Math.min(height - 1, y + i));
+                    let nidx = (ny * width + x) * 4;
+                    let nr = tmp[nidx], ng = tmp[nidx+1], nb = tmp[nidx+2];
+
+                    let diff = Math.abs(nr - cr) + Math.abs(ng - cg) + Math.abs(nb - cb);
+                    let weight = Math.max(0, 1.0 - diff / edgeThreshold);
+
+                    sumR += nr * weight;
+                    sumG += ng * weight;
+                    sumB += nb * weight;
+                    weightSum += weight;
+                }
+                dst[idx] = sumR / weightSum;
+                dst[idx+1] = sumG / weightSum;
+                dst[idx+2] = sumB / weightSum;
+                dst[idx+3] = tmp[idx+3];
+            }
+        }
+        return dst;
+    }
+
+    // 2. 终极修皮输出
     function prepareProfessionalRetouch() {
         const w = canvas.width, h = canvas.height;
         effectCtx.clearRect(0, 0, w, h);
-        
-        // 100% 全尺寸读取，杜绝任何缩放带来的马赛克和摩尔纹
-        const id = cleanCtx.getImageData(0, 0, w, h);
-        const orig = id.data;
 
-        // 【步骤 1】提取极高频（真实毛孔纹理）
-        // 仅使用 2px 半径模糊，用于计算原始毛孔。
-        const radiusSmall = Math.max(1, Math.floor(w * 0.0015)); 
-        const blurSmall = executeFastBoxBlur(orig, w, h, radiusSmall, 1);
+        const origData = cleanCtx.getImageData(0, 0, w, h).data;
 
-        // 【步骤 2】计算底色（低频均值）
-        // 使用较大半径抹平痘印、色斑和泛红。
-        const radiusLarge = Math.max(5, Math.floor(w * 0.008)); 
-        const blurLarge = executeFastBoxBlur(blurSmall, w, h, radiusLarge, 2);
+        // 半径自适应：根据图片大小计算平滑范围
+        const radius = Math.max(3, Math.floor(w * 0.006));
+        // 色彩容差：75 左右能完美抹平痘印色斑，同时严格拦截瞳孔/头发等大反差边缘
+        const colorThreshold = 75;
+
+        // 直接获取保边平滑图像（皮肤像奶油一样，但五官极其清晰）
+        const smoothedData = fastSeparableBilateral(origData, w, h, radius, colorThreshold);
 
         const resultId = effectCtx.createImageData(w, h);
         const res = resultId.data;
 
-        // 【核心魔力】肌理保护阈值（Amplitude Clamping）
-        // 毛孔的起伏通常在 ±12 亮度内，而突兀的红痘痘或黑痣起伏会高达 ±50。
-        // 我们强行把超出 12 的瑕疵“削平”，这样痘痘就被物理抹除了，但毛孔被完整留了下来。
-        const poreThreshold = 12;
+        // 全图遍历输出，不需要任何容易引发锯齿的阈值遮罩
+        for (let i = 0; i < origData.length; i += 4) {
+            let or = origData[i], og = origData[i+1], ob = origData[i+2];
+            let sr = smoothedData[i], sg = smoothedData[i+1], sb = smoothedData[i+2];
 
-        for (let i = 0; i < orig.length; i += 4) {
-            // (原始像素 - 微小模糊) = 提取出皮肤表层的凹凸质感
-            let hr = orig[i] - blurSmall[i];
-            let hg = orig[i+1] - blurSmall[i+1];
-            let hb = orig[i+2] - blurSmall[i+2];
+            // 物理防断层噪点：打断 8-bit 色阶环，增加通透感
+            let noise = (Math.random() + Math.random() - 1.0) * 1.5;
 
-            // 钳制边缘：干掉痘痘边缘的硬切线，防止涂抹后留下痘印轮廓
-            hr = Math.max(-poreThreshold, Math.min(poreThreshold, hr));
-            hg = Math.max(-poreThreshold, Math.min(poreThreshold, hg));
-            hb = Math.max(-poreThreshold, Math.min(poreThreshold, hb));
-
-            // 微弱的纯数学抖动，直接从物理层面打碎 8-bit 的断层色阶圈
-            let noise = (Math.random() - 0.5) * 1.5;
-
-            // 最终合成：完美匀净的底色 + 原生毛孔肌理 + 抖动防色阶。这就是真正的专业修图。
-            res[i]   = blurLarge[i]   + hr + noise;
-            res[i+1] = blurLarge[i+1] + hg + noise;
-            res[i+2] = blurLarge[i+2] + hb + noise;
-            res[i+3] = orig[i+3];
+            // 为了避免纯平滑带来的“塑料假人感”，按比例混入 15% 的原图微小毛孔质感
+            res[i]   = sr * 0.85 + or * 0.15 + noise;
+            res[i+1] = sg * 0.85 + og * 0.15 + noise;
+            res[i+2] = sb * 0.85 + ob * 0.15 + noise;
+            res[i+3] = origData[i+3];
         }
-        
+
         effectCtx.putImageData(resultId, 0, 0);
     }
     // ----------------------------------------------------------------------------------
@@ -659,14 +830,10 @@
         
         const g = brushCtx.createRadialGradient(cx, cy, 0, cx, cy, r);
         
-        // 【极轻微的微调手感】
-        // 在预设 Intensity 20% (0.2) 下，单笔叠加的透明度被死死压在 0.03 (3%)。
-        // 你每一次扫抹都像极轻的散粉，不仅极其自然，且叠加过渡极度平滑。
         let alpha = brushPressure * 0.15; 
         if (currentTool === 'detail') alpha = brushPressure * 0.5;
         if (currentTool === 'eraser') alpha = brushPressure * 0.2; 
         
-        // 如云雾般消散的画笔边缘，绝不会有明显的圆圈印记
         g.addColorStop(0, `rgba(0,0,0,${alpha})`); 
         g.addColorStop(0.3, `rgba(0,0,0,${alpha * 0.8})`); 
         g.addColorStop(0.6, `rgba(0,0,0,${alpha * 0.4})`); 
