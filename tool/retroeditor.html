@@ -46,15 +46,15 @@
         }
 
         /* 硬件加速自适应避让区 */
-        .workspace {
-            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-            display: flex; justify-content: center; align-items: center;
-            background-color: var(--bg-canvas);
-            transform-origin: center 40%;
-            will-change: transform;
-            transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
-            z-index: 1;
-        }
+.workspace {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    display: flex; justify-content: center; align-items: center;
+    background-color: var(--bg-main); /* 改为使用主背景变量，跟随系统切换 */
+    transform-origin: center 40%;
+    will-change: transform;
+    transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+    z-index: 1;
+}
         
         /* 核心优化：提升图片占比，缩小幅度减轻 */
         body.drawer-open .workspace {
