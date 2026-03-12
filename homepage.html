@@ -6,74 +6,155 @@
     <title>🍍waveelab</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#87CEEB">
-    
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="waveelab">
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22white%22/><text y=%22.9em%22 font-size=%2290%22>🍍</text></svg>">
     <style>
-        /* 自动切换白天和黑夜模式的 CSS 变量 */
         :root {
             --bg-gradient: linear-gradient(to bottom, #ffffff, #87CEEB);
             --text-color: #333;
-            --text-shadow: 0 1px 2px rgba(255,255,255,0.8);
+            --text-shadow: 0 1px 1px rgba(255,255,255,0.6);
             --window-bg: #ececec;
             --window-pinstripe: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.5) 2px, rgba(255,255,255,0.5) 4px);
             --title-bar: linear-gradient(to bottom, #fdfdfd, #c8c8c8);
             --dock-bg: rgba(255, 255, 255, 0.4);
-            --dock-border: rgba(255, 255, 255, 0.6);
             --topbar-bg: rgba(255, 255, 255, 0.75);
             --topbar-border: rgba(0, 0, 0, 0.15);
         }
-
         @media (prefers-color-scheme: dark) {
             :root {
-                /* 黑夜模式：黑色渐变低饱和深蓝色 */
                 --bg-gradient: linear-gradient(to bottom, #000000, #1a2332);
                 --text-color: #f0f0f0;
-                --text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+                --text-shadow: 0 1px 2px rgba(0,0,0,0.8);
                 --window-bg: #2c2c2c;
                 --window-pinstripe: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.1) 2px, rgba(0,0,0,0.1) 4px);
                 --title-bar: linear-gradient(to bottom, #555, #222);
                 --dock-bg: rgba(0, 0, 0, 0.5);
-                --dock-border: rgba(255, 255, 255, 0.2);
                 --topbar-bg: rgba(0, 0, 0, 0.5);
                 --topbar-border: rgba(255, 255, 255, 0.15);
             }
         }
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg-gradient); height: 100vh; width: 100vw; overflow: hidden; transition: background 0.5s ease; }
+        
+        #top-bar { position: fixed; top: 0; left: 0; right: 0; height: 26px; background: var(--topbar-bg); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--topbar-border); display: flex; justify-content: space-between; align-items: center; padding: 0 15px; font-size: 14px; font-weight: 600; color: var(--text-color); z-index: 1000; }
+        #top-bar .left-menu { display: flex; align-items: center; cursor: pointer; gap: 6px; }
+        #top-bar .left-menu span.pineapple { filter: contrast(0%) brightness(50%); font-size: 14px; }
+        @media (prefers-color-scheme: dark) { #top-bar .left-menu span.pineapple { filter: contrast(0%) brightness(200%); } }
+        #top-bar .left-menu:active { opacity: 0.6; }
+        
+        #desktop { display: flex; flex-direction: column; flex-wrap: wrap; height: calc(100vh - 120px); padding: 15px; margin-top: 26px; gap: 20px; align-content: flex-start; }
+        .icon { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 70px; cursor: pointer; transition: transform 0.2s; }
+        .icon:active { transform: scale(0.9); }
+        .icon-emoji { font-size: 40px; text-shadow: 0 4px 8px rgba(0,0,0,0.15); margin-bottom: 5px; }
+        .icon-name { font-size: 12px; color: var(--text-color); text-shadow: var(--text-shadow); text-align: center; word-wrap: break-word; width: 100%; font-weight: 500; }
+        
+        .window { position: absolute; width: 80%; height: 80%; top: 10%; left: 10%; background-color: var(--window-bg); background-image: var(--window-pinstripe); border-radius: 8px 8px 0 0; box-shadow: 0 20px 40px -10px rgba(0,0,0,0.25), 0 0 1px rgba(0,0,0,0.3); display: flex; flex-direction: column; overflow: hidden; opacity: 0; transform: scale(0.95); transition: opacity 0.2s, transform 0.2s, width 0.3s, height 0.3s, top 0.3s, left 0.3s; pointer-events: none; z-index: 10; }
+        .window.active { opacity: 1; transform: scale(1); pointer-events: auto; }
+        .window.fullscreen { width: 100% !important; height: calc(100% - 26px) !important; top: 26px !important; left: 0 !important; border-radius: 0; z-index: 1500 !important; }
+        .window.minimized { opacity: 0; transform: scale(0.5) translateY(100vh); pointer-events: none; }
+        
+        .title-bar { height: 28px; background: var(--title-bar); display: flex; align-items: center; padding: 0 10px; border-bottom: 1px solid rgba(0,0,0,0.3); border-top-left-radius: 8px; border-top-right-radius: 8px; cursor: grab; position: relative; }
+        .title-bar:active { cursor: grabbing; }
+        .window.fullscreen .title-bar { border-radius: 0; }
+        .controls { display: flex; gap: 6px; z-index: 2; }
+        .btn { width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 -1px 1px rgba(0,0,0,0.1), inset 0 1px 1px rgba(255,255,255,0.6), 0 1px 2px rgba(0,0,0,0.15); cursor: pointer; }
+        .btn-close { background: #FF5F56; border: 1px solid #E0443E; }
+        .btn-minimize { background: #FFBD2E; border: 1px solid #DEA123; }
+        .btn-maximize { background: #27C93F; border: 1px solid #1AAB29; }
+        
+        .window-title { position: absolute; left: 0; right: 0; text-align: center; font-size: 13px; font-weight: 600; color: #333; text-shadow: 0 1px 0 rgba(255,255,255,0.6); pointer-events: none; }
+        @media (prefers-color-scheme: dark) { .window-title { color: #ddd; text-shadow: 0 1px 2px rgba(0,0,0,0.6); } }
+        
+        .content { flex: 1; width: 100%; background: #fff; position: relative; }
+        .content iframe { width: 100%; height: 100%; border: none; display: block; }
+        
+        #dock-container { position: fixed; bottom: 10px; width: 100%; display: flex; justify-content: center; z-index: 999; }
+        #dock { display: flex; gap: 15px; padding: 10px 20px; background: var(--dock-bg); border-radius: 20px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: 0 15px 30px -5px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.5); }
+        .dock-icon { font-size: 35px; cursor: pointer; transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); text-shadow: 0 4px 8px rgba(0,0,0,0.2); position: relative; }
+        .dock-icon:hover, .dock-icon:active { transform: scale(1.3) translateY(-10px); }
+        .dock-icon.open::after { content: ''; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); width: 4px; height: 4px; background: #fff; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.6); }
+    </style>
+</head>
+<body>
+    <div id="top-bar">
+        <div class="left-menu" onclick="showDesktop()"><span class="pineapple">🍍</span><span>waveelab</span></div>
+        <div class="right-menu" id="clock">00:00</div>
+    </div>
+    <div id="desktop"></div>
+    <div id="dock-container"><div id="dock"></div></div>
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            user-select: none; 
-            -webkit-user-select: none;
+    <script>
+        const $ = id => document.getElementById(id);
+        
+        setInterval(function updateClock() {
+            let d = new Date(), h = d.getHours(), m = d.getMinutes().toString().padStart(2, '0');
+            $('clock').innerText = `${h % 12 || 12}:${m} ${h >= 12 ? 'PM' : 'AM'}`;
+            return updateClock;
+        }(), 1000);
+
+        const apps = [
+            { id: 'facewavee', name: 'facewavee', emoji: '😊', url: '/tool/facewavee.html', isDock: false },
+            { id: 'retroeditor', name: ' retro editor', emoji: '🦄', url: '/tool/retroeditor.html', isDock: false },
+            { id: 'exchanger', name: 'exchanger', emoji: '🪙', url: '/tool/exchanger.html', isDock: false },
+            { id: 'poemmaker', name: 'poemmaker', emoji: '🖋️', url: '/art/poemmaker.html', isDock: false },
+            { id: 'dock_files', name: 'Cloud', emoji: '☁️', url: 'https://jianguoyun.com', isDock: true },
+            { id: 'dock_safari', name: ' Gallery', emoji: '📔', url: 'https://koobone.com', isDock: true },
+            { id: 'dock_chat', name: 'Memo', emoji: '📝', url: 'memo.html', isDock: true },
+            { id: 'dock_poolsuite', name: 'POOLSUITE', emoji: '📻', url: 'https://poolsuite.net', isDock: true }
+        ];
+
+        let zIndex = 10, openWins = {};
+        const appMap = apps.reduce((acc, app) => ({...acc, [app.id]: app}), {});
+
+        // 批量渲染 DOM
+        $('desktop').innerHTML = apps.filter(a => !a.isDock).map(a => `<div class="icon" onclick="handleApp('${a.id}')"><div class="icon-emoji">${a.emoji}</div><div class="icon-name">${a.name}</div></div>`).join('');
+        $('dock').innerHTML = apps.filter(a => a.isDock).map(a => `<div class="dock-icon" id="dock-${a.id}" onclick="handleApp('${a.id}')">${a.emoji}</div>`).join('');
+
+        const handleApp = id => {
+            let win = openWins[id];
+            if (win) { win.classList.remove('minimized'); bringUp(win); } 
+            else openApp(appMap[id]);
+        };
+
+        const showDesktop = () => Object.values(openWins).forEach(w => w.classList.add('minimized'));
+        const bringUp = win => win.style.zIndex = ++zIndex;
+        const setDock = (id, open) => { let d = $(`dock-${id}`); if(d) d.classList.toggle('open', open); };
+
+        function openApp(app) {
+            let win = document.createElement('div');
+            win.className = 'window'; win.id = `win-${app.id}`;
+            win.innerHTML = `<div class="title-bar" id="title-${app.id}"><div class="controls"><div class="btn btn-close" onclick="closeApp('${app.id}',event)"></div><div class="btn btn-minimize" onclick="minApp('${app.id}',event)"></div><div class="btn btn-maximize" onclick="maxApp('${app.id}',event)"></div></div><div class="window-title">${app.name}</div></div><div class="content"><iframe src="${app.url}"></iframe><div class="iframe-shield" style="position:absolute;top:0;left:0;width:100%;height:100%;display:none;z-index:5;"></div></div>`;
+            document.body.appendChild(win);
+            openWins[app.id] = win;
+            requestAnimationFrame(() => { win.classList.add('active'); bringUp(win); });
+            
+            makeDrag(win, win.querySelector('.title-bar'));
+            ['mousedown', 'touchstart'].forEach(e => win.addEventListener(e, () => bringUp(win), {passive: true}));
+            setDock(app.id, true);
         }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background: var(--bg-gradient);
-            height: 100vh;
-            width: 100vw;
-            overflow: hidden;
-            transition: background 0.5s ease;
+        const closeApp = (id, e) => { e.stopPropagation(); let w = openWins[id]; if(!w) return; w.classList.remove('active'); setTimeout(() => { w.remove(); delete openWins[id]; setDock(id, false); }, 200); };
+        const minApp = (id, e) => { e.stopPropagation(); openWins[id]?.classList.add('minimized'); };
+        const maxApp = (id, e) => { e.stopPropagation(); let w = openWins[id]; if(!w) return; w.classList.toggle('fullscreen'); if(!w.classList.contains('fullscreen')) { w.style.top='10%'; w.style.left='10%'; } else bringUp(w); };
+
+        function makeDrag(win, bar) {
+            let isDrag = false, sx, sy, il, it, shield = win.querySelector('.iframe-shield');
+            const getE = e => e.touches ? e.touches[0] : e;
+            const start = e => { if(e.target.classList.contains('btn') || win.classList.contains('fullscreen')) return; isDrag=true; shield.style.display='block'; let ev=getE(e), r=win.getBoundingClientRect(); sx=ev.clientX; sy=ev.clientY; il=r.left; it=r.top; win.style.transition='none'; };
+            const move = e => { if(!isDrag) return; e.preventDefault(); let ev=getE(e); win.style.left=`${il+ev.clientX-sx}px`; win.style.top=`${it+ev.clientY-sy}px`; };
+            const end = () => { if(!isDrag) return; isDrag=false; shield.style.display='none'; win.style.transition='opacity 0.2s, transform 0.2s, width 0.3s, height 0.3s'; };
+            
+            bar.addEventListener('touchstart', start, {passive: false}); bar.addEventListener('mousedown', start);
+            document.addEventListener('touchmove', move, {passive: false}); document.addEventListener('mousemove', move);
+            document.addEventListener('touchend', end); document.addEventListener('mouseup', end);
         }
 
-        /* 顶部导航栏 (Menu Bar) */
-        #top-bar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 26px;
-            background: var(--topbar-bg);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border-bottom: 1px solid var(--topbar-border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0 15px;
+        if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+    </script>
+</body>
+</html>            padding: 0 15px;
             font-size: 14px;
             font-weight: 600;
             color: var(--text-color);
