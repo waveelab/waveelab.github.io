@@ -50,6 +50,8 @@
             padding: 0;
             user-select: none; 
             -webkit-user-select: none;
+            /* 修复：去除移动端点击时的默认方块半透明高亮阴影 */
+            -webkit-tap-highlight-color: transparent;
         }
 
         body {
@@ -280,7 +282,7 @@
             gap: 15px;
             padding: 10px 20px;
             background: var(--dock-bg);
-            border: 1px solid var(--dock-border);
+            border: none; /* 修改：去掉了这里的 border 属性 */
             border-radius: 20px;
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
@@ -363,7 +365,7 @@
         // Dock应用列表 (固定四个)
         const dockApps = [
             { id: 'dock_files', name: 'Cloud', emoji: '☁️', url: 'https://jianguoyun.com' },
-            { id: 'dock_safari', name: ' Gallery', emoji: '📔', url: 'https://' },
+            { id: 'dock_safari', name: ' Gallery', emoji: '📔', url: 'https://koobone.com' },
             { id: 'dock_chat', name: 'Memo', emoji: '📝', url: 'memo.html' },
             { id: 'dock_poolsuite', name: 'POOLSUITE', emoji: '📻', url: 'https://poolsuite.net' }
         ];
