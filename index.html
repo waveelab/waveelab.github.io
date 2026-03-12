@@ -16,7 +16,8 @@
         :root {
             --bg-gradient: linear-gradient(to bottom, #ffffff, #87CEEB);
             --text-color: #333;
-            --text-shadow: 0 1px 2px rgba(255,255,255,0.8);
+            /* 优化：减弱白天模式的文字投影，更清爽 */
+            --text-shadow: 0 1px 1px rgba(255,255,255,0.6);
             --window-bg: #ececec;
             --window-pinstripe: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.5) 2px, rgba(255,255,255,0.5) 4px);
             --title-bar: linear-gradient(to bottom, #fdfdfd, #c8c8c8);
@@ -31,7 +32,8 @@
                 /* 黑夜模式：黑色渐变低饱和深蓝色 */
                 --bg-gradient: linear-gradient(to bottom, #000000, #1a2332);
                 --text-color: #f0f0f0;
-                --text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+                /* 优化：稍微柔和一点的暗黑文字投影 */
+                --text-shadow: 0 1px 2px rgba(0,0,0,0.8);
                 --window-bg: #2c2c2c;
                 --window-pinstripe: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.1) 2px, rgba(0,0,0,0.1) 4px);
                 --title-bar: linear-gradient(to bottom, #555, #222);
@@ -130,7 +132,8 @@
 
         .icon-emoji {
             font-size: 40px;
-            filter: drop-shadow(0 4px 4px rgba(0,0,0,0.2));
+            /* 性能优化：用 text-shadow 替代 filter: drop-shadow，视觉相同但运算极小 */
+            text-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
             margin-bottom: 5px;
         }
 
@@ -154,7 +157,8 @@
             background-color: var(--window-bg);
             background-image: var(--window-pinstripe);
             border-radius: 8px 8px 0 0;
-            box-shadow: 0 15px 40px rgba(0,0,0,0.3), 0 0 0 1px rgba(0,0,0,0.2);
+            /* 优化：引入负扩散(-10px)制造高级弥散感，同时边缘加1px浅色描边增强立体感 */
+            box-shadow: 0 20px 40px -10px rgba(0,0,0,0.25), 0 0 1px rgba(0,0,0,0.3);
             display: flex;
             flex-direction: column;
             overflow: hidden;
@@ -217,7 +221,8 @@
             width: 12px;
             height: 12px;
             border-radius: 50%;
-            box-shadow: inset 0 -1px 1px rgba(0,0,0,0.2), inset 0 1px 1px rgba(255,255,255,0.8), 0 1px 1px rgba(0,0,0,0.2);
+            /* 优化：削弱高光和底纹的对比度，使其更有精致质感 */
+            box-shadow: inset 0 -1px 1px rgba(0,0,0,0.1), inset 0 1px 1px rgba(255,255,255,0.6), 0 1px 2px rgba(0,0,0,0.15);
             cursor: pointer;
         }
 
@@ -233,14 +238,16 @@
             font-size: 13px;
             font-weight: 600;
             color: #333;
-            text-shadow: 0 1px 0 rgba(255,255,255,0.5);
+            /* 优化：轻量级文字高光 */
+            text-shadow: 0 1px 0 rgba(255,255,255,0.6);
             pointer-events: none;
         }
 
         @media (prefers-color-scheme: dark) {
             .window-title {
                 color: #ddd;
-                text-shadow: 0 1px 0 rgba(0,0,0,0.5);
+                /* 优化：暗色模式下的轻量级阴影 */
+                text-shadow: 0 1px 2px rgba(0,0,0,0.6);
             }
         }
 
@@ -277,14 +284,16 @@
             border-radius: 20px;
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.2), inset 0 1px 1px rgba(255,255,255,0.4);
+            /* 优化：增强悬浮感，利用负扩散和更柔和的透明度 */
+            box-shadow: 0 15px 30px -5px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.5);
         }
 
         .dock-icon {
             font-size: 35px;
             cursor: pointer;
             transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+            /* 性能优化：同样替换为 text-shadow */
+            text-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
             position: relative;
         }
 
@@ -302,7 +311,8 @@
             height: 4px;
             background: #fff;
             border-radius: 50%;
-            box-shadow: 0 0 2px rgba(0,0,0,0.8);
+            /* 优化：光点更加自然发光 */
+            box-shadow: 0 1px 3px rgba(0,0,0,0.6);
         }
     </style>
 </head>
@@ -570,9 +580,6 @@
                     });
             });
         }
-    </script>
-</body>
-</html>
     </script>
 </body>
 </html>
