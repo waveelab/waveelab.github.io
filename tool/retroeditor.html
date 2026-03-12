@@ -8,7 +8,7 @@
         /* 现代极简 UI 变量体系：默认响应系统浅色模式 */
         :root {
             --bg-main: #f2f2f7;
-            --bg-canvas: #000000; /* 画布区域始终保持纯黑以凸显图片 */
+            --bg-canvas: #000000;
             --bg-panel: rgba(255, 255, 255, 0.85);
             --border-line: rgba(0, 0, 0, 0.08);
             --text-main: #000000;
@@ -17,7 +17,7 @@
             --accent-val: #000000;
             --thumb-color: #ffffff;
             --btn-bg: rgba(255, 255, 255, 0.6);
-            --drawer-height: 320px; /* 压缩菜单高度，给图片留出更多空间 */
+            --drawer-height: 320px; 
         }
 
         /* 自动黑夜模式：跟随系统无缝切换 */
@@ -35,24 +35,18 @@
             }
         }
 
-* { 
-    box-sizing: border-box; 
-    -webkit-tap-highlight-color: transparent; 
-    /* --- 修复长按选择与系统菜单 --- */
-    -webkit-touch-callout: none; /* 禁用 iOS 的长按弹出菜单 (如复制/保存图片等) */
-    -webkit-user-select: none;   /* 适配 Safari */
-    -moz-user-select: none;      /* 适配 Firefox */
-    -ms-user-select: none;       /* 适配老版本 Edge/IE */
-    user-select: none;           /* 标准语法 */
-    /* ------------------------------ */
-    margin: 0; 
-    padding: 0; 
-}
+        * { 
+            box-sizing: border-box; 
+            -webkit-tap-highlight-color: transparent; 
+            -webkit-touch-callout: none; 
+            -webkit-user-select: none;   
+            -moz-user-select: none;      
+            -ms-user-select: none;       
+            user-select: none;           
+            margin: 0; 
+            padding: 0; 
+        }
 
-/* 注意：如果你未来加入了需要输入的 <input type="text"> 或 <textarea>，
-   需要为它们单独重置 user-select，目前你的项目里只有 range 和 file，所以全局禁用没问题。 */
-
-        /* 纯净清晰的苹果原生字体 */
         body, html {
             background-color: var(--bg-main); color: var(--text-main);
             font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
@@ -60,18 +54,17 @@
             display: flex; flex-direction: column; overscroll-behavior: none;
         }
 
-        /* 硬件加速自适应避让区 */
-.workspace {
-    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-    display: flex; justify-content: center; align-items: center;
-    background-color: var(--bg-main); /* 改为使用主背景变量，跟随系统切换 */
-    transform-origin: center 40%;
-    will-change: transform;
-    transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
-    z-index: 1;
-}
+        /* 工作区：提升 GPU 优先级 */
+        .workspace {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            display: flex; justify-content: center; align-items: center;
+            background-color: var(--bg-main); 
+            transform-origin: center 40%;
+            will-change: transform;
+            transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+            z-index: 1;
+        }
         
-        /* 核心优化：提升图片占比，缩小幅度减轻 */
         body.drawer-open .workspace {
             transform: scale(0.7) translateY(-15%);
         }
@@ -89,7 +82,6 @@
         .emoji-icon { font-size: 64px; opacity: 0.8; }
         .hint-text { color: rgba(255,255,255,0.6); font-size: 16px; letter-spacing: 2px; font-weight: 500; }
 
-        /* 极简毛玻璃顶部栏：取消分组，完全平均分布 */
         .top-bar {
             position: absolute; top: 0; left: 0; width: 100%;
             padding: max(env(safe-area-inset-top), 20px) 16px 20px;
@@ -97,13 +89,14 @@
             z-index: 100; pointer-events: none;
         }
         
-        /* 细腻的高级按钮：适当缩小字号与内边距，确保小屏均分时不拥挤 */
+        /* 按钮：指定具体的 transition 属性，拒绝使用 all 导致额外计算 */
         .btn {
             background: var(--btn-bg); color: var(--text-main); pointer-events: auto;
             padding: 10px 14px; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-block;
-            letter-spacing: 0.5px; border-radius: 18px; transition: 0.15s; border: none;
+            letter-spacing: 0.5px; border-radius: 18px; border: none;
             backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transition: transform 0.15s ease, opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+            will-change: transform;
         }
         .btn:active { transform: scale(0.95); opacity: 0.8; }
         
@@ -116,16 +109,24 @@
             width: 100%; height: 100%; cursor: pointer; font-size: 100px; z-index: 10;
         }
 
-        /* 底部面板：极简无边框 */
+        /* 👑 核心优化区：底部面板 - 完全使用 GPU 加速的 translateY，杜绝重排卡顿 */
         .bottom-dock {
             position: absolute; bottom: 0; left: 0; width: 100%; z-index: 100;
             display: flex; flex-direction: column; background: var(--bg-panel);
             backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
             border-top: 1px solid var(--border-line);
             padding-bottom: env(safe-area-inset-bottom);
+            /* 默认将面板向下偏移一个抽屉的高度，把抽屉藏在屏幕下方 */
+            transform: translateY(var(--drawer-height));
+            transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+            will-change: transform;
         }
 
-        /* 大字号水平导航 */
+        body.drawer-open .bottom-dock {
+            /* 展开时归位 */
+            transform: translateY(0);
+        }
+
         .nav-island {
             display: flex; overflow-x: auto; padding: 12px 16px; gap: 8px;
             scrollbar-width: none; border-bottom: 1px solid var(--border-line);
@@ -136,35 +137,42 @@
         .nav-item {
             flex: 0 0 auto; padding: 10px 18px; color: var(--text-mute);
             font-size: 15px; font-weight: 600; cursor: pointer; letter-spacing: 0.5px;
-            border-radius: 20px; transition: 0.2s;
+            border-radius: 20px; 
+            transition: background-color 0.2s ease, color 0.2s ease;
         }
         .nav-item.active { background: var(--text-main); color: var(--bg-main); }
 
-        /* 硬件加速抽屉 */
+        /* 抽屉保持高度不变，通过透明度和父级的位移来实现动画 */
         .adj-drawer {
-            height: 0; overflow: hidden;
-            transition: height 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+            height: var(--drawer-height); 
+            overflow: hidden;
+            opacity: 0; 
+            pointer-events: none;
+            transition: opacity 0.2s ease;
         }
-        body.drawer-open .adj-drawer { height: var(--drawer-height); }
+        body.drawer-open .adj-drawer { 
+            opacity: 1; 
+            pointer-events: auto;
+            transition: opacity 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) 0.1s; /* 加点延迟淡入，视觉更高级 */
+        }
         
         .panel { 
-            display: none; flex-direction: column; gap: 24px; /* 缩小间距，适配更紧凑的高度 */
+            display: none; flex-direction: column; gap: 24px;
             padding: 24px 20px 30px 20px; height: 100%; 
             overflow-y: auto; -webkit-overflow-scrolling: touch; 
         }
         .panel.active { display: flex; }
 
-        /* 优雅的重置按钮 */
         .panel-reset-btn {
             align-self: flex-start; background: transparent; color: var(--text-mute);
             border: none; padding: 8px 12px; font-size: 14px;
             font-weight: 600; cursor: pointer; letter-spacing: 0.5px;
-            border-radius: 12px; transition: 0.1s; margin-bottom: -12px;
+            border-radius: 12px; margin-bottom: -12px;
             background: var(--track-bg);
+            transition: background-color 0.15s ease, color 0.15s ease;
         }
         .panel-reset-btn:active { background: var(--text-main); color: var(--bg-main); }
 
-        /* 细腻的高级感滑杆 */
         .slider-wrap { display: flex; flex-direction: column; gap: 10px; padding: 4px 0; }
         .slider-header { display: flex; justify-content: space-between; align-items: center; }
         .slider-label { font-size: 15px; font-weight: 500; color: var(--text-main); letter-spacing: 0.5px;}
@@ -172,7 +180,7 @@
         
         input[type="range"] { 
             width: 100%; -webkit-appearance: none; background: transparent; 
-            height: 44px; /* 保持44px防误触热区 */
+            height: 44px; 
             outline: none; margin: 0; touch-action: pan-y; 
         }
         input[type="range"]::-webkit-slider-runnable-track { 
@@ -183,11 +191,11 @@
             border-radius: 50%; background: var(--thumb-color); 
             cursor: pointer; margin-top: -11.5px; 
             box-shadow: 0 3px 10px rgba(0,0,0,0.25); border: 1px solid var(--border-line);
-            transition: transform 0.1s;
+            transition: transform 0.1s cubic-bezier(0.2, 0.8, 0.2, 1);
+            will-change: transform;
         }
         input[type="range"]:active::-webkit-slider-thumb { transform: scale(1.15); }
 
-        /* 极简下拉框 */
         select {
             background: transparent; color: var(--text-main); border: 1px solid var(--border-line);
             padding: 14px; font-size: 15px; width: 100%; outline: none;
@@ -230,13 +238,9 @@
     </div>
 
 <script>
+// 此处 JS 逻辑保持不变
+document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
 
-// 禁用全局的长按/右键上下文菜单
-document.addEventListener('contextmenu', function(e) {
-    e.preventDefault();
-});
-
-    // --- 1. 参数配置 (引擎底层无改动) ---
     const fxConfig = {
         filter: {
             id: 'mod-filter', title: 'Filter & Glow',
@@ -337,7 +341,6 @@ document.addEventListener('contextmenu', function(e) {
     function initDefaults() { Object.values(fxConfig).forEach(cat => cat.params.forEach(p => state[p.id] = p.def)); }
     initDefaults();
 
-    // --- 2. 交互逻辑 ---
     const drawer = document.getElementById('adjDrawer');
     const navItems = document.querySelectorAll('.nav-item');
 
