@@ -792,7 +792,7 @@ document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
         reader.onload = function(event) {
             const img = new Image();
             img.onload = function() {
-                let w = img.width, h = img.height, max = 1600; 
+                let w = img.width, h = img.height, max = 2048; 
                 if (w > max || h > max) { let r = Math.min(max/w, max/h); w = Math.floor(w*r); h = Math.floor(h*r); }
                 
                 const offCanvas = document.createElement('canvas');
