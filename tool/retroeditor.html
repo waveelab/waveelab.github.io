@@ -35,7 +35,22 @@
             }
         }
 
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; margin: 0; padding: 0; }
+* { 
+    box-sizing: border-box; 
+    -webkit-tap-highlight-color: transparent; 
+    /* --- 修复长按选择与系统菜单 --- */
+    -webkit-touch-callout: none; /* 禁用 iOS 的长按弹出菜单 (如复制/保存图片等) */
+    -webkit-user-select: none;   /* 适配 Safari */
+    -moz-user-select: none;      /* 适配 Firefox */
+    -ms-user-select: none;       /* 适配老版本 Edge/IE */
+    user-select: none;           /* 标准语法 */
+    /* ------------------------------ */
+    margin: 0; 
+    padding: 0; 
+}
+
+/* 注意：如果你未来加入了需要输入的 <input type="text"> 或 <textarea>，
+   需要为它们单独重置 user-select，目前你的项目里只有 range 和 file，所以全局禁用没问题。 */
 
         /* 纯净清晰的苹果原生字体 */
         body, html {
@@ -215,6 +230,12 @@
     </div>
 
 <script>
+
+// 禁用全局的长按/右键上下文菜单
+document.addEventListener('contextmenu', function(e) {
+    e.preventDefault();
+});
+
     // --- 1. 参数配置 (引擎底层无改动) ---
     const fxConfig = {
         filter: {
