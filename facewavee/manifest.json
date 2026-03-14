@@ -1,7 +1,6 @@
 {
-  "name": "Facewavee",
-  "short_name": "Facewavee",
-  "description": "A high-performance WebGL image editor",
+  "name": "facewavee",
+  "short_name": "facewavee",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#000000",
