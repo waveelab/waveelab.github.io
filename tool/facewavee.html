@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>facewavee</title>
@@ -47,12 +49,8 @@
         #compareBtn:active { color: #888; }
 
         .workspace { flex: 1; position: relative; background: #050505; overflow: hidden; cursor: crosshair; touch-action: none; }
-        #mainCanvas, #originalCanvas { 
-            position: absolute; transform-origin: 0 0; image-rendering: -webkit-optimize-contrast; 
-            will-change: transform; /* 优化：启用 GPU 硬件加速 */
-        }
-        #mainCanvas { z-index: 1; }
-        #originalCanvas { z-index: 5; display: none; pointer-events: none; }
+        #mainCanvas { position: absolute; transform-origin: 0 0; image-rendering: -webkit-optimize-contrast; z-index: 1; }
+        #originalCanvas { position: absolute; transform-origin: 0 0; image-rendering: -webkit-optimize-contrast; z-index: 5; display: none; pointer-events: none; }
 
         .upload-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-color); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
         .upload-btn { position: relative; overflow: hidden; display: inline-block; background: var(--text); color: var(--bg-color); padding: 14px 36px; font-size: 13px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; transition: background 0.2s; text-align: center; }
@@ -92,7 +90,6 @@
         .crosshair, .brush-cursor {
             position: absolute; top: 0; left: 0; pointer-events: none; border-radius: 50%;
             box-shadow: 0 0 0 1px rgba(0,0,0,0.3), inset 0 0 0 1px rgba(0,0,0,0.3);
-            will-change: transform; /* 优化：避免鼠标移动重绘 */
         }
         .crosshair { z-index: 150; border: 1.5px dashed rgba(255,255,255,0.9); }
         .crosshair::before, .crosshair::after { content: ''; position: absolute; background: rgba(255,255,255,0.9); box-shadow: 0 0 1px rgba(0,0,0,0.5); }
@@ -181,6 +178,7 @@
             return p;
         }
 
+        // --- 新增：Reshape 高性能液化 Shader ---
         const reshapeProg = createProgram(`
             precision highp float; varying vec2 v_uv; uniform sampler2D u_tex; 
             uniform vec2 u_center; uniform vec2 u_delta; uniform float u_radius; 
@@ -191,6 +189,7 @@
                 float dist = length(diff);
                 if (dist < u_radius) {
                     float normDist = dist / u_radius;
+                    // 完全等效于你 CPU 版本的 Math.pow(0.5 + 0.5 * Math.cos((dist/r)*PI), 1.2)
                     float w = max(0.0, 0.5 + 0.5 * cos(normDist * 3.14159265359));
                     w = pow(w, 1.2) * u_pressure;
                     vec2 srcCoord = coord - u_delta * w;
@@ -246,13 +245,14 @@
 
         let w = 0, h = 0;
         let texOrig = gl.createTexture(), texA = gl.createTexture(), texB = gl.createTexture();
-        let texSnapshot = gl.createTexture(), texCleanSnapshot = gl.createTexture(); 
+        let texSnapshot = gl.createTexture(), texCleanSnapshot = gl.createTexture(); // 新增液化所需纹理缓冲
         let fboA = gl.createFramebuffer(), fboB = gl.createFramebuffer();
 
         function initTex(tex) {
             gl.bindTexture(gl.TEXTURE_2D, tex);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            // 开启 GPU 硬件级双线性插值，消除液化锯齿
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
         }
@@ -275,6 +275,7 @@
                 gl.bindFramebuffer(gl.FRAMEBUFFER, null);
                 gl.viewport(0, 0, w, h);
                 
+                // 开启局部剪裁优化，极大节省 GPU 算力！
                 gl.enable(gl.SCISSOR_TEST);
                 const pad = Math.ceil(radius + Math.max(Math.abs(dx), Math.abs(dy)) + 2);
                 const destX = cx + dx, destY = cy + dy;
@@ -285,7 +286,7 @@
                 const rectW = maxX - minX, rectH = maxY - minY;
                 
                 if (rectW <= 0 || rectH <= 0) { gl.disable(gl.SCISSOR_TEST); return null; }
-                gl.scissor(minX, h - maxY, rectW, rectH); 
+                gl.scissor(minX, h - maxY, rectW, rectH); // WebGL Y轴朝上，需翻转
                 
                 gl.useProgram(reshapeProg);
                 const posLoc = gl.getAttribLocation(reshapeProg, "a_pos");
@@ -306,6 +307,7 @@
                 gl.drawArrays(gl.TRIANGLES, 0, 6);
                 gl.disable(gl.SCISSOR_TEST);
                 
+                // 返回渲染边界供 2D Context 局部拷贝更新
                 return { x: minX, y: minY, w: rectW, h: rectH };
             },
             process: function(type, sourceCanvas, isUltra) {
@@ -388,15 +390,13 @@
     const cleanSnapshotCanvas = document.createElement('canvas');
     const cleanSnapshotCtx = cleanSnapshotCanvas.getContext('2d', { willReadFrequently: true, alpha: false });
 
-    // 优化：去除无用的 willReadFrequently，让其保留在 GPU 中，避免向 RAM 频繁拷贝
     const effectCanvas = document.createElement('canvas');
-    const effectCtx = effectCanvas.getContext('2d', { alpha: false }); 
+    const effectCtx = effectCanvas.getContext('2d', { willReadFrequently: true }); 
     const brushCanvas = document.createElement('canvas');
     const brushCtx = brushCanvas.getContext('2d'); 
 
-    // 优化：去除 cloneStrokeCtx 的 CPU 强制回读需求
     const cloneStrokeCanvas = document.createElement('canvas');
-    const cloneStrokeCtx = cloneStrokeCanvas.getContext('2d');
+    const cloneStrokeCtx = cloneStrokeCanvas.getContext('2d', { willReadFrequently: true });
 
     let history = [], currentTool = 'reshape', isDrawing = false;
     let brushSizeScreen = 120, brushPressure = 0.5;
@@ -424,36 +424,25 @@
         brushCursor.style.width = brushCursor.style.height = sizeStr;
     }
 
-    // 优化：分离光标更新与矩阵更新，统筹交由 requestAnimationFrame 渲染
-    let cursorRAF = null;
-    function updateCursorsStyle() {
-        if (cursorRAF) return;
-        cursorRAF = requestAnimationFrame(() => {
-            if (cloneCrosshair.style.display !== 'none') {
-                const screenX = crosshairImgX * viewScale + viewPanX, screenY = crosshairImgY * viewScale + viewPanY;
-                cloneCrosshair.style.transform = `translate(calc(${screenX}px - 50%), calc(${screenY}px - 50%))`;
-            }
-            if (brushCursor.style.display !== 'none') {
-                const screenX = brushImgX * viewScale + viewPanX, screenY = brushImgY * viewScale + viewPanY;
-                brushCursor.style.transform = `translate(calc(${screenX}px - 50%), calc(${screenY}px - 50%))`;
-            }
-            cursorRAF = null;
-        });
+    function setCrosshair(x, y) {
+        crosshairImgX = x; crosshairImgY = y;
+        const screenX = x * viewScale + viewPanX, screenY = y * viewScale + viewPanY;
+        cloneCrosshair.style.transform = `translate(calc(${screenX}px - 50%), calc(${screenY}px - 50%))`;
     }
 
-    function setCrosshair(x, y) { crosshairImgX = x; crosshairImgY = y; updateCursorsStyle(); }
-    function setBrushCursor(x, y) { brushImgX = x; brushImgY = y; updateCursorsStyle(); }
+    function setBrushCursor(x, y) {
+        brushImgX = x; brushImgY = y;
+        const screenX = x * viewScale + viewPanX, screenY = y * viewScale + viewPanY;
+        brushCursor.style.transform = `translate(calc(${screenX}px - 50%), calc(${screenY}px - 50%))`;
+    }
 
-    let transformRAF = null;
     function updateTransform() {
-        if (!transformRAF) {
-            transformRAF = requestAnimationFrame(() => {
-                const matrix = `matrix(${viewScale}, 0, 0, ${viewScale}, ${viewPanX}, ${viewPanY})`;
-                canvas.style.transform = originalCanvas.style.transform = matrix;
-                transformRAF = null;
-            });
+        const matrix = `matrix(${viewScale}, 0, 0, ${viewScale}, ${viewPanX}, ${viewPanY})`;
+        canvas.style.transform = originalCanvas.style.transform = matrix;
+        if (currentTool === 'clone' || currentTool === 'tone') {
+            if (cloneCrosshair.style.display !== 'none') setCrosshair(crosshairImgX, crosshairImgY);
+            if (brushCursor.style.display !== 'none') setBrushCursor(brushImgX, brushImgY);
         }
-        updateCursorsStyle(); // 矩阵变动连带更新游标位置
     }
 
     function fitToScreen() {
@@ -801,16 +790,19 @@
         cloneStrokeCtx.globalCompositeOperation = 'source-over'; cloneStrokeCtx.drawImage(brushCanvas, sx, sy); flushStrokeBuffer();
     }
 
+    // --- 核心更新：纯 WebGL 渲染管线执行液化 ---
     function applyReshapeAdvanced(curX, curY) {
         const dx = curX - anchorX, dy = curY - anchorY, distFromAnchorSq = dx*dx + dy*dy, r = brushSizeScreen / viewScale; 
         
         if (GLFilter) {
+            // 处理 Main Canvas 液化，且利用剪裁边界极速拷贝回 CPU 内存
             const rectMain = GLFilter.processReshape(false, anchorX, anchorY, dx, dy, r, brushPressure);
             if (rectMain) {
                 ctx.clearRect(rectMain.x, rectMain.y, rectMain.w, rectMain.h);
                 ctx.drawImage(GLFilter.canvas, rectMain.x, rectMain.y, rectMain.w, rectMain.h, rectMain.x, rectMain.y, rectMain.w, rectMain.h);
             }
             
+            // 处理 Clean Canvas 液化 (用于消除画笔的纯净图层同步液化)
             const rectClean = GLFilter.processReshape(true, anchorX, anchorY, dx, dy, r, brushPressure);
             if (rectClean) {
                 cleanCtx.clearRect(rectClean.x, rectClean.y, rectClean.w, rectClean.h);
@@ -818,6 +810,7 @@
             }
         }
         
+        // 当移动距离越过半个画笔半径时，刷新快照锚点 (和原先 CPU 版本一致的控制流)
         if (distFromAnchorSq > (r * 0.5) * (r * 0.5)) { 
             snapshotCtx.drawImage(canvas, 0, 0); 
             cleanSnapshotCtx.drawImage(cleanCanvas, 0, 0); 
@@ -862,6 +855,7 @@
         brushCtx.globalCompositeOperation = 'source-over'; brushCtx.fillStyle = g; brushCtx.fillRect(0, 0, bw, bh);
         brushCtx.globalCompositeOperation = 'source-in'; brushCtx.drawImage(effectCanvas, sx, sy, bw, bh, 0, 0, bw, bh);
         ctx.drawImage(brushCanvas, sx, sy);
+
     }
 
     // ==========================================
