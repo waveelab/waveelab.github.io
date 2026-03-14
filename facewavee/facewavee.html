@@ -3,840 +3,848 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>🦄retro editor</title>
+    <title>facewavee</title>
     <style>
-        /* 现代极简 UI 变量体系：默认响应系统浅色模式 */
         :root {
-            --bg-main: #f2f2f7;
-            --bg-canvas: #000000;
-            --bg-panel: rgba(255, 255, 255, 0.85);
-            --border-line: rgba(0, 0, 0, 0.08);
-            --text-main: #000000;
-            --text-mute: #8e8e93;
-            --track-bg: rgba(0, 0, 0, 0.1);
-            --accent-val: #000000;
-            --thumb-color: #ffffff;
-            --btn-bg: rgba(255, 255, 255, 0.6);
-            --drawer-height: 320px; 
+            --bg-color: #000000;
+            --panel-bg: #0a0a0a;
+            --accent: #ffffff;
+            --text: #ffffff;
+            --text-muted: #666666;
+            --border: #1a1a1a;
         }
-
-        /* 自动黑夜模式：跟随系统无缝切换 */
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --bg-main: #000000;
-                --bg-panel: rgba(28, 28, 30, 0.85);
-                --border-line: rgba(255, 255, 255, 0.1);
-                --text-main: #ffffff;
-                --text-mute: #98989d;
-                --track-bg: rgba(255, 255, 255, 0.15);
-                --accent-val: #ffffff;
-                --thumb-color: #ffffff;
-                --btn-bg: rgba(44, 44, 46, 0.6);
-            }
-        }
-
-        * { 
-            box-sizing: border-box; 
-            -webkit-tap-highlight-color: transparent; 
-            -webkit-touch-callout: none; 
-            -webkit-user-select: none;   
-            -moz-user-select: none;      
-            -ms-user-select: none;       
-            user-select: none;           
-            margin: 0; 
-            padding: 0; 
-        }
-
-        body, html {
-            background-color: var(--bg-main); color: var(--text-main);
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
-            height: 100%; width: 100%; overflow: hidden; 
-            display: flex; flex-direction: column; overscroll-behavior: none;
-        }
-
-        /* 工作区：提升 GPU 优先级 */
-        .workspace {
-            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-            display: flex; justify-content: center; align-items: center;
-            background-color: var(--bg-main); 
-            transform-origin: center 40%;
-            will-change: transform;
-            transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
-            z-index: 1;
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; user-select: none; -webkit-user-select: none; }
+        
+        body { 
+            background-color: var(--bg-color); 
+            color: var(--text); 
+            overflow: hidden; 
+            height: 100vh; 
+            height: 100dvh; 
+            display: flex; 
+            flex-direction: column; 
         }
         
-        body.drawer-open .workspace {
-            transform: scale(0.7) translateY(-15%);
+        header { 
+            display: flex; justify-content: space-between; align-items: center; 
+            padding: max(12px, env(safe-area-inset-top)) max(15px, env(safe-area-inset-right)) 12px max(15px, env(safe-area-inset-left)); 
+            background: var(--panel-bg); z-index: 100; border-bottom: 1px solid var(--border); flex-shrink: 0; 
         }
+        .logo { font-size: 13px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--text); }
+        .header-actions { display: flex; gap: 15px; }
+        .header-actions button { background: none; border: none; color: var(--accent); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; padding: 5px; touch-action: none; }
+        .header-actions button:disabled { color: #333; cursor: not-allowed; }
+        .header-actions .close-btn { color: #888; }
+        #compareBtn:active { color: #888; }
 
-        #glcanvas {
-            max-width: 100%; max-height: 100%; object-fit: contain; 
-            transition: opacity 0.2s; cursor: pointer;
-        }
+        .workspace { flex: 1; position: relative; background: #050505; overflow: hidden; cursor: crosshair; touch-action: none; }
+        #mainCanvas { position: absolute; transform-origin: 0 0; image-rendering: -webkit-optimize-contrast; z-index: 1; }
+        #originalCanvas { position: absolute; transform-origin: 0 0; image-rendering: -webkit-optimize-contrast; z-index: 5; display: none; pointer-events: none; }
 
-        .empty-hint {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            display: flex; flex-direction: column; align-items: center; gap: 16px;
-            pointer-events: none; z-index: 2;
-        }
-        .emoji-icon { font-size: 64px; opacity: 0.8; }
-        .hint-text { color: rgba(255,255,255,0.6); font-size: 16px; letter-spacing: 2px; font-weight: 500; }
-
-        .top-bar {
-            position: absolute; top: 0; left: 0; width: 100%;
-            padding: max(env(safe-area-inset-top), 20px) 16px 20px;
-            display: flex; justify-content: space-between; align-items: center;
-            z-index: 100; pointer-events: none;
-        }
+        .upload-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-color); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
+        .upload-btn { position: relative; overflow: hidden; display: inline-block; background: var(--text); color: var(--bg-color); padding: 14px 36px; font-size: 13px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; transition: background 0.2s; text-align: center; }
+        .upload-btn.outline { background: transparent; color: var(--text); border: 1px solid var(--text); padding: 13px 35px; }
+        .upload-btn:active { opacity: 0.7; }
+        .file-input { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
         
-        /* 按钮：指定具体的 transition 属性，拒绝使用 all 导致额外计算 */
-        .btn {
-            background: var(--btn-bg); color: var(--text-main); pointer-events: auto;
-            padding: 10px 14px; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-block;
-            letter-spacing: 0.5px; border-radius: 18px; border: none;
-            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-            transition: transform 0.15s ease, opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
-            will-change: transform;
+        .footer-text { position: absolute; bottom: max(30px, env(safe-area-inset-bottom)); width: 100%; text-align: center; font-size: 10px; color: #444444; letter-spacing: 1.5px; text-transform: uppercase; pointer-events: none; }
+
+        .controls { 
+            background: var(--panel-bg); 
+            padding: 15px max(20px, env(safe-area-inset-right)) max(25px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); 
+            border-top: 1px solid var(--border); z-index: 100; touch-action: none; flex-shrink: 0; 
         }
-        .btn:active { transform: scale(0.95); opacity: 0.8; }
+        .sliders { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; }
+        .slider-row { display: flex; align-items: center; gap: 10px; }
+        .slider-row label { width: 65px; font-size: 10px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
         
-        .btn-orig { color: var(--text-main); }
-        .btn-orig.holding { background: var(--text-main); color: var(--bg-main); }
+        input[type=range] { flex: 1; -webkit-appearance: none; background: transparent; height: 30px; border-radius: 0; outline: none; margin: 0; }
+        input[type=range]::-webkit-slider-runnable-track { height: 2px; background: #333; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 20px; width: 16px; border-radius: 0; background: #fff; cursor: pointer; margin-top: -9px; }
 
-        .upload-wrapper { position: relative; display: inline-block; overflow: hidden; cursor: pointer; pointer-events: auto;}
-        .upload-wrapper input[type="file"] {
-            position: absolute; left: 0; top: 0; opacity: 0; 
-            width: 100%; height: 100%; cursor: pointer; font-size: 100px; z-index: 10;
-        }
+        .tools { display: flex; justify-content: space-between; gap: 6px; }
+        .tool-btn { background: none; border: none; color: var(--text-muted); font-size: 10.5px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 0; transition: 0.2s; flex: 1; text-align: center; }
+        .tool-btn.active { color: var(--accent); position: relative; }
+        .tool-btn.active::after { content: ''; position: absolute; bottom: 0; left: 15%; width: 70%; height: 2px; background: var(--accent); }
 
-        /* 👑 核心优化区：底部面板 - 完全使用 GPU 加速的 translateY，杜绝重排卡顿 */
-        .bottom-dock {
-            position: absolute; bottom: 0; left: 0; width: 100%; z-index: 100;
-            display: flex; flex-direction: column; background: var(--bg-panel);
-            backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
-            border-top: 1px solid var(--border-line);
-            padding-bottom: env(safe-area-inset-bottom);
-            /* 默认将面板向下偏移一个抽屉的高度，把抽屉藏在屏幕下方 */
-            transform: translateY(var(--drawer-height));
-            transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
-            will-change: transform;
+        .floating-toast {
+            position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.75); color: #fff; padding: 8px 20px; border-radius: 20px;
+            font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+            z-index: 200; cursor: pointer; border: 1px solid rgba(255,255,255,0.2);
+            backdrop-filter: blur(5px); transition: all 0.2s; pointer-events: auto; display: flex; align-items: center;
         }
+        .floating-toast.active { background: rgba(255, 255, 255, 0.95); color: #000; box-shadow: 0 0 15px rgba(255,255,255,0.2); }
 
-        body.drawer-open .bottom-dock {
-            /* 展开时归位 */
-            transform: translateY(0);
+        .crosshair, .brush-cursor {
+            position: absolute; top: 0; left: 0; pointer-events: none; border-radius: 50%;
+            box-shadow: 0 0 0 1px rgba(0,0,0,0.3), inset 0 0 0 1px rgba(0,0,0,0.3);
         }
-
-        .nav-island {
-            display: flex; overflow-x: auto; padding: 12px 16px; gap: 8px;
-            scrollbar-width: none; border-bottom: 1px solid var(--border-line);
-            -webkit-overflow-scrolling: touch;
-        }
-        .nav-island::-webkit-scrollbar { display: none; }
-        
-        .nav-item {
-            flex: 0 0 auto; padding: 10px 18px; color: var(--text-mute);
-            font-size: 15px; font-weight: 600; cursor: pointer; letter-spacing: 0.5px;
-            border-radius: 20px; 
-            transition: background-color 0.2s ease, color 0.2s ease;
-        }
-        .nav-item.active { background: var(--text-main); color: var(--bg-main); }
-
-        /* 抽屉保持高度不变，通过透明度和父级的位移来实现动画 */
-        .adj-drawer {
-            height: var(--drawer-height); 
-            overflow: hidden;
-            opacity: 0; 
-            pointer-events: none;
-            transition: opacity 0.2s ease;
-        }
-        body.drawer-open .adj-drawer { 
-            opacity: 1; 
-            pointer-events: auto;
-            transition: opacity 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) 0.1s; /* 加点延迟淡入，视觉更高级 */
-        }
-        
-        .panel { 
-            display: none; flex-direction: column; gap: 24px;
-            padding: 24px 20px 30px 20px; height: 100%; 
-            overflow-y: auto; -webkit-overflow-scrolling: touch; 
-        }
-        .panel.active { display: flex; }
-
-        .panel-reset-btn {
-            align-self: flex-start; background: transparent; color: var(--text-mute);
-            border: none; padding: 8px 12px; font-size: 14px;
-            font-weight: 600; cursor: pointer; letter-spacing: 0.5px;
-            border-radius: 12px; margin-bottom: -12px;
-            background: var(--track-bg);
-            transition: background-color 0.15s ease, color 0.15s ease;
-        }
-        .panel-reset-btn:active { background: var(--text-main); color: var(--bg-main); }
-
-        .slider-wrap { display: flex; flex-direction: column; gap: 10px; padding: 4px 0; }
-        .slider-header { display: flex; justify-content: space-between; align-items: center; }
-        .slider-label { font-size: 15px; font-weight: 500; color: var(--text-main); letter-spacing: 0.5px;}
-        .slider-val { font-size: 15px; font-variant-numeric: tabular-nums; color: var(--text-main); font-weight: 600; min-width: 38px; text-align: right; }
-        
-        input[type="range"] { 
-            width: 100%; -webkit-appearance: none; background: transparent; 
-            height: 44px; 
-            outline: none; margin: 0; touch-action: pan-y; 
-        }
-        input[type="range"]::-webkit-slider-runnable-track { 
-            width: 100%; height: 3px; background: var(--track-bg); border-radius: 1.5px;
-        }
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none; height: 26px; width: 26px; 
-            border-radius: 50%; background: var(--thumb-color); 
-            cursor: pointer; margin-top: -11.5px; 
-            box-shadow: 0 3px 10px rgba(0,0,0,0.25); border: 1px solid var(--border-line);
-            transition: transform 0.1s cubic-bezier(0.2, 0.8, 0.2, 1);
-            will-change: transform;
-        }
-        input[type="range"]:active::-webkit-slider-thumb { transform: scale(1.15); }
-
-        select {
-            background: transparent; color: var(--text-main); border: 1px solid var(--border-line);
-            padding: 14px; font-size: 15px; width: 100%; outline: none;
-            -webkit-appearance: none; font-weight: 500; letter-spacing: 0.5px; border-radius: 12px;
-        }
+        .crosshair { z-index: 150; border: 1.5px dashed rgba(255,255,255,0.9); }
+        .crosshair::before, .crosshair::after { content: ''; position: absolute; background: rgba(255,255,255,0.9); box-shadow: 0 0 1px rgba(0,0,0,0.5); }
+        .crosshair::before { top: 50%; left: 50%; width: 10px; height: 1.5px; transform: translate(-50%, -50%); }
+        .crosshair::after { top: 50%; left: 50%; width: 1.5px; height: 10px; transform: translate(-50%, -50%); }
+        .brush-cursor { z-index: 160; border: 1.5px solid rgba(255,255,255,0.9); }
     </style>
 </head>
 <body>
 
+    <header>
+        <div class="logo">facewavee</div>
+        <div class="header-actions">
+            <button id="closeBtn" class="close-btn" style="display: none;">Close</button>
+            <button id="compareBtn" style="display: none;">Compare</button>
+            <button id="undoBtn" disabled>Undo</button>
+            <button id="exportBtn" style="display: none;">Save</button>
+        </div>
+    </header>
+
     <div class="workspace" id="workspace">
-        <canvas id="glcanvas"></canvas>
-        <div class="empty-hint" id="hintBox">
-            <div class="emoji-icon">🦄</div>
-            <div class="hint-text">RETRO EDITOR</div>
-        </div>
+        <div id="cloneToast" class="floating-toast" style="display:none;">drop to select</div>
+        <div id="cloneSourceCrosshair" class="crosshair" style="display:none;"></div>
+        <div id="brushCursor" class="brush-cursor" style="display:none;"></div>
+        
+        <canvas id="mainCanvas"></canvas>
+        <canvas id="originalCanvas"></canvas>
     </div>
 
-    <div class="top-bar">
-        <div class="upload-wrapper">
-            <button class="btn">IMPORT</button>
-            <input type="file" id="uploadFile" accept="image/*">
+    <div class="upload-overlay" id="uploadOverlay">
+        <div style="display: flex; flex-direction: column; gap: 15px;">
+            <div class="upload-btn">
+                Open Original
+                <input type="file" id="fileInputOrig" class="file-input" accept="image/*">
+            </div>
+            <div class="upload-btn outline">
+                Open Max 2048
+                <input type="file" id="fileInput2048" class="file-input" accept="image/*">
+            </div>
         </div>
-        <button id="resetAllBtn" class="btn">RESET</button>
-        <button id="origBtn" class="btn btn-orig">ORIG</button>
-        <button id="saveBtn" class="btn">EXPORT</button>
+        <div class="footer-text">created by wavee</div>
     </div>
 
-    <div class="bottom-dock">
-        <div class="nav-island" id="navMenu">
-            <div class="nav-item" data-target="mod-filter">GEL</div>
-            <div class="nav-item" data-target="mod-ntsc">NTSC</div>
-            <div class="nav-item" data-target="mod-crt">CRT</div>
-            <div class="nav-item" data-target="mod-led">LED</div>
-            <div class="nav-item" data-target="mod-bloom">BLOOM</div>
-            <div class="nav-item" data-target="mod-noise">NOISE</div>
-            <div class="nav-item" data-target="mod-angle">ANGLE</div>
-            <div class="nav-item" data-target="mod-adjust">ADJUST</div>
+    <div class="controls">
+        <div class="sliders">
+            <div class="slider-row">
+                <label>Size</label>
+                <input type="range" id="sizeSlider" min="10" max="150" value="120">
+            </div>
+            <div class="slider-row">
+                <label>Intensity</label>
+                <input type="range" id="pressureSlider" min="0.05" max="1.0" step="0.05" value="0.5">
+            </div>
         </div>
-        <div class="adj-drawer" id="adjDrawer"></div>
+        <div class="tools">
+            <button class="tool-btn active" data-tool="reshape">Reshape</button>
+            <button class="tool-btn" data-tool="smooth">Smooth</button>
+            <button class="tool-btn" data-tool="detail">Detail</button>
+            <button class="tool-btn" data-tool="clone">Patch</button>
+            <button class="tool-btn" data-tool="tone">Tone</button>
+            <button class="tool-btn" data-tool="eraser">Eraser</button>
+        </div>
     </div>
 
 <script>
-// 此处 JS 逻辑保持不变
-document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+    // ==========================================
+    // WebGL GPU 加速引擎 (重构整合了液化 Reshape 功能)
+    // ==========================================
+    const GLFilter = (function() {
+        const cvs = document.createElement('canvas');
+        const gl = cvs.getContext('webgl', { premultipliedAlpha: false });
+        if (!gl) return null;
 
-    const fxConfig = {
-        filter: {
-            id: 'mod-filter', title: 'Filter & Glow',
-            params: [
-                { id: 'gelHue', label: 'Gel Hue (Color)', type: 'slider', max: 100, def: 0 },
-                { id: 'gelSat', label: 'Gel Saturation', type: 'slider', max: 100, def: 100 },
-                { id: 'gelDens', label: 'Density (Absorption)', type: 'slider', max: 100, def: 0 },
-                { id: 'gelEmit', label: 'Luminous Emission', type: 'slider', max: 100, def: 20 },
-                { id: 'gelLuma', label: 'Contrast Preservation', type: 'slider', max: 100, def: 75 },
-                { id: 'gelGlow', label: '0.3MP Edge Glow (Blue)', type: 'slider', max: 100, def: 0 },
-                { id: 'glowBlur', label: 'Edge Glow Spread', type: 'slider', max: 100, def: 50 },
-                { id: 'glowSoftness', label: 'Glow Pure Blur (Softness)', type: 'slider', max: 100, def: 0 }
-            ]
-        },
-        ntsc: {
-            id: 'mod-ntsc', title: 'NTSC',
-            params: [
-                { id: 'ntscCross', label: 'Y/C Crosstalk (Rainbow)', type: 'slider', max: 100, def: 0 },
-                { id: 'ntscI', label: 'Chroma Band I (Org/Cya)', type: 'slider', max: 100, def: 100 },
-                { id: 'ntscQ', label: 'Chroma Band Q (Pur/Grn)', type: 'slider', max: 100, def: 100 },
-                { id: 'ntscLuma', label: 'Luma Bandwidth (Sharp)', type: 'slider', max: 100, def: 100 },
-                { id: 'ntscPhase', label: 'Burst Phase Shift', type: 'slider', max: 100, def: 50 },
-                { id: 'ntscJitter', label: 'TBC Jitter (Sync Error)', type: 'slider', max: 100, def: 0 }
-            ]
-        },
-        crt: {
-            id: 'mod-crt', title: 'CRT',
-            params: [
-                { id: 'crtMaskType', label: 'Phosphor Architecture', type: 'select', opts: [{v:0, n:'Raw Feed (Off)'}, {v:1, n:'Aperture Grille'}, {v:2, n:'Shadow Mask'}, {v:3, n:'Slot Mask'}], def: 0 },
-                { id: 'crtMaskSize', label: 'Mask Scale (Grid Size)', type: 'slider', max: 100, def: 50 },
-                { id: 'crtRes', label: 'Hardware Downsample', type: 'slider', max: 100, def: 0 },
-                { id: 'crtBlur', label: 'Phosphor Pixel Blur', type: 'slider', max: 100, def: 0 },
-                { id: 'crtScan', label: 'Adaptive Scanlines', type: 'slider', max: 100, def: 0 },
-                { id: 'crtMaskStr', label: 'Phosphor Contrast', type: 'slider', max: 100, def: 70 },
-                { id: 'crtVignette', label: 'Screen Vignette (Dark Edges)', type: 'slider', max: 100, def: 0 },
-                { id: 'crtCurve', label: 'Glass Curvature & Bezel', type: 'slider', max: 100, def: 0 }
-            ]
-        },
-        led: {
-            id: 'mod-led', title: 'LED',
-            params: [
-                { id: 'ledType', label: 'Diode Matrix', type: 'select', opts: [{v:0, n:'RGB Stripe'}, {v:1, n:'BGR Stripe'}, {v:2, n:'PenTile (Diamond)'}], def: 0 },
-                { id: 'ledPitch', label: 'Matrix Resolution', type: 'slider', max: 100, def: 0 },
-                { id: 'ledShape', label: 'Diode Shape (Sq <> Rnd)', type: 'slider', max: 100, def: 50 },
-                { id: 'ledGap', label: 'Black Matrix Gap', type: 'slider', max: 100, def: 30 },
-                { id: 'ledBlur', label: 'Pixel Diffusion (Blur)', type: 'slider', max: 100, def: 0 },
-                { id: 'ledSub', label: 'Subpixel Detail', type: 'slider', max: 100, def: 0 },
-                { id: 'ledGlow', label: 'Diode Glow', type: 'slider', max: 100, def: 0 }
-            ]
-        },
-        bloom: {
-            id: 'mod-bloom', title: 'Bloom',
-            params: [
-                { id: 'imageBlur', label: 'Pure Gaussian Blur', type: 'slider', max: 100, def: 0 }, 
-                { id: 'bloomInt', label: 'Diffusion Intensity', type: 'slider', max: 100, def: 0 },
-                { id: 'bloomRad', label: 'Scatter Radius', type: 'slider', max: 100, def: 40 },
-                { id: 'bloomThresh', label: 'Highlight Threshold', type: 'slider', max: 100, def: 75 },
-                { id: 'bloomFlare', label: 'Anamorphic Flare (Streak)', type: 'slider', max: 100, def: 0 },
-                { id: 'bloomHal', label: 'Film Halation (Red Fringe)', type: 'slider', max: 100, def: 0 }
-            ]
-        },
-        noise: {
-            id: 'mod-noise', title: 'Noise',
-            params: [
-                { id: 'noiseLuma', label: 'Film Grain (Luma)', type: 'slider', max: 100, def: 0 },
-                { id: 'noiseChroma', label: 'Analog Noise (Chroma)', type: 'slider', max: 100, def: 0 },
-                { id: 'noiseScale', label: 'Grain Scale (Size)', type: 'slider', max: 100, def: 20 },
-                { id: 'noiseDust', label: 'Film Dust & Specks', type: 'slider', max: 100, def: 0 },
-                { id: 'noiseScratch', label: 'Vertical Scratches', type: 'slider', max: 100, def: 0 }
-            ]
-        },
-        angle: {
-            id: 'mod-angle', title: 'Angle 3D',
-            params: [
-                { id: 'angleDistort', label: 'Lens Distortion (Fisheye)', type: 'slider', max: 100, def: 50 },
-                { id: 'angleCenterX', label: 'Distort Focus X', type: 'slider', max: 100, def: 50 },
-                { id: 'angleCenterY', label: 'Distort Focus Y', type: 'slider', max: 100, def: 50 },
-                { id: 'angleYaw', label: 'Perspective Pan (Yaw)', type: 'slider', max: 100, def: 50 },
-                { id: 'anglePitch', label: 'Perspective Tilt (Pitch)', type: 'slider', max: 100, def: 50 },
-                { id: 'angleScale', label: 'Zoom Scale (Fill Edges)', type: 'slider', max: 100, def: 0 }
-            ]
-        },
-        adjust: {
-            id: 'mod-adjust', title: 'Retro Adjust',
-            params: [
-                { id: 'adjExpo', label: 'Film Exposure', type: 'slider', max: 100, def: 50 },
-                { id: 'adjBright', label: 'Brightness', type: 'slider', max: 100, def: 50 },
-                { id: 'adjCont', label: 'Contrast', type: 'slider', max: 100, def: 50 },
-                { id: 'adjSat', label: 'Saturation', type: 'slider', max: 100, def: 50 },
-                { id: 'adjSharpen', label: 'DV Sharpening (Halo)', type: 'slider', max: 100, def: 0 },
-                { id: 'adjLofi', label: 'Lo-Fi Degradation', type: 'slider', max: 100, def: 0 }
-            ]
+        function compile(type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            return shader;
         }
-    };
-
-    const state = { time: 0 };
-    let isShowingOriginal = false; 
-    function initDefaults() { Object.values(fxConfig).forEach(cat => cat.params.forEach(p => state[p.id] = p.def)); }
-    initDefaults();
-
-    const drawer = document.getElementById('adjDrawer');
-    const navItems = document.querySelectorAll('.nav-item');
-
-    Object.keys(fxConfig).forEach(key => {
-        const cat = fxConfig[key];
-        const pnl = document.createElement('div');
-        pnl.className = 'panel'; pnl.id = cat.id;
-
-        const rstBtn = document.createElement('button');
-        rstBtn.className = 'panel-reset-btn';
-        rstBtn.innerText = `RESET ${cat.title.toUpperCase()}`;
-        rstBtn.onclick = () => {
-            cat.params.forEach(p => {
-                state[p.id] = p.def;
-                const el = document.getElementById(p.id); if(el) el.value = p.def;
-                const valEl = document.getElementById(`val-${p.id}`); if(valEl) valEl.textContent = p.def;
-            });
-        };
-        pnl.appendChild(rstBtn);
-
-        cat.params.forEach(p => {
-            const wrap = document.createElement('div'); wrap.className = 'slider-wrap';
-            if (p.type === 'select') {
-                wrap.innerHTML = `<div class="slider-header"><span class="slider-label">${p.label}</span></div>
-                                  <select id="${p.id}">${p.opts.map(o => `<option value="${o.v}">${o.n}</option>`).join('')}</select>`;
-                wrap.querySelector('select').addEventListener('change', e => { state[p.id] = parseInt(e.target.value); });
-            } else {
-                wrap.innerHTML = `
-                    <div class="slider-header"><span class="slider-label">${p.label}</span><span class="slider-val" id="val-${p.id}">${p.def}</span></div>
-                    <input type="range" id="${p.id}" min="0" max="${p.max}" value="${p.def}">`;
-                wrap.querySelector('input').addEventListener('input', e => {
-                    document.getElementById(`val-${p.id}`).textContent = e.target.value;
-                    state[p.id] = parseInt(e.target.value);
-                });
-            }
-            pnl.appendChild(wrap);
-        });
-        drawer.appendChild(pnl);
-    });
-
-    navItems.forEach(item => {
-        item.addEventListener('click', () => {
-            const target = item.dataset.target;
-            if (item.classList.contains('active')) {
-                document.body.classList.remove('drawer-open');
-                item.classList.remove('active');
-            } else {
-                navItems.forEach(n => n.classList.remove('active'));
-                document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-                item.classList.add('active'); 
-                document.getElementById(target).classList.add('active');
-                document.body.classList.add('drawer-open'); 
-            }
-        });
-    });
-
-    document.getElementById('resetAllBtn').addEventListener('click', () => {
-        initDefaults();
-        Object.values(fxConfig).forEach(cat => cat.params.forEach(p => {
-            const el = document.getElementById(p.id); if(el) el.value = p.def;
-            const valEl = document.getElementById(`val-${p.id}`); if(valEl) valEl.textContent = p.def;
-        }));
-    });
-
-    document.getElementById('workspace').addEventListener('click', (e) => {
-        if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT' && e.target.tagName !== 'BUTTON') {
-            if (document.body.classList.contains('drawer-open')) {
-                document.body.classList.remove('drawer-open');
-                navItems.forEach(n => n.classList.remove('active'));
-            }
-        }
-    });
-
-    const origBtn = document.getElementById('origBtn');
-    const toggleOriginal = (show) => {
-        if (!isReady) return;
-        isShowingOriginal = show;
-        if(show) origBtn.classList.add('holding');
-        else origBtn.classList.remove('holding');
-    };
-    origBtn.addEventListener('pointerdown', () => toggleOriginal(true));
-    origBtn.addEventListener('pointerup', () => toggleOriginal(false));
-    origBtn.addEventListener('pointerleave', () => toggleOriginal(false));
-    origBtn.addEventListener('contextmenu', e => e.preventDefault());
-
-    // --- 3. 史诗级 3D WebGL 引擎 ---
-    const canvas = document.getElementById('glcanvas');
-    const gl = canvas.getContext('webgl', { preserveDrawingBuffer: true }) || canvas.getContext('experimental-webgl', { preserveDrawingBuffer: true });
-    
-    if(!gl) alert("WebGL is not supported on this device.");
-
-    let tex = null, isReady = false, reqId = null, prog = null;
-
-    const vsSource = `attribute vec2 pos; attribute vec2 uv; varying vec2 vUv; void main() { gl_Position = vec4(pos, 0.0, 1.0); vUv = vec2(uv.x, 1.0 - uv.y); }`;
-
-    const fsSource = `
-        precision mediump float;
-        varying vec2 vUv;
-        uniform sampler2D u_tex;
-        uniform vec2 u_res;
-        uniform float u_time;
-        uniform float u_showOrig;
-
-        uniform float u_angleDistort, u_angleCenterX, u_angleCenterY, u_angleYaw, u_anglePitch, u_angleScale;
-        uniform float u_adjExpo, u_adjBright, u_adjCont, u_adjSat, u_adjSharpen, u_adjLofi;
-        uniform float u_gelHue, u_gelSat, u_gelDens, u_gelEmit, u_gelLuma, u_gelGlow, u_glowBlur, u_glowSoftness;
-        uniform float u_ntscLuma, u_ntscI, u_ntscQ, u_ntscPhase, u_ntscCross, u_ntscJitter;
-        uniform float u_crtMaskType, u_crtMaskSize, u_crtRes, u_crtBlur, u_crtScan, u_crtMaskStr, u_crtCurve, u_crtVignette;
-        uniform float u_ledType, u_ledPitch, u_ledGap, u_ledSub, u_ledGlow, u_ledShape, u_ledBlur;
-        uniform float u_bloomInt, u_bloomRad, u_bloomThresh, u_bloomFlare, u_bloomHal, u_imageBlur;
-        uniform float u_noiseLuma, u_noiseChroma, u_noiseScale, u_noiseDust, u_noiseScratch;
-
-        float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
-        float noise(vec2 p) { vec2 i=floor(p); vec2 f=fract(p); return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+vec2(1.,1.)),f.x),f.y); }
-        vec3 hsv2rgb(vec3 c) { vec4 K=vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0); vec3 p=abs(fract(c.xxx+K.xyz)*6.0-K.www); return c.z*mix(K.xxx,clamp(p-K.xxx,0.0,1.0),c.y); }
-        
-        float getLuma(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
-        float getI(vec3 c) { return dot(c, vec3(0.596, -0.274, -0.322)); }
-        float getQ(vec3 c) { return dot(c, vec3(0.211, -0.523, 0.312)); }
-        vec3 yiqToRgb(float y, float i, float q) { return vec3(y + 0.956*i + 0.621*q, y - 0.272*i - 0.647*q, y - 1.106*i + 1.703*q); }
-
-        vec3 safeBlur(vec2 uv, float rad) {
-            vec2 px = 1.0 / max(u_res, vec2(1.0)); vec3 c = vec3(0.0);
-            c += texture2D(u_tex, uv + vec2(0.0, 1.0) * rad * px).rgb; c += texture2D(u_tex, uv + vec2(0.707, 0.707) * rad * px).rgb;
-            c += texture2D(u_tex, uv + vec2(1.0, 0.0) * rad * px).rgb; c += texture2D(u_tex, uv + vec2(0.707, -0.707) * rad * px).rgb;
-            c += texture2D(u_tex, uv + vec2(0.0, -1.0) * rad * px).rgb; c += texture2D(u_tex, uv + vec2(-0.707, -0.707) * rad * px).rgb;
-            c += texture2D(u_tex, uv + vec2(-1.0, 0.0) * rad * px).rgb; c += texture2D(u_tex, uv + vec2(-0.707, 0.707) * rad * px).rgb;
-            return c * 0.125;
+        function createProgram(fsSource) {
+            const vsSource = `attribute vec2 a_pos; varying vec2 v_uv; void main(){ gl_Position=vec4(a_pos,0.0,1.0); v_uv=a_pos*0.5+0.5; v_uv.y=1.0-v_uv.y; }`;
+            const p = gl.createProgram();
+            gl.attachShader(p, compile(gl.VERTEX_SHADER, vsSource));
+            gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fsSource));
+            gl.linkProgram(p);
+            return p;
         }
 
-        void main() {
-            if(u_showOrig > 0.5) { gl_FragColor = texture2D(u_tex, vUv); return; }
-
-            vec2 safeRes = max(u_res, vec2(1.0));
-            float aspect = safeRes.x / safeRes.y;
-            vec2 uv = vUv; 
-
-            // --- 0. ANGLE 3D 镜头形变矩阵 ---
-            vec2 cUv = uv - 0.5;
-            cUv.x *= aspect; 
-
-            float scale = mix(1.0, 0.15, u_angleScale);
-            cUv *= scale;
-
-            float pitch = (u_anglePitch - 0.5) * 2.5; 
-            float yaw = -(u_angleYaw - 0.5) * 2.5; 
-            
-            vec3 p3d = vec3(cUv, 0.0);
-            float yRot = p3d.y * cos(pitch) - p3d.z * sin(pitch);
-            float zRot = p3d.y * sin(pitch) + p3d.z * cos(pitch);
-            p3d.y = yRot; p3d.z = zRot;
-            float xRot = p3d.x * cos(yaw) + p3d.z * sin(yaw);
-            zRot = -p3d.x * sin(yaw) + p3d.z * cos(yaw);
-            p3d.x = xRot; p3d.z = zRot;
-
-            float focalLength = 1.2;
-            float zDepth = max(focalLength + p3d.z, 0.001);
-            cUv = p3d.xy * (focalLength / zDepth);
-
-            vec2 distCenter = vec2((u_angleCenterX - 0.5) * aspect * 2.0, (u_angleCenterY - 0.5) * 2.0);
-            float distort = -(u_angleDistort - 0.5) * 4.0; 
-            
-            cUv -= distCenter;
-            float r2 = dot(cUv, cUv);
-            cUv *= 1.0 + distort * r2 + (distort * 0.25) * r2 * r2;
-            cUv += distCenter;
-
-            cUv.x /= aspect;
-            uv = cUv + 0.5;
-
-            if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) { gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0); return; }
-            // --- 角度形变结束 ---
-
-            vec2 crtUv = uv; 
-            float safeTime = mod(u_time, 100.0) + 1.0;
-
-            if(u_crtCurve > 0.0) {
-                vec2 dc = uv - 0.5; crtUv += dc * dot(dc, dc) * (u_crtCurve * 0.5);
-                if(abs(crtUv.x - 0.5) > 0.5 || abs(crtUv.y - 0.5) > 0.5) { gl_FragColor=vec4(0.0, 0.0, 0.0, 1.0); return; }
-            }
-
-            if(u_ntscJitter > 0.0) {
-                float j = noise(vec2(safeTime * 20.0, crtUv.y * 10.0)) - 0.5;
-                crtUv.x += j * u_ntscJitter * 0.03 * step(0.9, hash(vec2(safeTime, crtUv.y)));
-            }
-
-            vec2 sampleUv = crtUv; vec2 grid = vec2(0.0); float pxCount = 0.0;
-            if(u_ledPitch > 0.0) { pxCount = max(20.0, 500.0 - u_ledPitch * 480.0); } 
-            else if(u_crtRes > 0.0) { pxCount = max(50.0, 1000.0 - u_crtRes * 950.0); }
-            
-            if(pxCount > 0.0) {
-                vec2 pxSize = vec2(pxCount * (safeRes.x / safeRes.y), pxCount);
-                sampleUv = floor(sampleUv * pxSize) / pxSize;
-                grid = fract(crtUv * pxSize);
-            }
-
-            vec3 rawCol = texture2D(u_tex, sampleUv).rgb;
-            vec2 px = 1.0 / safeRes; 
-            
-            // --- 0.5 ADJUST: 复古调色 ---
-            if(u_imageBlur > 0.0) {
-                rawCol = mix(rawCol, safeBlur(sampleUv, mix(2.0, 24.0, u_imageBlur)), u_imageBlur);
-            }
-            if(u_adjSharpen > 0.0) {
-                vec3 pBlurCol = safeBlur(sampleUv, mix(1.0, 4.0, u_adjSharpen));
-                vec3 diff = rawCol - pBlurCol;
-                rawCol = clamp(rawCol + diff * u_adjSharpen * 6.0, 0.0, 1.0); 
-            }
-            float expMap = (u_adjExpo - 0.5) * 4.0;
-            rawCol *= exp2(expMap);
-            rawCol += (u_adjBright - 0.5) * 1.5;
-            
-            if (u_adjCont != 0.5) {
-                float cp = (u_adjCont - 0.5) * 2.0;
-                if (cp > 0.0) rawCol = mix(rawCol, smoothstep(0.0, 1.0, rawCol), cp);
-                else rawCol = mix(rawCol, (rawCol - 0.5) * 0.5 + 0.5, -cp);
-            }
-            
-            float satLuma = dot(rawCol, vec3(0.299, 0.587, 0.114));
-            rawCol = mix(vec3(satLuma), rawCol, u_adjSat * 2.0);
-            
-            if (u_adjLofi > 0.0) {
-                float steps = mix(256.0, 4.0, u_adjLofi);
-                rawCol = floor(rawCol * steps) / steps;
-                vec3 lofiWash = vec3(0.08, 0.03, 0.12) * u_adjLofi; 
-                vec3 lofiTint = vec3(1.0, 0.95, 0.85); 
-                rawCol = mix(rawCol, lofiTint, u_adjLofi * 0.15 * satLuma);
-                rawCol += max(vec3(0.0), 1.0 - rawCol) * lofiWash;
-            }
-            vec3 col = clamp(rawCol, 0.0, 1.0);
-
-            // 1. OPTICAL GEL & 0.3MP EDGE GLOW
-            if(u_gelDens > 0.0) {
-                vec3 targetCol = hsv2rgb(vec3(u_gelHue, u_gelSat, 1.0)); float luma = getLuma(col);
-                vec3 absorb = exp((targetCol - 1.0) * (u_gelDens * 4.0)); vec3 filtered = col * absorb;
-                filtered = mix(filtered, normalize(filtered + 0.001) * luma, u_gelLuma);
-                vec3 emission = targetCol * (u_gelEmit * 2.0) * luma * u_gelDens;
-                col = clamp(filtered + emission, 0.0, 1.0);
-            }
-            
-            if(u_gelGlow > 0.0) {
-                float blurRad = mix(4.0, 60.0, u_glowBlur);
-                vec3 bCol = safeBlur(sampleUv, blurRad);
-                
-                float origL = getLuma(col); 
-                if(u_glowSoftness > 0.0) {
-                    vec3 softCol = safeBlur(sampleUv, u_glowSoftness * 25.0);
-                    origL = mix(origL, getLuma(softCol), u_glowSoftness);
-                }
-                float blurL = getLuma(bCol);
-                
-                float fringe = smoothstep(0.01, 0.3 + u_glowSoftness * 0.4, blurL - origL); 
-                vec3 fringeCol = hsv2rgb(vec3(0.66, 0.9, 1.0)); // 锁定蓝光
-                
-                vec3 glowEmission = fringeCol * bCol * fringe * u_gelGlow * 3.5;
-                vec3 baseBloom = bCol * u_gelGlow * 0.3;
-                col = clamp(col + glowEmission + baseBloom, 0.0, 1.0);
-            }
-
-            // 2. NTSC
-            if(u_ntscLuma < 1.0 || u_ntscI < 1.0 || u_ntscQ < 1.0 || u_ntscPhase != 0.0 || u_ntscCross > 0.0) {
-                float y = getLuma(col); float i = getI(col); float q = getQ(col);
-                if(u_ntscCross > 0.0) {
-                    float yRight = getLuma(texture2D(u_tex, sampleUv + vec2(px.x * 3.0, 0.0)).rgb);
-                    float edge = y - yRight; float rainbow = edge * u_ntscCross * 15.0; 
-                    i += sin(sampleUv.x * safeRes.x * 0.8 + safeTime * 20.0) * rainbow;
-                    q += cos(sampleUv.x * safeRes.x * 0.8 + safeTime * 20.0) * rainbow;
-                }
-                if(u_ntscLuma < 1.0) {
-                    float b = (1.0 - u_ntscLuma) * 15.0 * px.x;
-                    y = y * 0.5 + (getLuma(texture2D(u_tex, sampleUv - vec2(b, 0.0)).rgb) + getLuma(texture2D(u_tex, sampleUv + vec2(b, 0.0)).rgb)) * 0.25;
-                }
-                if(u_ntscI < 1.0) { 
-                    float sp = (1.0 - u_ntscI) * 40.0 * px.x;
-                    i = i * 0.5 + (getI(texture2D(u_tex, sampleUv - vec2(sp, 0.0)).rgb) + getI(texture2D(u_tex, sampleUv + vec2(sp, 0.0)).rgb)) * 0.25;
-                }
-                if(u_ntscQ < 1.0) { 
-                    float sp = (1.0 - u_ntscQ) * 60.0 * px.x;
-                    q = q * 0.5 + (getQ(texture2D(u_tex, sampleUv - vec2(sp, 0.0)).rgb) + getQ(texture2D(u_tex, sampleUv + vec2(sp, 0.0)).rgb)) * 0.25;
-                }
-                if(u_ntscPhase != 0.0) {
-                    float ang = u_ntscPhase * 3.1415;
-                    float nI = i * cos(ang) - q * sin(ang); float nQ = i * sin(ang) + q * cos(ang);
-                    i = nI; q = nQ;
-                }
-                col = clamp(yiqToRgb(y, i, q), 0.0, 1.0);
-            }
-
-            // 3. BLOOM & HALATION
-            if(u_bloomInt > 0.0 || u_bloomHal > 0.0) {
-                vec3 bCol = safeBlur(sampleUv, mix(10.0, 60.0, max(u_bloomRad, u_bloomHal)));
-                vec3 t = vec3(u_bloomThresh);
-                if(u_bloomInt > 0.0) {
-                    vec3 high = max(bCol - t, vec3(0.0)) / max(1.0 - u_bloomThresh, 0.0001);
-                    col += high * u_bloomInt * 2.0;
-                }
-                if(u_bloomHal > 0.0) {
-                    vec3 hal = max(bCol - vec3(u_bloomThresh*0.8), vec3(0.0));
-                    col += hal * vec3(1.0, 0.1, 0.0) * u_bloomHal * 1.5;
-                }
-            }
-            if(u_bloomFlare > 0.0) {
-                vec3 flare = vec3(0.0); vec3 t = vec3(u_bloomThresh);
-                flare += max(texture2D(u_tex, sampleUv + vec2(u_bloomRad * 16.0 * px.x, 0.0)).rgb - t, vec3(0.0)) * 0.15;
-                flare += max(texture2D(u_tex, sampleUv + vec2(u_bloomRad * 8.0 * px.x, 0.0)).rgb - t, vec3(0.0)) * 0.35;
-                flare += max(texture2D(u_tex, sampleUv - vec2(u_bloomRad * 8.0 * px.x, 0.0)).rgb - t, vec3(0.0)) * 0.35;
-                flare += max(texture2D(u_tex, sampleUv - vec2(u_bloomRad * 16.0 * px.x, 0.0)).rgb - t, vec3(0.0)) * 0.15;
-                col += flare * u_bloomFlare * vec3(0.1, 0.4, 1.0);
-            }
-
-            // 4. HARDWARE MASKS (LED & CRT)
-            float baseLuma = getLuma(col); 
-
-            if(u_ledPitch > 0.0) {
-                vec2 sub = abs(grid - 0.5) * 2.0;
-                float shapeDist = mix(max(sub.x, sub.y), length(sub), u_ledShape);
-                float edgeSoft = u_ledBlur * 1.5;
-                
-                if(u_ledType > 1.5) { 
-                    float diodeMask = smoothstep(1.3 + u_ledBlur, 1.3 - u_ledGap * 0.5 - edgeSoft, sub.x + sub.y);
-                    col *= mix(vec3(0.05), vec3(1.0), diodeMask);
-                    if(u_ledSub > 0.0) {
-                        vec3 ledMask = vec3(0.0);
-                        float row = mod(floor(crtUv.y * safeRes.y / pxCount), 2.0);
-                        if(row < 1.0) { if(grid.x < 0.5) ledMask = vec3(1.0, 0.0, 0.0); else ledMask = vec3(0.0, 1.0, 0.0); } 
-                        else { if(grid.x < 0.5) ledMask = vec3(0.0, 0.0, 1.0); else ledMask = vec3(0.0, 1.0, 0.0); }
-                        ledMask = mix(ledMask, vec3(1.0), u_ledBlur * 0.8);
-                        col *= mix(vec3(1.0), ledMask * 2.2, u_ledSub);
-                    }
+        // --- 新增：Reshape 高性能液化 Shader ---
+        const reshapeProg = createProgram(`
+            precision highp float; varying vec2 v_uv; uniform sampler2D u_tex; 
+            uniform vec2 u_center; uniform vec2 u_delta; uniform float u_radius; 
+            uniform float u_pressure; uniform vec2 u_resolution;
+            void main(){
+                vec2 coord = v_uv * u_resolution; 
+                vec2 diff = coord - u_center;
+                float dist = length(diff);
+                if (dist < u_radius) {
+                    float normDist = dist / u_radius;
+                    // 完全等效于你 CPU 版本的 Math.pow(0.5 + 0.5 * Math.cos((dist/r)*PI), 1.2)
+                    float w = max(0.0, 0.5 + 0.5 * cos(normDist * 3.14159265359));
+                    w = pow(w, 1.2) * u_pressure;
+                    vec2 srcCoord = coord - u_delta * w;
+                    gl_FragColor = texture2D(u_tex, srcCoord / u_resolution);
                 } else {
-                    float diodeMask = smoothstep(1.0 + u_ledBlur, 1.0 - u_ledGap * 0.5 - edgeSoft, shapeDist);
-                    col *= mix(vec3(0.05), vec3(1.0), diodeMask);
-                    if(u_ledSub > 0.0) {
-                        vec3 ledMask = vec3(1.0);
-                        if(u_ledType < 0.5) { if(grid.x < 0.33) ledMask = vec3(1.0, 0.0, 0.0); else if(grid.x < 0.66) ledMask = vec3(0.0, 1.0, 0.0); else ledMask = vec3(0.0, 0.0, 1.0); }
-                        else { if(grid.x < 0.33) ledMask = vec3(0.0, 0.0, 1.0); else if(grid.x < 0.66) ledMask = vec3(0.0, 1.0, 0.0); else ledMask = vec3(1.0, 0.0, 0.0); }
-                        ledMask = mix(ledMask, vec3(1.0), u_ledBlur * 0.8);
-                        col *= mix(vec3(1.0), ledMask * 2.2, u_ledSub);
-                    }
+                    gl_FragColor = texture2D(u_tex, v_uv);
                 }
-            } 
+            }`);
+
+        const detailProg = createProgram(`precision mediump float; varying vec2 v_uv; uniform sampler2D u_tex; uniform vec2 u_px;
+            void main(){
+                vec4 c = texture2D(u_tex, v_uv);
+                vec4 t = texture2D(u_tex, v_uv + vec2(0.0, -u_px.y)), b = texture2D(u_tex, v_uv + vec2(0.0, u_px.y));
+                vec4 l = texture2D(u_tex, v_uv + vec2(-u_px.x, 0.0)), r = texture2D(u_tex, v_uv + vec2(u_px.x, 0.0));
+                vec4 sharp = c * 5.0 - t - b - l - r;
+                gl_FragColor = mix(c, sharp, 0.3); gl_FragColor.a = c.a;
+            }`);
             
-            if(u_crtMaskType > 0.0 || u_crtScan > 0.0 || u_crtVignette > 0.0 || u_crtBlur > 0.0) {
-                if(u_crtBlur > 0.0) col = mix(col, safeBlur(sampleUv, u_crtBlur * 12.0), u_crtBlur);
-                if(u_crtScan > 0.0) {
-                    float scanScale = mix(3.0, 0.2, u_crtMaskSize); 
-                    float s = sin(crtUv.y * safeRes.y * scanScale * 3.1415);
-                    float weight = mix(0.9, 0.15, baseLuma * baseLuma); 
-                    col *= mix(1.0, s * 0.5 + 0.5, u_crtScan * weight);
+        const bilateralProg = createProgram(`precision mediump float; varying vec2 v_uv; uniform sampler2D u_tex; uniform vec2 u_px; uniform vec2 u_dir; uniform float u_radius; uniform float u_edge;
+            void main(){
+                vec4 c = texture2D(u_tex, v_uv); vec4 sum = vec4(0.0); float wSum = 0.0; int rad = int(u_radius);
+                for(int i=-25; i<=25; i++) {
+                    if(i < -rad || i > rad) continue;
+                    vec4 s = texture2D(u_tex, v_uv + float(i) * u_px * u_dir);
+                    float diff = abs(s.r-c.r) + abs(s.g-c.g) + abs(s.b-c.b);
+                    float w = max(0.0, 1.0 - diff / u_edge);
+                    sum += s * w; wSum += w;
                 }
-                if(u_crtMaskStr > 0.0 && u_crtMaskType > 0.0) {
-                    float maskScale = mix(3.0, 0.2, u_crtMaskSize); 
-                    vec2 frag = uv * safeRes * maskScale; vec3 mask = vec3(1.0); 
-                    float x = mod(frag.x, 3.0); float y = mod(frag.y, 3.0);
-                    if(u_crtMaskType < 1.5) { if(x < 1.0) mask = vec3(1.0, 0.2, 0.2); else if(x < 2.0) mask = vec3(0.2, 1.0, 0.2); else mask = vec3(0.2, 0.2, 1.0); } 
-                    else if(u_crtMaskType < 2.5) { if(y < 1.5) { if(x < 1.0) mask = vec3(1.0, 0.2, 0.2); else if(x < 2.0) mask = vec3(0.2, 1.0, 0.2); else mask = vec3(0.2, 0.2, 1.0); } else { if(x < 1.5) mask = vec3(0.2, 1.0, 0.2); else if(x < 2.5) mask = vec3(0.2, 0.2, 1.0); else mask = vec3(1.0, 0.2, 0.2); } } 
-                    else { float xOff = mod(frag.x + mod(floor(frag.y / 3.0), 2.0) * 1.5, 3.0); if(xOff < 1.0) mask = vec3(1.0, 0.3, 0.3); else if(xOff < 2.0) mask = vec3(0.3, 1.0, 0.3); else mask = vec3(0.3, 0.3, 1.0); if(mod(frag.y, 9.0) < 1.0) mask *= 0.5; }
-                    col *= mix(vec3(1.0), mask, u_crtMaskStr);
-                }
-                if(u_crtVignette > 0.0) {
-                    vec2 dc = crtUv - 0.5; float dist = dot(dc, dc);
-                    float vig = 1.0 - smoothstep(0.1, 0.5, dist);
-                    col *= mix(1.0, vig, u_crtVignette);
-                }
-            }
+                gl_FragColor = sum / wSum; gl_FragColor.a = c.a;
+            }`);
 
-            if(u_noiseScale > 0.0 || u_noiseDust > 0.0 || u_noiseScratch > 0.0) {
-                vec2 nUv = crtUv * mix(1.0, 4.0, u_noiseScale);
-                if(u_noiseLuma > 0.0 || u_noiseChroma > 0.0) {
-                    float n = hash(nUv * safeTime) - 0.5;
-                    col += n * u_noiseLuma * 0.4;
-                    if(u_noiseChroma > 0.0) {
-                        vec3 cn = vec3(hash(nUv * safeTime * 1.1), hash(nUv * safeTime * 1.2), hash(nUv * safeTime * 1.3)) - 0.5;
-                        col += cn * u_noiseChroma * 0.4;
-                    }
+        const boxProg = createProgram(`precision mediump float; varying vec2 v_uv; uniform sampler2D u_tex; uniform vec2 u_px; uniform vec2 u_dir; uniform float u_radius;
+            void main(){
+                vec4 sum = vec4(0.0); float wSum = 0.0; int rad = int(u_radius);
+                for(int i=-45; i<=45; i++) {
+                    if(i < -rad || i > rad) continue;
+                    sum += texture2D(u_tex, v_uv + float(i) * u_px * u_dir); wSum += 1.0;
                 }
-                if(u_noiseDust > 0.0) {
-                    float d = step(0.999 - u_noiseDust * 0.005, hash(nUv + safeTime));
-                    col += d; col -= d * 2.0 * step(0.5, hash(nUv - safeTime));
-                }
-                if(u_noiseScratch > 0.0) {
-                    float line = step(0.999 - u_noiseScratch * 0.005, hash(vec2(nUv.x, floor(safeTime * 5.0))));
-                    col += line * 0.4 * max(0.0, sin(crtUv.y * 10.0 + safeTime));
-                }
-            }
+                gl_FragColor = sum / wSum; vec4 c = texture2D(u_tex, v_uv); gl_FragColor.a = c.a;
+            }`);
 
-            gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
+        const mixProg = createProgram(`precision mediump float; varying vec2 v_uv; uniform sampler2D u_blurTex; uniform sampler2D u_origTex; uniform float u_mix; uniform float u_noiseScale;
+            float rand(vec2 co){ return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453); }
+            void main(){
+                vec4 orig = texture2D(u_origTex, v_uv); vec4 result = mix(orig, texture2D(u_blurTex, v_uv), u_mix);
+                float noise = (rand(v_uv) + rand(v_uv + vec2(1.0, 1.0)) - 1.0) * u_noiseScale;
+                result.rgb += noise; result.a = orig.a; gl_FragColor = result;
+            }`);
+
+        const quadBuf = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]), gl.STATIC_DRAW);
+
+        let w = 0, h = 0;
+        let texOrig = gl.createTexture(), texA = gl.createTexture(), texB = gl.createTexture();
+        let texSnapshot = gl.createTexture(), texCleanSnapshot = gl.createTexture(); // 新增液化所需纹理缓冲
+        let fboA = gl.createFramebuffer(), fboB = gl.createFramebuffer();
+
+        function initTex(tex) {
+            gl.bindTexture(gl.TEXTURE_2D, tex);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            // 开启 GPU 硬件级双线性插值，消除液化锯齿
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
         }
-    `;
 
-    if (gl) {
-        prog = gl.createProgram();
-        const compile = (typ, src) => { 
-            const s = gl.createShader(typ); 
-            gl.shaderSource(s, src); gl.compileShader(s); 
-            return s; 
-        };
-        gl.attachShader(prog, compile(gl.VERTEX_SHADER, vsSource)); 
-        gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, fsSource));
-        gl.linkProgram(prog); gl.useProgram(prog);
-
-        const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,0,0, 1,-1,1,0, -1,1,0,1, -1,1,0,1, 1,-1,1,0, 1,1,1,1]), gl.STATIC_DRAW);
-        
-        const pLoc = gl.getAttribLocation(prog, "pos"); gl.enableVertexAttribArray(pLoc); gl.vertexAttribPointer(pLoc, 2, gl.FLOAT, false, 16, 0);
-        const uLoc = gl.getAttribLocation(prog, "uv"); gl.enableVertexAttribArray(uLoc); gl.vertexAttribPointer(uLoc, 2, gl.FLOAT, false, 16, 8);
-
-        tex = gl.createTexture();
-    }
-
-    const uni = n => prog ? gl.getUniformLocation(prog, n) : null;
-    let uMap = {};
-    if (prog) {
-        uMap = { res: uni("u_res"), time: uni("u_time"), tex: uni("u_tex"), showOrig: uni("u_showOrig") };
-        Object.keys(state).forEach(k => { if(k!=='time') uMap[k] = uni('u_'+k); });
-    }
-
-    function renderLoop() {
-        if(!isReady || !prog) return;
-        gl.viewport(0, 0, canvas.width, canvas.height);
-        gl.uniform2f(uMap.res, canvas.width, canvas.height);
-        state.time += 0.05; gl.uniform1f(uMap.time, state.time);
-        
-        gl.uniform1f(uMap.showOrig, isShowingOriginal ? 1.0 : 0.0);
-
-        Object.keys(state).forEach(k => {
-            if(k === 'time' || k === 'crtMaskType' || k === 'ledType') return;
-            let val = state[k] / 100.0;
-            if(k === 'ntscPhase') val = (state[k] - 50) / 50.0; 
-            if(k === 'ntscLuma' || k === 'ntscI' || k === 'ntscQ') val = state[k] / 100.0; 
-            gl.uniform1f(uMap[k], val);
-        });
-        gl.uniform1f(uMap['crtMaskType'], state.crtMaskType);
-        gl.uniform1f(uMap['ledType'], state.ledType);
-
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, tex);
-        gl.uniform1i(uMap.tex, 0);
-
-        gl.drawArrays(gl.TRIANGLES, 0, 6);
-        reqId = requestAnimationFrame(renderLoop);
-    }
-
-    document.getElementById('uploadFile').addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = function(event) {
-            const img = new Image();
-            img.onload = function() {
-                let w = img.width, h = img.height, max = 1600; 
-                if (w > max || h > max) { let r = Math.min(max/w, max/h); w = Math.floor(w*r); h = Math.floor(h*r); }
+        return {
+            canvas: cvs,
+            resize: function(nw, nh) {
+                if(w===nw && h===nh) return; w=nw; h=nh; cvs.width=w; cvs.height=h; gl.viewport(0,0,w,h);
+                [texOrig, texA, texB, texSnapshot, texCleanSnapshot].forEach(t => { initTex(t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); });
+                gl.bindFramebuffer(gl.FRAMEBUFFER, fboA); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texA, 0);
+                gl.bindFramebuffer(gl.FRAMEBUFFER, fboB); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texB, 0);
+            },
+            updateReshapeSnapshots: function(snap, cleanSnap) {
+                gl.bindTexture(gl.TEXTURE_2D, texSnapshot);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, snap);
+                gl.bindTexture(gl.TEXTURE_2D, texCleanSnapshot);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cleanSnap);
+            },
+            processReshape: function(isClean, cx, cy, dx, dy, radius, pressure) {
+                gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+                gl.viewport(0, 0, w, h);
                 
-                const offCanvas = document.createElement('canvas');
-                offCanvas.width = w; offCanvas.height = h;
-                const ctx = offCanvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, w, h);
+                // 开启局部剪裁优化，极大节省 GPU 算力！
+                gl.enable(gl.SCISSOR_TEST);
+                const pad = Math.ceil(radius + Math.max(Math.abs(dx), Math.abs(dy)) + 2);
+                const destX = cx + dx, destY = cy + dy;
+                const minX = Math.max(0, Math.floor(destX - pad));
+                const maxX = Math.min(w, Math.ceil(destX + pad));
+                const minY = Math.max(0, Math.floor(destY - pad));
+                const maxY = Math.min(h, Math.ceil(destY + pad));
+                const rectW = maxX - minX, rectH = maxY - minY;
                 
-                canvas.width = w; canvas.height = h;
-
-                gl.bindTexture(gl.TEXTURE_2D, tex);
-                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, offCanvas);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                if (rectW <= 0 || rectH <= 0) { gl.disable(gl.SCISSOR_TEST); return null; }
+                gl.scissor(minX, h - maxY, rectW, rectH); // WebGL Y轴朝上，需翻转
                 
-                document.getElementById('hintBox').style.display = 'none';
-                isReady = true;
-                if(reqId) cancelAnimationFrame(reqId);
-                renderLoop();
-            };
-            img.src = event.target.result;
-        };
-        reader.readAsDataURL(file);
-    });
+                gl.useProgram(reshapeProg);
+                const posLoc = gl.getAttribLocation(reshapeProg, "a_pos");
+                gl.enableVertexAttribArray(posLoc);
+                gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+                gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+                
+                gl.activeTexture(gl.TEXTURE0); 
+                gl.bindTexture(gl.TEXTURE_2D, isClean ? texCleanSnapshot : texSnapshot); 
+                gl.uniform1i(gl.getUniformLocation(reshapeProg, "u_tex"), 0);
+                
+                gl.uniform2f(gl.getUniformLocation(reshapeProg, "u_center"), destX, destY);
+                gl.uniform2f(gl.getUniformLocation(reshapeProg, "u_delta"), dx, dy);
+                gl.uniform1f(gl.getUniformLocation(reshapeProg, "u_radius"), radius);
+                gl.uniform1f(gl.getUniformLocation(reshapeProg, "u_pressure"), pressure);
+                gl.uniform2f(gl.getUniformLocation(reshapeProg, "u_resolution"), w, h);
+                
+                gl.drawArrays(gl.TRIANGLES, 0, 6);
+                gl.disable(gl.SCISSOR_TEST);
+                
+                // 返回渲染边界供 2D Context 局部拷贝更新
+                return { x: minX, y: minY, w: rectW, h: rectH };
+            },
+            process: function(type, sourceCanvas, isUltra) {
+                gl.bindTexture(gl.TEXTURE_2D, texOrig);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, sourceCanvas);
+                
+                gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+                
+                const drawQuad = (prog, inTex, outFbo) => {
+                    gl.useProgram(prog);
+                    const posLoc = gl.getAttribLocation(prog, "a_pos");
+                    gl.enableVertexAttribArray(posLoc);
+                    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+                    
+                    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, inTex);
+                    gl.uniform1i(gl.getUniformLocation(prog, "u_tex"), 0);
+                    const pxLoc = gl.getUniformLocation(prog, "u_px");
+                    if(pxLoc) gl.uniform2f(pxLoc, 1.0/w, 1.0/h);
+                    
+                    gl.bindFramebuffer(gl.FRAMEBUFFER, outFbo);
+                    gl.drawArrays(gl.TRIANGLES, 0, 6);
+                };
 
-    document.getElementById('saveBtn').addEventListener('click', async (e) => {
-        e.stopPropagation();
-        if(!isReady) { alert("Please load an image first."); return; }
-        
-        canvas.toBlob(async (blob) => {
-            if(!blob) return;
-            const file = new File([blob], "Studio_FX_Export.jpg", { type: "image/jpeg" });
-            
-            if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                try { await navigator.share({ files: [file] }); } catch (err) {}
-            } else {
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = 'Studio_FX_Export.jpg';
-                a.click();
+                if (type === 'detail') {
+                    drawQuad(detailProg, texOrig, null);
+                } else if (type === 'smooth') {
+                    if (!isUltra) {
+                        gl.useProgram(bilateralProg);
+                        gl.uniform1f(gl.getUniformLocation(bilateralProg, "u_radius"), Math.max(3, Math.floor(w * 0.006)));
+                        gl.uniform1f(gl.getUniformLocation(bilateralProg, "u_edge"), 75.0 / 255.0);
+                        
+                        gl.uniform2f(gl.getUniformLocation(bilateralProg, "u_dir"), 1.0, 0.0);
+                        drawQuad(bilateralProg, texOrig, fboA);
+                        
+                        gl.uniform2f(gl.getUniformLocation(bilateralProg, "u_dir"), 0.0, 1.0);
+                        drawQuad(bilateralProg, texA, fboB);
+                    } else {
+                        gl.useProgram(boxProg);
+                        gl.uniform1f(gl.getUniformLocation(boxProg, "u_radius"), Math.max(5, Math.floor(w * 0.012)));
+                        
+                        let currentIn = texOrig;
+                        for(let i=0; i<3; i++) {
+                            gl.uniform2f(gl.getUniformLocation(boxProg, "u_dir"), 1.0, 0.0); drawQuad(boxProg, currentIn, fboA);
+                            gl.uniform2f(gl.getUniformLocation(boxProg, "u_dir"), 0.0, 1.0); drawQuad(boxProg, texA, fboB);
+                            currentIn = texB;
+                        }
+                    }
+                    
+                    gl.useProgram(mixProg);
+                    const posLoc = gl.getAttribLocation(mixProg, "a_pos");
+                    gl.enableVertexAttribArray(posLoc); gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+                    
+                    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, texB); gl.uniform1i(gl.getUniformLocation(mixProg, "u_blurTex"), 0);
+                    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, texOrig); gl.uniform1i(gl.getUniformLocation(mixProg, "u_origTex"), 1);
+                    
+                    gl.uniform1f(gl.getUniformLocation(mixProg, "u_mix"), isUltra ? 1.0 : 0.85);
+                    gl.uniform1f(gl.getUniformLocation(mixProg, "u_noiseScale"), 1.5 / 255.0);
+                    
+                    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+                    gl.drawArrays(gl.TRIANGLES, 0, 6);
+                }
             }
-        }, 'image/jpeg', 0.98);
+        };
+    })();
+    // ==========================================
+
+    const workspace = document.getElementById('workspace');
+    
+    const canvas = document.getElementById('mainCanvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true, alpha: false });
+    
+    const originalCanvas = document.getElementById('originalCanvas');
+    const originalCtx = originalCanvas.getContext('2d', { alpha: false });
+    
+    const snapshotCanvas = document.createElement('canvas');
+    const snapshotCtx = snapshotCanvas.getContext('2d', { willReadFrequently: true, alpha: false });
+    
+    const cleanCanvas = document.createElement('canvas');
+    const cleanCtx = cleanCanvas.getContext('2d', { willReadFrequently: true, alpha: false });
+    const cleanSnapshotCanvas = document.createElement('canvas');
+    const cleanSnapshotCtx = cleanSnapshotCanvas.getContext('2d', { willReadFrequently: true, alpha: false });
+
+    const effectCanvas = document.createElement('canvas');
+    const effectCtx = effectCanvas.getContext('2d', { willReadFrequently: true }); 
+    const brushCanvas = document.createElement('canvas');
+    const brushCtx = brushCanvas.getContext('2d'); 
+
+    const cloneStrokeCanvas = document.createElement('canvas');
+    const cloneStrokeCtx = cloneStrokeCanvas.getContext('2d', { willReadFrequently: true });
+
+    let history = [], currentTool = 'reshape', isDrawing = false;
+    let brushSizeScreen = 120, brushPressure = 0.5;
+    let anchorX = 0, anchorY = 0, lastX = 0, lastY = 0;
+    
+    let viewScale = 1, viewPanX = 0, viewPanY = 0;
+    let effectCacheType = null; 
+
+    let cloneSource = null, isSettingCloneSource = false, isAimingSample = false, isAimingPatch = false;
+    let cloneOffsetX = 0, cloneOffsetY = 0;
+    let toneColor = null, isSettingToneSource = false, isAimingToneSample = false;
+    let isUltraSmooth = false; 
+
+    let crosshairImgX = 0, crosshairImgY = 0, brushImgX = 0, brushImgY = 0;
+    let lastDabX = 0, lastDabY = 0; 
+    let strokeBounds = { minX: 0, minY: 0, maxX: 0, maxY: 0 }; 
+
+    const cloneToast = document.getElementById('cloneToast');
+    const cloneCrosshair = document.getElementById('cloneSourceCrosshair');
+    const brushCursor = document.getElementById('brushCursor');
+
+    function updateCursorSize() {
+        const sizeStr = brushSizeScreen + 'px';
+        cloneCrosshair.style.width = cloneCrosshair.style.height = sizeStr;
+        brushCursor.style.width = brushCursor.style.height = sizeStr;
+    }
+
+    function setCrosshair(x, y) {
+        crosshairImgX = x; crosshairImgY = y;
+        const screenX = x * viewScale + viewPanX, screenY = y * viewScale + viewPanY;
+        cloneCrosshair.style.transform = `translate(calc(${screenX}px - 50%), calc(${screenY}px - 50%))`;
+    }
+
+    function setBrushCursor(x, y) {
+        brushImgX = x; brushImgY = y;
+        const screenX = x * viewScale + viewPanX, screenY = y * viewScale + viewPanY;
+        brushCursor.style.transform = `translate(calc(${screenX}px - 50%), calc(${screenY}px - 50%))`;
+    }
+
+    function updateTransform() {
+        const matrix = `matrix(${viewScale}, 0, 0, ${viewScale}, ${viewPanX}, ${viewPanY})`;
+        canvas.style.transform = originalCanvas.style.transform = matrix;
+        if (currentTool === 'clone' || currentTool === 'tone') {
+            if (cloneCrosshair.style.display !== 'none') setCrosshair(crosshairImgX, crosshairImgY);
+            if (brushCursor.style.display !== 'none') setBrushCursor(brushImgX, brushImgY);
+        }
+    }
+
+    function fitToScreen() {
+        const padding = 20;
+        const scaleX = (workspace.clientWidth - padding) / canvas.width, scaleY = (workspace.clientHeight - padding) / canvas.height;
+        viewScale = Math.min(scaleX, scaleY);
+        viewPanX = (workspace.clientWidth - canvas.width * viewScale) / 2; viewPanY = (workspace.clientHeight - canvas.height * viewScale) / 2;
+        updateTransform();
+    }
+
+    window.addEventListener('resize', () => { if (document.getElementById('uploadOverlay').style.display === 'none') fitToScreen(); });
+
+    const compareBtn = document.getElementById('compareBtn');
+    const showOriginal = (e) => { e.preventDefault(); originalCanvas.style.display = 'block'; };
+    const hideOriginal = (e) => { e.preventDefault(); originalCanvas.style.display = 'none'; };
+    compareBtn.addEventListener('mousedown', showOriginal); compareBtn.addEventListener('touchstart', showOriginal, {passive: false});
+    ['mouseup', 'mouseleave', 'touchend', 'touchcancel'].forEach(evt => compareBtn.addEventListener(evt, hideOriginal));
+
+    document.getElementById('closeBtn').onclick = () => {
+        history = []; 
+        document.getElementById('fileInputOrig').value = "";
+        document.getElementById('fileInput2048').value = "";
+        viewScale = 1; viewPanX = 0; viewPanY = 0; updateTransform();
+        effectCacheType = cloneSource = toneColor = null; 
+        isSettingCloneSource = isAimingSample = isAimingPatch = isSettingToneSource = isAimingToneSample = isUltraSmooth = false;
+        
+        cloneToast.style.display = cloneCrosshair.style.display = brushCursor.style.display = 'none';
+        document.getElementById('uploadOverlay').style.display = 'flex';
+        document.getElementById('exportBtn').style.display = document.getElementById('compareBtn').style.display = document.getElementById('closeBtn').style.display = 'none';
+        document.getElementById('undoBtn').disabled = true;
+    };
+
+    document.getElementById('sizeSlider').oninput = (e) => { brushSizeScreen = parseInt(e.target.value); updateCursorSize(); };
+    document.getElementById('pressureSlider').oninput = (e) => { brushPressure = parseFloat(e.target.value); };
+    
+    const handleToastClick = (e) => {
+        e.preventDefault(); e.stopPropagation();
+        if (currentTool === 'clone' || currentTool === 'tone') {
+            currentTool === 'clone' ? (cloneSource = null, isSettingCloneSource = true) : (toneColor = null, isSettingToneSource = true);
+            isAimingSample = isAimingPatch = isAimingToneSample = isDrawing = false;
+            cloneToast.innerText = currentTool === 'clone' ? 'drop to select' : 'drop to select';
+            cloneToast.classList.add('active');
+            cloneCrosshair.style.display = brushCursor.style.display = 'none';
+        } else if (currentTool === 'smooth') {
+            isUltraSmooth = !isUltraSmooth;
+            cloneToast.innerText = isUltraSmooth ? 'ULTRA SMOOTH: ON' : 'ULTRA SMOOTH: OFF';
+            isUltraSmooth ? cloneToast.classList.add('active') : cloneToast.classList.remove('active');
+            effectCacheType = null; 
+        }
+    };
+    cloneToast.addEventListener('mousedown', handleToastClick); cloneToast.addEventListener('touchstart', handleToastClick, {passive: false});
+
+    document.querySelectorAll('.tool-btn').forEach(btn => {
+        btn.onclick = (e) => {
+            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active')); e.target.classList.add('active');
+            currentTool = e.target.getAttribute('data-tool'); effectCacheType = null; 
+
+            if (currentTool === 'clone' || currentTool === 'tone' || currentTool === 'smooth') {
+                cloneToast.style.display = 'flex';
+                if (currentTool === 'clone') {
+                    cloneSource = null; isSettingCloneSource = true; cloneToast.innerText = 'drop to select'; cloneToast.classList.add('active');
+                } else if (currentTool === 'tone') {
+                    toneColor = null; isSettingToneSource = true; cloneToast.innerText = 'drop to select'; cloneToast.classList.add('active');
+                } else {
+                    cloneToast.innerText = isUltraSmooth ? 'ULTRA SMOOTH: ON' : 'ULTRA SMOOTH: OFF';
+                    isUltraSmooth ? cloneToast.classList.add('active') : cloneToast.classList.remove('active');
+                }
+                cloneCrosshair.style.display = brushCursor.style.display = 'none';
+            } else {
+                cloneToast.style.display = cloneCrosshair.style.display = brushCursor.style.display = 'none';
+                isSettingCloneSource = isSettingToneSource = isAimingSample = isAimingPatch = isAimingToneSample = false;
+            }
+        };
     });
+
+    function handleImageUpload(e, maxSize) {
+        const file = e.target.files[0]; if (!file) return;
+        e.target.value = ""; 
+        
+        const img = new Image();
+        img.onload = () => {
+            let w = img.width, h = img.height;
+            if (maxSize && (w > maxSize || h > maxSize)) { 
+                const r = Math.min(maxSize/w, maxSize/h); 
+                w = Math.round(w * r); h = Math.round(h * r); 
+            }
+            
+            canvas.width = snapshotCanvas.width = effectCanvas.width = originalCanvas.width = cloneStrokeCanvas.width = w;
+            canvas.height = snapshotCanvas.height = effectCanvas.height = originalCanvas.height = cloneStrokeCanvas.height = h;
+            cleanCanvas.width = cleanSnapshotCanvas.width = w; cleanCanvas.height = cleanSnapshotCanvas.height = h;
+            
+            ctx.drawImage(img, 0, 0, w, h); originalCtx.drawImage(img, 0, 0, w, h); cleanCtx.drawImage(img, 0, 0, w, h);
+            
+            document.getElementById('uploadOverlay').style.display = 'none';
+            document.getElementById('exportBtn').style.display = document.getElementById('compareBtn').style.display = document.getElementById('closeBtn').style.display = 'block';
+            
+            effectCacheType = null; updateCursorSize(); fitToScreen(); 
+            history = []; 
+            saveState(); 
+            URL.revokeObjectURL(img.src);
+        };
+        img.src = URL.createObjectURL(file);
+    }
+
+    document.getElementById('fileInputOrig').onchange = (e) => handleImageUpload(e, null);
+    document.getElementById('fileInput2048').onchange = (e) => handleImageUpload(e, 2048);
+
+    function saveState() {
+        if (history.length >= 5) history.shift();
+        history.push({ main: ctx.getImageData(0, 0, canvas.width, canvas.height), clean: cleanCtx.getImageData(0, 0, canvas.width, canvas.height) });
+        document.getElementById('undoBtn').disabled = history.length <= 1;
+    }
+
+    document.getElementById('undoBtn').onclick = () => {
+        if (history.length <= 1) return; history.pop();
+        const prevState = history[history.length - 1];
+        ctx.putImageData(prevState.main, 0, 0); cleanCtx.putImageData(prevState.clean, 0, 0);
+        effectCacheType = null; document.getElementById('undoBtn').disabled = history.length <= 1;
+    };
+
+    document.getElementById('exportBtn').onclick = async () => {
+        const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
+        if (navigator.share) {
+            try {
+                const response = await fetch(dataUrl); const file = new File([await response.blob()], 'facewave_edit.jpg', { type: 'image/jpeg' });
+                if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Facewave Edit' }); return; }
+            } catch (err) { console.log("Share fallback", err); }
+        }
+        const a = document.createElement('a'); a.download = 'facewave_edit.jpg'; a.href = dataUrl; a.click();
+    };
+
+    let isPanning = false, pinchStartDist = 0, pinchStartScale = 1, pinchCenterX = 0, pinchCenterY = 0, pinchStartPanX = 0, pinchStartPanY = 0, lastPanX = 0, lastPanY = 0;
+    let pendingDrawEvent = null, drawRAF = null;
+    const isOverlayActive = () => document.getElementById('uploadOverlay').style.display !== 'none';
+
+    function screenToImage(screenX, screenY) { return { x: (screenX - viewPanX) / viewScale, y: (screenY - viewPanY) / viewScale }; }
+
+    workspace.addEventListener('wheel', (e) => {
+        if (isOverlayActive()) return; e.preventDefault();
+        const rect = workspace.getBoundingClientRect(), mouseX = e.clientX - rect.left, mouseY = e.clientY - rect.top;
+        let newScale = Math.max(0.1, Math.min(viewScale * Math.exp(-e.deltaY * 0.001), 20)); 
+        viewPanX = mouseX - (mouseX - viewPanX) * (newScale / viewScale); viewPanY = mouseY - (mouseY - viewPanY) * (newScale / viewScale);
+        viewScale = newScale; updateTransform();
+    }, { passive: false });
+
+    workspace.addEventListener('pointerdown', (e) => {
+        if (e.target === cloneToast || e.target.parentElement === cloneToast || isOverlayActive()) return; 
+        if (e.button === 1 || e.button === 2) { isPanning = true; lastPanX = e.clientX; lastPanY = e.clientY; }
+    });
+
+    workspace.addEventListener('contextmenu', e => { if (!isOverlayActive()) e.preventDefault(); });
+
+    workspace.addEventListener('touchstart', (e) => {
+        if (e.target === cloneToast || e.target.parentElement === cloneToast || isOverlayActive()) return; 
+        e.preventDefault(); 
+        if (e.touches.length === 2) {
+            isDrawing = isAimingSample = isAimingPatch = isAimingToneSample = false;
+            if (currentTool === 'clone' || currentTool === 'tone') {
+                if (currentTool === 'clone' && isSettingCloneSource || currentTool === 'tone' && isSettingToneSource) cloneCrosshair.style.display = 'none';
+                else { brushCursor.style.display = 'none'; if (cloneSource && currentTool === 'clone') setCrosshair(cloneSource.x, cloneSource.y); }
+            }
+            isPanning = true; const t1 = e.touches[0], t2 = e.touches[1];
+            pinchStartDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY); pinchStartScale = viewScale;
+            const rect = workspace.getBoundingClientRect(); pinchCenterX = (t1.clientX + t2.clientX) / 2 - rect.left; pinchCenterY = (t1.clientY + t2.clientY) / 2 - rect.top;
+            pinchStartPanX = viewPanX; pinchStartPanY = viewPanY;
+        } else if (e.touches.length === 1 && !isPanning) startDrawing(e.touches[0]);
+    }, {passive: false});
+
+    workspace.addEventListener('mousedown', (e) => {
+        if (e.target === cloneToast || e.target.parentElement === cloneToast || isOverlayActive()) return;
+        if (e.button === 0 && !isPanning) startDrawing(e);
+    });
+
+    function startDrawing(touchOrMouse) {
+        const rect = workspace.getBoundingClientRect(), imgPos = screenToImage(touchOrMouse.clientX - rect.left, touchOrMouse.clientY - rect.top);
+        snapshotCtx.drawImage(canvas, 0, 0); 
+        
+        if (currentTool === 'clone' || currentTool === 'tone') {
+            const isToolSettingSource = currentTool === 'clone' ? isSettingCloneSource : isSettingToneSource;
+            const sourceVar = currentTool === 'clone' ? cloneSource : toneColor;
+            
+            if (isToolSettingSource || !sourceVar) {
+                currentTool === 'clone' ? isAimingSample = true : isAimingToneSample = true;
+                cloneCrosshair.style.display = 'block'; brushCursor.style.display = 'none'; setCrosshair(imgPos.x, imgPos.y);
+            } else {
+                if(currentTool === 'clone') {
+                    isAimingPatch = true; cloneOffsetX = cloneSource.x - imgPos.x; cloneOffsetY = cloneSource.y - imgPos.y;
+                    cloneCrosshair.style.display = 'block'; setCrosshair(cloneSource.x, cloneSource.y);
+                } else {
+                    strokeBounds = { minX: imgPos.x, minY: imgPos.y, maxX: imgPos.x, maxY: imgPos.y }; lastDabX = imgPos.x; lastDabY = imgPos.y; cloneCrosshair.style.display = 'none'; 
+                }
+                cloneStrokeCtx.clearRect(0, 0, canvas.width, canvas.height);
+                brushCursor.style.display = 'block'; setBrushCursor(imgPos.x, imgPos.y);
+            }
+            anchorX = lastX = imgPos.x; anchorY = lastY = imgPos.y; isDrawing = true; return; 
+        }
+
+        anchorX = lastX = imgPos.x; anchorY = lastY = imgPos.y; isDrawing = true;
+        
+        if (currentTool === 'reshape') {
+            cleanSnapshotCtx.drawImage(cleanCanvas, 0, 0);
+            if (GLFilter) {
+                GLFilter.resize(canvas.width, canvas.height);
+                GLFilter.updateReshapeSnapshots(snapshotCanvas, cleanSnapshotCanvas);
+            }
+        } 
+        else if (currentTool === 'smooth') {
+            const requiredCache = isUltraSmooth ? 'smooth_ultra' : 'smooth_regular';
+            if (effectCacheType !== requiredCache) { prepareProfessionalRetouch(); effectCacheType = requiredCache; }
+        } else if (currentTool === 'detail') {
+            if (effectCacheType !== 'detail') { prepareDetail(); effectCacheType = 'detail'; }
+        } else if (currentTool === 'eraser') {
+            if (effectCacheType !== 'eraser') { effectCtx.clearRect(0, 0, canvas.width, canvas.height); effectCtx.drawImage(cleanCanvas, 0, 0); effectCacheType = 'eraser'; }
+        }
+    }
+
+    workspace.addEventListener('touchmove', (e) => {
+        if (isOverlayActive()) return; e.preventDefault(); 
+        if (isPanning && e.touches.length === 2) {
+            const t1 = e.touches[0], t2 = e.touches[1];
+            let newScale = Math.max(0.1, Math.min(pinchStartScale * (Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY) / pinchStartDist), 20));
+            const rect = workspace.getBoundingClientRect();
+            viewPanX = ((t1.clientX + t2.clientX) / 2 - rect.left) - (pinchCenterX - pinchStartPanX) * (newScale / pinchStartScale);
+            viewPanY = ((t1.clientY + t2.clientY) / 2 - rect.top) - (pinchCenterY - pinchStartPanY) * (newScale / pinchStartScale);
+            viewScale = newScale; updateTransform();
+        } else if (isDrawing && e.touches.length === 1) { pendingDrawEvent = e.touches[0]; if (!drawRAF) drawRAF = requestAnimationFrame(processDrawMove); }
+    }, {passive: false});
+
+    workspace.addEventListener('mousemove', (e) => {
+        if (isOverlayActive()) return;
+        if (isPanning) { viewPanX += e.clientX - lastPanX; viewPanY += e.clientY - lastPanY; lastPanX = e.clientX; lastPanY = e.clientY; updateTransform(); return; }
+        if (isDrawing) { pendingDrawEvent = e; if (!drawRAF) drawRAF = requestAnimationFrame(processDrawMove); }
+    });
+    
+    function processDrawMove() {
+        if (!pendingDrawEvent || !isDrawing) { drawRAF = null; return; }
+        moveDrawing(pendingDrawEvent); pendingDrawEvent = null; drawRAF = null;
+    }
+
+    function moveDrawing(touchOrMouse) {
+        const rect = workspace.getBoundingClientRect(), imgPos = screenToImage(touchOrMouse.clientX - rect.left, touchOrMouse.clientY - rect.top);
+        if (currentTool === 'reshape') applyReshapeAdvanced(imgPos.x, imgPos.y);
+        else if (currentTool === 'clone') {
+            if (isAimingSample) setCrosshair(imgPos.x, imgPos.y);
+            else if (isAimingPatch) { setBrushCursor(imgPos.x, imgPos.y); setCrosshair(imgPos.x + cloneOffsetX, imgPos.y + cloneOffsetY); }
+        } else if (currentTool === 'tone') {
+            if (isAimingToneSample) setCrosshair(imgPos.x, imgPos.y);
+            else {
+                const r = (brushSizeScreen / viewScale) * 0.5, dist = Math.hypot(imgPos.x - lastDabX, imgPos.y - lastDabY), step = Math.max(1, r * 0.05); 
+                if (dist > step) {
+                    const stepsCount = Math.ceil(dist / step);
+                    for(let i = 1; i <= stepsCount; i++) applyToneBrush(lastDabX + (imgPos.x - lastDabX) * (i / stepsCount), lastDabY + (imgPos.y - lastDabY) * (i / stepsCount), true);
+                    flushStrokeBuffer(); lastDabX = imgPos.x; lastDabY = imgPos.y;
+                }
+                setBrushCursor(imgPos.x, imgPos.y);
+            }
+        } else {
+            const r = brushSizeScreen / viewScale, dist = Math.hypot(imgPos.x - lastX, imgPos.y - lastY), step = Math.max(1, r * 0.1); 
+            if (dist > step) {
+                const stepsCount = Math.ceil(dist / step);
+                for(let i = 1; i <= stepsCount; i++) applyBrushTool(lastX + (imgPos.x - lastX) * (i / stepsCount), lastY + (imgPos.y - lastY) * (i / stepsCount));
+            } else applyBrushTool(imgPos.x, imgPos.y);
+        }
+        lastX = imgPos.x; lastY = imgPos.y;
+    }
+
+    window.addEventListener('touchend', (e) => { if (isOverlayActive()) return; if (e.touches.length < 2) isPanning = false; if (e.touches.length === 0 && isDrawing) endDrawing(); });
+    window.addEventListener('mouseup', (e) => { if (isOverlayActive()) return; if (e.button === 1 || e.button === 2) isPanning = false; if (e.button === 0 && isDrawing) endDrawing(); });
+
+    function endDrawing() {
+        if (!isDrawing) return;
+        isDrawing = false; if (currentTool === 'reshape') effectCacheType = null; 
+        
+        if (currentTool === 'clone') {
+            if (isAimingSample) {
+                cloneSource = { x: lastX, y: lastY }; isAimingSample = isSettingCloneSource = false;
+                cloneToast.innerText = 'drop to draw'; cloneToast.classList.remove('active'); setCrosshair(cloneSource.x, cloneSource.y); return; 
+            } else if (isAimingPatch) {
+                applyCloneStamp(lastX, lastY); isAimingPatch = false; brushCursor.style.display = 'none';
+                cloneSource = null; isSettingCloneSource = true;
+                cloneToast.innerText = 'drop to select'; cloneToast.classList.add('active');
+                cloneCrosshair.style.display = 'none'; effectCacheType = null; saveState(); return;
+            }
+        } else if (currentTool === 'tone') {
+            if (isAimingToneSample) {
+                const pxData = snapshotCtx.getImageData(Math.min(canvas.width - 1, Math.max(0, Math.floor(lastX))), Math.min(canvas.height - 1, Math.max(0, Math.floor(lastY))), 1, 1).data;
+                toneColor = { r: pxData[0], g: pxData[1], b: pxData[2] }; isAimingToneSample = isSettingToneSource = false;
+                cloneToast.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:rgb(${toneColor.r},${toneColor.g},${toneColor.b});border:1px solid #fff;margin-right:5px;vertical-align:middle;"></span> reselect`;
+                cloneToast.classList.remove('active'); setCrosshair(lastX, lastY); return; 
+            } else { brushCursor.style.display = 'none'; effectCacheType = null; saveState(); return; }
+        }
+        saveState();
+    }
+
+    function flushStrokeBuffer() {
+        const updateW = Math.ceil(strokeBounds.maxX - strokeBounds.minX), updateH = Math.ceil(strokeBounds.maxY - strokeBounds.minY);
+        if (updateW <= 0 || updateH <= 0) return;
+        ctx.clearRect(strokeBounds.minX, strokeBounds.minY, updateW, updateH);
+        ctx.drawImage(snapshotCanvas, strokeBounds.minX, strokeBounds.minY, updateW, updateH, strokeBounds.minX, strokeBounds.minY, updateW, updateH);
+        ctx.globalAlpha = brushPressure; ctx.drawImage(cloneStrokeCanvas, strokeBounds.minX, strokeBounds.minY, updateW, updateH, strokeBounds.minX, strokeBounds.minY, updateW, updateH);
+        ctx.globalAlpha = 1.0; 
+    }
+
+    function applyToneBrush(x, y, deferRender = false) {
+        if (!toneColor) return;
+        const r = (brushSizeScreen / viewScale) * 0.5, sx = Math.max(0, Math.floor(x - r)), sy = Math.max(0, Math.floor(y - r));
+        const ex = Math.min(canvas.width, Math.ceil(x + r)), ey = Math.min(canvas.height, Math.ceil(y + r)), bw = ex - sx, bh = ey - sy; if (bw <= 0 || bh <= 0) return;
+
+        if (sx < strokeBounds.minX) strokeBounds.minX = sx; if (sy < strokeBounds.minY) strokeBounds.minY = sy;
+        if (ex > strokeBounds.maxX) strokeBounds.maxX = ex; if (ey > strokeBounds.maxY) strokeBounds.maxY = ey;
+
+        brushCanvas.width = bw; brushCanvas.height = bh; brushCtx.clearRect(0, 0, bw, bh);
+        const g = brushCtx.createRadialGradient(x - sx, y - sy, 0, x - sx, y - sy, r);
+        g.addColorStop(0, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0.4)`); g.addColorStop(0.15, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0.15)`);
+        g.addColorStop(0.35, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0.04)`); g.addColorStop(0.6, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0.008)`);
+        g.addColorStop(1, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0)`);
+
+        brushCtx.globalCompositeOperation = 'source-over'; brushCtx.fillStyle = g; brushCtx.fillRect(0, 0, bw, bh);
+        cloneStrokeCtx.globalCompositeOperation = 'source-over'; cloneStrokeCtx.drawImage(brushCanvas, sx, sy);
+        if (!deferRender) flushStrokeBuffer();
+    }
+
+    function applyCloneStamp(x, y) {
+        if (!cloneSource) return;
+        const r = (brushSizeScreen / viewScale) * 0.5, srcX = x + cloneOffsetX, srcY = y + cloneOffsetY;
+        const sx = Math.max(0, Math.floor(x - r)), sy = Math.max(0, Math.floor(y - r));
+        const ex = Math.min(canvas.width, Math.ceil(x + r)), ey = Math.min(canvas.height, Math.ceil(y + r)), bw = ex - sx, bh = ey - sy; if (bw <= 0 || bh <= 0) return;
+
+        brushCanvas.width = bw; brushCanvas.height = bh; brushCtx.clearRect(0, 0, bw, bh);
+        let reqSrcX = srcX - r + sx - (x - r), reqSrcY = srcY - r + sy - (y - r), reqW = bw, reqH = bh, drawDestX = 0, drawDestY = 0;
+
+        if (reqSrcX < 0) { drawDestX = -reqSrcX; reqW += reqSrcX; reqSrcX = 0; }
+        if (reqSrcY < 0) { drawDestY = -reqSrcY; reqH += reqSrcY; reqSrcY = 0; }
+        if (reqSrcX + reqW > canvas.width) reqW = canvas.width - reqSrcX; if (reqSrcY + reqH > canvas.height) reqH = canvas.height - reqSrcY;
+
+        if (reqW > 0 && reqH > 0) brushCtx.drawImage(snapshotCanvas, reqSrcX, reqSrcY, reqW, reqH, drawDestX, drawDestY, reqW, reqH);
+
+        const g = brushCtx.createRadialGradient(x - sx, y - sy, 0, x - sx, y - sy, r);
+        g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(0.2, 'rgba(0,0,0,0.95)'); g.addColorStop(0.5, 'rgba(0,0,0,0.6)'); g.addColorStop(0.8, 'rgba(0,0,0,0.1)'); g.addColorStop(1, 'rgba(0,0,0,0)'); 
+
+        brushCtx.globalCompositeOperation = 'destination-in'; brushCtx.fillStyle = g; brushCtx.fillRect(0, 0, bw, bh);
+
+        if (sx < strokeBounds.minX) strokeBounds.minX = sx; if (sy < strokeBounds.minY) strokeBounds.minY = sy;
+        if (ex > strokeBounds.maxX) strokeBounds.maxX = ex; if (ey > strokeBounds.maxY) strokeBounds.maxY = ey;
+        cloneStrokeCtx.globalCompositeOperation = 'source-over'; cloneStrokeCtx.drawImage(brushCanvas, sx, sy); flushStrokeBuffer();
+    }
+
+    // --- 核心更新：纯 WebGL 渲染管线执行液化 ---
+    function applyReshapeAdvanced(curX, curY) {
+        const dx = curX - anchorX, dy = curY - anchorY, distFromAnchorSq = dx*dx + dy*dy, r = brushSizeScreen / viewScale; 
+        
+        if (GLFilter) {
+            // 处理 Main Canvas 液化，且利用剪裁边界极速拷贝回 CPU 内存
+            const rectMain = GLFilter.processReshape(false, anchorX, anchorY, dx, dy, r, brushPressure);
+            if (rectMain) {
+                ctx.clearRect(rectMain.x, rectMain.y, rectMain.w, rectMain.h);
+                ctx.drawImage(GLFilter.canvas, rectMain.x, rectMain.y, rectMain.w, rectMain.h, rectMain.x, rectMain.y, rectMain.w, rectMain.h);
+            }
+            
+            // 处理 Clean Canvas 液化 (用于消除画笔的纯净图层同步液化)
+            const rectClean = GLFilter.processReshape(true, anchorX, anchorY, dx, dy, r, brushPressure);
+            if (rectClean) {
+                cleanCtx.clearRect(rectClean.x, rectClean.y, rectClean.w, rectClean.h);
+                cleanCtx.drawImage(GLFilter.canvas, rectClean.x, rectClean.y, rectClean.w, rectClean.h, rectClean.x, rectClean.y, rectClean.w, rectClean.h);
+            }
+        }
+        
+        // 当移动距离越过半个画笔半径时，刷新快照锚点 (和原先 CPU 版本一致的控制流)
+        if (distFromAnchorSq > (r * 0.5) * (r * 0.5)) { 
+            snapshotCtx.drawImage(canvas, 0, 0); 
+            cleanSnapshotCtx.drawImage(cleanCanvas, 0, 0); 
+            if (GLFilter) GLFilter.updateReshapeSnapshots(snapshotCanvas, cleanSnapshotCanvas);
+            anchorX = curX; anchorY = curY; 
+        }
+    }
+
+    function prepareProfessionalRetouch() {
+        effectCtx.clearRect(0, 0, canvas.width, canvas.height);
+        if(GLFilter) {
+            GLFilter.resize(canvas.width, canvas.height);
+            GLFilter.process('smooth', snapshotCanvas, isUltraSmooth);
+            effectCtx.drawImage(GLFilter.canvas, 0, 0);
+        }
+    }
+
+    function prepareDetail() {
+        effectCtx.clearRect(0, 0, canvas.width, canvas.height);
+        if(GLFilter) {
+            GLFilter.resize(canvas.width, canvas.height);
+            GLFilter.process('detail', snapshotCanvas, false);
+            effectCtx.drawImage(GLFilter.canvas, 0, 0);
+        }
+    }
+
+    function applyBrushTool(x, y) {
+        const r = brushSizeScreen / viewScale, sx = Math.max(0, Math.floor(x - r)), sy = Math.max(0, Math.floor(y - r));
+        const ex = Math.min(canvas.width, Math.ceil(x + r)), ey = Math.min(canvas.height, Math.ceil(y + r)), bw = ex - sx, bh = ey - sy; if (bw <= 0 || bh <= 0) return;
+
+        brushCanvas.width = bw; brushCanvas.height = bh;
+        const g = brushCtx.createRadialGradient(x - sx, y - sy, 0, x - sx, y - sy, r);
+        let alpha = brushPressure * 0.195; 
+        if (currentTool === 'smooth' && isUltraSmooth) alpha *= 2; 
+        if (currentTool === 'detail') alpha = Math.min(1.0, brushPressure * 1.05); 
+        if (currentTool === 'eraser') alpha = brushPressure * 0.2; 
+        alpha = Math.min(1.0, alpha);
+
+        g.addColorStop(0, `rgba(0,0,0,${alpha})`); g.addColorStop(0.3, `rgba(0,0,0,${alpha * 0.8})`); 
+        g.addColorStop(0.6, `rgba(0,0,0,${alpha * 0.4})`); g.addColorStop(0.85, `rgba(0,0,0,${alpha * 0.1})`); g.addColorStop(1, 'rgba(0,0,0,0)');
+        
+        brushCtx.globalCompositeOperation = 'source-over'; brushCtx.fillStyle = g; brushCtx.fillRect(0, 0, bw, bh);
+        brushCtx.globalCompositeOperation = 'source-in'; brushCtx.drawImage(effectCanvas, sx, sy, bw, bh, 0, 0, bw, bh);
+        ctx.drawImage(brushCanvas, sx, sy);
+    }
 </script>
 </body>
 </html>
