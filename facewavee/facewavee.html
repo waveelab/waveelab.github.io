@@ -547,7 +547,8 @@
         img.src = URL.createObjectURL(file);
     }
 
-    document.getElementById('fileInputOrig').onchange = (e) => handleImageUpload(e, null);
+    // 只修改了这一行，将 null 改为 4000
+    document.getElementById('fileInputOrig').onchange = (e) => handleImageUpload(e, 4000);
     document.getElementById('fileInput2048').onchange = (e) => handleImageUpload(e, 2048);
 
     function saveState() {
