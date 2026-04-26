@@ -1,242 +1,207 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>facewavee</title>
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#000000">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>FACEWAVEE</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#000000">
 
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Facewavee">
-    <link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Facewavee">
+<link rel="apple-touch-icon" href="icon-192.png">
 
-    <style>
-        :root {
-            --bg-color: #000000;
-            --glass-bg: rgba(30, 30, 32, 0.65); /* iOS System Gray 6 Dark */
-            --glass-border: rgba(255, 255, 255, 0.1);
-            --accent: #0A84FF; /* iOS Blue */
-            --text: #FFFFFF;
-            --text-muted: rgba(235, 235, 245, 0.6); /* iOS Secondary Label */
-            --danger: #FF453A;
-            --blur-effect: blur(25px) saturate(200%);
-        }
+<style>
+    :root {
+        --bg-color: #000000;
+        --glass-bg: rgba(28, 28, 30, 0.65);
+        --glass-border: rgba(255, 255, 255, 0.1);
+        --accent: #ffffff;
+        --accent-dark: #e5e5ea;
+        --text: #f2f2f7;
+        --text-muted: #8e8e93;
+        --safe-top: max(15px, env(safe-area-inset-top));
+        --safe-bottom: max(20px, env(safe-area-inset-bottom));
+        --safe-left: max(15px, env(safe-area-inset-left));
+        --safe-right: max(15px, env(safe-area-inset-right));
+    }
+    
+    * { 
+        box-sizing: border-box; 
+        margin: 0; 
+        padding: 0; 
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif; 
+        user-select: none; 
+        -webkit-user-select: none; 
+        -webkit-tap-highlight-color: transparent;
+    }
+    
+    body { 
+        background-color: var(--bg-color); 
+        color: var(--text); 
+        overflow: hidden; 
+        height: 100vh; 
+        height: 100dvh; 
+        position: relative;
+    }
+    
+    .workspace { 
+        position: absolute; 
+        top: 0; left: 0; right: 0; bottom: 0; 
+        background: #000; 
+        overflow: hidden; 
+        cursor: crosshair; 
+        touch-action: none; 
+        z-index: 1;
+    }
+    
+    #mainCanvas { position: absolute; transform-origin: 0 0; image-rendering: -webkit-optimize-contrast; z-index: 2; }
+    #originalCanvas { position: absolute; transform-origin: 0 0; image-rendering: -webkit-optimize-contrast; z-index: 5; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; }
+    #originalCanvas.show { opacity: 1; pointer-events: auto; }
 
-        * { 
-            box-sizing: border-box; 
-            margin: 0; 
-            padding: 0; 
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, sans-serif; 
-            user-select: none; 
-            -webkit-user-select: none; 
-            -webkit-tap-highlight-color: transparent;
-        }
-        
-        body { 
-            background-color: var(--bg-color); 
-            color: var(--text); 
-            overflow: hidden; 
-            height: 100vh; 
-            height: 100dvh; 
-            display: flex; 
-            flex-direction: column; 
-        }
-        
-        header { 
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            padding: max(16px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) 16px max(20px, env(safe-area-inset-left)); 
-            background: var(--glass-bg); 
-            backdrop-filter: var(--blur-effect);
-            -webkit-backdrop-filter: var(--blur-effect);
-            z-index: 100; 
-            border-bottom: 0.5px solid var(--glass-border); 
-            flex-shrink: 0; 
-        }
+    /* Floating Header */
+    header { 
+        position: absolute; 
+        top: var(--safe-top); 
+        left: var(--safe-left); 
+        right: var(--safe-right); 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+        padding: 12px 20px; 
+        background: var(--glass-bg); 
+        backdrop-filter: saturate(180%) blur(25px);
+        -webkit-backdrop-filter: saturate(180%) blur(25px);
+        border: 1px solid var(--glass-border);
+        border-radius: 24px;
+        z-index: 100; 
+        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s;
+    }
+    header.hidden { transform: translateY(-150%); opacity: 0; pointer-events: none; }
 
-        .logo { 
-            font-size: 15px; 
-            font-weight: 700; 
-            letter-spacing: 1.5px; 
-            color: var(--text); 
-        }
+    .logo { font-size: 14px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--text); }
+    .header-actions { display: flex; gap: 18px; }
+    .header-actions button { 
+        background: none; border: none; color: var(--accent); 
+        font-size: 13px; font-weight: 600; cursor: pointer; 
+        transition: color 0.2s, opacity 0.2s; touch-action: none; 
+    }
+    .header-actions button:disabled { color: var(--text-muted); cursor: not-allowed; opacity: 0.5; }
+    .header-actions button:active:not(:disabled) { opacity: 0.6; }
+    .header-actions .close-btn { color: #ff453a; }
 
-        .header-actions { display: flex; gap: 16px; align-items: center; }
-        
-        .header-actions button { 
-            background: none; 
-            border: none; 
-            color: var(--accent); 
-            font-size: 15px; 
-            font-weight: 500; 
-            cursor: pointer; 
-            padding: 4px 8px; 
-            touch-action: none; 
-            transition: opacity 0.2s, transform 0.1s;
-        }
-        .header-actions button:active { opacity: 0.6; transform: scale(0.95); }
-        .header-actions button:disabled { color: var(--text-muted); cursor: not-allowed; opacity: 0.5; }
-        .header-actions .close-btn { color: var(--danger); }
-        
-        .workspace { flex: 1; position: relative; background: var(--bg-color); overflow: hidden; cursor: crosshair; touch-action: none; }
-        #mainCanvas { position: absolute; transform-origin: 0 0; image-rendering: -webkit-optimize-contrast; z-index: 1; }
-        #originalCanvas { position: absolute; transform-origin: 0 0; image-rendering: -webkit-optimize-contrast; z-index: 5; display: none; pointer-events: none; }
+    /* Upload Overlay */
+    .upload-overlay { 
+        position: absolute; 
+        top: 0; left: 0; width: 100%; height: 100%; 
+        background: rgba(0, 0, 0, 0.85); 
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        display: flex; 
+        flex-direction: column; 
+        justify-content: center; 
+        align-items: center; 
+        z-index: 9999; 
+        transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.5s;
+    }
+    .upload-overlay.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+    
+    .upload-btn { 
+        position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;
+        background: var(--accent); color: var(--bg-color); 
+        padding: 16px 40px; border-radius: 100px;
+        font-size: 14px; font-weight: 700; cursor: pointer; 
+        text-transform: uppercase; letter-spacing: 1.5px; 
+        transition: transform 0.2s, opacity 0.2s; 
+        box-shadow: 0 10px 25px rgba(255,255,255,0.15);
+    }
+    .upload-btn.outline { 
+        background: rgba(255,255,255,0.1); color: var(--text); 
+        border: 1px solid var(--glass-border); 
+        box-shadow: none; backdrop-filter: blur(10px);
+    }
+    .upload-btn:active { transform: scale(0.96); opacity: 0.8; }
+    .file-input { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+    
+    .footer-text { position: absolute; bottom: var(--safe-bottom); width: 100%; text-align: center; font-size: 11px; color: var(--text-muted); letter-spacing: 2px; text-transform: uppercase; pointer-events: none; }
 
-        /* iOS Bottom Sheet Style */
-        .controls { 
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            background: var(--glass-bg); 
-            backdrop-filter: var(--blur-effect);
-            -webkit-backdrop-filter: var(--blur-effect);
-            padding: 20px max(20px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); 
-            border-top: 0.5px solid var(--glass-border); 
-            border-radius: 24px 24px 0 0;
-            z-index: 100; 
-            touch-action: none; 
-            box-shadow: 0 -10px 40px rgba(0,0,0,0.5);
-        }
+    /* Floating Controls Bottom Sheet */
+    .controls { 
+        position: absolute; 
+        bottom: 0; left: 0; right: 0;
+        background: var(--glass-bg); 
+        backdrop-filter: saturate(180%) blur(25px);
+        -webkit-backdrop-filter: saturate(180%) blur(25px);
+        padding: 20px var(--safe-right) var(--safe-bottom) var(--safe-left); 
+        border-top: 1px solid var(--glass-border); 
+        border-radius: 32px 32px 0 0;
+        z-index: 100; touch-action: none; 
+        box-shadow: 0 -10px 40px rgba(0,0,0,0.5);
+        transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s;
+    }
+    .controls.hidden { transform: translateY(100%); opacity: 0; pointer-events: none; }
 
-        .sliders { display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px; }
-        .slider-row { display: flex; align-items: center; gap: 16px; }
-        .slider-row label { width: 60px; font-size: 13px; color: var(--text-muted); font-weight: 500; letter-spacing: 0.5px; }
-        
-        input[type=range] { 
-            flex: 1; 
-            -webkit-appearance: none; 
-            background: transparent; 
-            height: 24px; 
-            border-radius: 12px; 
-            outline: none; 
-            margin: 0; 
-        }
-        input[type=range]::-webkit-slider-runnable-track { 
-            height: 4px; 
-            background: rgba(255,255,255,0.15); 
-            border-radius: 2px; 
-            transition: background 0.3s;
-        }
-        input[type=range]::-webkit-slider-thumb { 
-            -webkit-appearance: none; 
-            height: 22px; 
-            width: 22px; 
-            border-radius: 50%; 
-            background: #fff; 
-            cursor: pointer; 
-            margin-top: -9px; 
-            box-shadow: 0 1px 5px rgba(0,0,0,0.2), 0 3px 8px rgba(0,0,0,0.15);
-            transition: transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
-        }
-        input[type=range]::-webkit-slider-thumb:active {
-            transform: scale(1.15);
-        }
+    .sliders { display: flex; flex-direction: column; gap: 18px; margin-bottom: 24px; padding: 0 10px; }
+    .slider-row { display: flex; align-items: center; gap: 15px; }
+    .slider-row label { width: 65px; font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+    
+    /* iOS Style Sliders */
+    input[type=range] { flex: 1; -webkit-appearance: none; background: transparent; height: 30px; border-radius: 15px; outline: none; margin: 0; }
+    input[type=range]::-webkit-slider-runnable-track { height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; }
+    input[type=range]::-webkit-slider-thumb { 
+        -webkit-appearance: none; 
+        height: 24px; width: 24px; border-radius: 50%; 
+        background: #fff; cursor: pointer; margin-top: -10px; 
+        box-shadow: 0 2px 8px rgba(0,0,0,0.4); 
+        transition: transform 0.1s;
+    }
+    input[type=range]::-webkit-slider-thumb:active { transform: scale(1.15); }
 
-        .tools { 
-            display: flex; 
-            justify-content: space-between; 
-            background: rgba(0,0,0,0.25);
-            padding: 6px;
-            border-radius: 16px;
-        }
-        .tool-btn { 
-            background: transparent; 
-            border: none; 
-            color: var(--text-muted); 
-            font-size: 12px; 
-            font-weight: 600; 
-            cursor: pointer; 
-            padding: 12px 0; 
-            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); 
-            flex: 1; 
-            text-align: center; 
-            border-radius: 12px;
-        }
-        .tool-btn.active { 
-            color: #fff; 
-            background: rgba(255,255,255,0.18);
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
+    /* iOS Style Segmented Tools */
+    .tools { 
+        display: flex; gap: 8px; justify-content: space-between;
+        background: rgba(0,0,0,0.3); padding: 4px; border-radius: 20px;
+    }
+    .tool-btn { 
+        background: transparent; border: none; color: var(--text-muted); 
+        font-size: 11px; font-weight: 600; cursor: pointer; 
+        text-transform: uppercase; letter-spacing: 0.5px; 
+        padding: 10px 0; border-radius: 16px; transition: all 0.25s ease; 
+        flex: 1; text-align: center;
+    }
+    .tool-btn.active { background: rgba(255,255,255,0.15); color: var(--accent); box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
 
-        /* Upload Overlay */
-        .upload-overlay { 
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            background: var(--bg-color); 
-            display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; 
-        }
-        .upload-btn { 
-            position: relative; overflow: hidden; display: inline-block; 
-            background: var(--text); color: var(--bg-color); 
-            padding: 16px 48px; border-radius: 24px;
-            font-size: 15px; font-weight: 600; cursor: pointer; 
-            transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1); 
-            text-align: center; 
-            box-shadow: 0 8px 24px rgba(255,255,255,0.15);
-        }
-        .upload-btn.outline { 
-            background: transparent; color: var(--text); 
-            border: 1px solid var(--glass-border); 
-            padding: 15px 47px; 
-            backdrop-filter: var(--blur-effect);
-            -webkit-backdrop-filter: var(--blur-effect);
-            box-shadow: none;
-        }
-        .upload-btn:active { transform: scale(0.96); opacity: 0.8; }
-        .file-input { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
-        
-        .footer-text { position: absolute; bottom: max(40px, env(safe-area-inset-bottom)); width: 100%; text-align: center; font-size: 12px; color: var(--text-muted); font-weight: 500; pointer-events: none; }
+    /* Toast */
+    .floating-toast {
+        position: absolute; top: 90px; left: 50%; transform: translateX(-50%) translateY(-10px);
+        background: rgba(30, 30, 30, 0.75); color: #fff; padding: 10px 24px; border-radius: 100px;
+        font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
+        z-index: 200; cursor: pointer; border: 1px solid var(--glass-border);
+        backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: auto; display: flex; align-items: center;
+        opacity: 0; visibility: hidden;
+    }
+    .floating-toast.show { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); }
+    .floating-toast.active { background: rgba(255, 255, 255, 0.95); color: #000; box-shadow: 0 0 20px rgba(255,255,255,0.3); }
 
-        /* Floating Toast */
-        .floating-toast {
-            position: absolute; top: max(80px, calc(env(safe-area-inset-top) + 64px)); left: 50%; transform: translateX(-50%) scale(0.95);
-            background: var(--glass-bg); color: #fff; padding: 10px 24px; border-radius: 30px;
-            font-size: 13px; font-weight: 600; letter-spacing: 0.5px;
-            z-index: 200; cursor: pointer; border: 0.5px solid var(--glass-border);
-            backdrop-filter: var(--blur-effect); -webkit-backdrop-filter: var(--blur-effect);
-            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); pointer-events: auto; display: flex; align-items: center;
-            opacity: 0; visibility: hidden;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
-        }
-        /* Override display inline-style logic via CSS */
-        .floating-toast[style*="display: flex"], .floating-toast[style*="display:flex"] {
-            opacity: 1 !important; visibility: visible !important; transform: translateX(-50%) scale(1) !important;
-        }
-        
-        .floating-toast.active { background: #fff; color: #000; box-shadow: 0 0 20px rgba(255,255,255,0.3); }
-
-        .crosshair, .brush-cursor {
-            position: absolute; top: 0; left: 0; pointer-events: none; border-radius: 50%;
-            box-shadow: 0 0 0 1px rgba(0,0,0,0.2), inset 0 0 0 1px rgba(0,0,0,0.2);
-            transition: width 0.1s, height 0.1s;
-        }
-        .crosshair { z-index: 150; border: 1.5px dashed rgba(255,255,255,0.8); }
-        .crosshair::before, .crosshair::after { content: ''; position: absolute; background: rgba(255,255,255,0.9); box-shadow: 0 0 2px rgba(0,0,0,0.4); border-radius: 1px; }
-        .crosshair::before { top: 50%; left: 50%; width: 12px; height: 2px; transform: translate(-50%, -50%); }
-        .crosshair::after { top: 50%; left: 50%; width: 2px; height: 12px; transform: translate(-50%, -50%); }
-        .brush-cursor { z-index: 160; border: 1.5px solid rgba(255,255,255,0.8); background: rgba(255,255,255,0.05); }
-    </style>
+    /* Cursors */
+    .crosshair, .brush-cursor {
+        position: absolute; top: 0; left: 0; pointer-events: none; border-radius: 50%;
+        box-shadow: 0 0 0 1px rgba(0,0,0,0.2), inset 0 0 0 1px rgba(0,0,0,0.2);
+    }
+    .crosshair { z-index: 150; border: 1.5px dashed rgba(255,255,255,0.8); }
+    .crosshair::before, .crosshair::after { content: ''; position: absolute; background: rgba(255,255,255,0.9); box-shadow: 0 0 2px rgba(0,0,0,0.4); }
+    .crosshair::before { top: 50%; left: 50%; width: 12px; height: 1.5px; transform: translate(-50%, -50%); border-radius: 1px; }
+    .crosshair::after { top: 50%; left: 50%; width: 1.5px; height: 12px; transform: translate(-50%, -50%); border-radius: 1px; }
+    .brush-cursor { z-index: 160; border: 1.5px solid rgba(255,255,255,0.8); }
+</style>
 </head> 
 <body>
-<header>
-    <div class="logo">Facewavee</div>
-    <div class="header-actions">
-        <button id="closeBtn" class="close-btn" style="display: none;">Close</button>
-        <button id="compareBtn" style="display: none;">Compare</button>
-        <button id="undoBtn" disabled>Undo</button>
-        <button id="exportBtn" style="display: none;">Save</button>
-    </div>
-</header>
 
 <div class="workspace" id="workspace">
-    <div id="cloneToast" class="floating-toast" style="display:none;">drop to select</div>
+    <div id="cloneToast" class="floating-toast">drop to select</div>
     <div id="cloneSourceCrosshair" class="crosshair" style="display:none;"></div>
     <div id="brushCursor" class="brush-cursor" style="display:none;"></div>
     
@@ -244,11 +209,21 @@
     <canvas id="originalCanvas"></canvas>
 </div>
 
+<header id="mainHeader" class="hidden">
+    <div class="logo">Facewavee</div>
+    <div class="header-actions">
+        <button id="closeBtn">Close</button>
+        <button id="compareBtn">Compare</button>
+        <button id="undoBtn" disabled>Undo</button>
+        <button id="exportBtn">Save</button>
+    </div>
+</header>
+
 <div class="upload-overlay" id="uploadOverlay">
     <div style="display: flex; flex-direction: column; gap: 20px;">
         <div class="upload-btn">
             Open Image
-            <input type="file" id="fileInput4096" class="file-input" accept="image/*">
+            <input type="file" id="fileInput10M" class="file-input" accept="image/*">
         </div>
         <div class="upload-btn outline">
             Open Max 2048
@@ -258,7 +233,7 @@
     <div class="footer-text">created by wavee</div>
 </div>
 
-<div class="controls">
+<div class="controls hidden" id="mainControls">
     <div class="sliders">
         <div class="slider-row">
             <label>Size</label>
@@ -502,6 +477,9 @@ let reshapeDirtyRect = null;
 const cloneToast = document.getElementById('cloneToast');
 const cloneCrosshair = document.getElementById('cloneSourceCrosshair');
 const brushCursor = document.getElementById('brushCursor');
+const uploadOverlay = document.getElementById('uploadOverlay');
+const mainHeader = document.getElementById('mainHeader');
+const mainControls = document.getElementById('mainControls');
 
 function prepareTempCanvas(cvs, ctx2d, reqW, reqH) {
     if (cvs.width < reqW || cvs.height < reqH) {
@@ -537,20 +515,29 @@ function updateTransform() {
     }
 }
 function fitToScreen() {
-    const padding = 20;
-    const scaleX = (workspace.clientWidth - padding) / canvas.width, scaleY = (workspace.clientHeight - padding) / canvas.height;
+    const padX = 30;
+    const topPad = 80;    // Offset for floating header
+    const bottomPad = 200; // Offset for floating bottom sheet
+    
+    const availW = workspace.clientWidth - padX;
+    const availH = workspace.clientHeight - topPad - bottomPad;
+    
+    const scaleX = availW / canvas.width;
+    const scaleY = availH / canvas.height;
+    
     viewScale = Math.min(scaleX, scaleY);
     viewPanX = (workspace.clientWidth - canvas.width * viewScale) / 2;
-    viewPanY = (workspace.clientHeight - canvas.height * viewScale) / 2;
+    viewPanY = topPad + (availH - canvas.height * viewScale) / 2;
+    
     updateTransform();
 }
 window.addEventListener('resize', () => {
-    if (document.getElementById('uploadOverlay').style.display === 'none') fitToScreen();
+    if (uploadOverlay.classList.contains('hidden')) fitToScreen();
 });
 
 const compareBtn = document.getElementById('compareBtn');
-const showOriginal = (e) => { e.preventDefault(); originalCanvas.style.display = 'block'; };
-const hideOriginal = (e) => { e.preventDefault(); originalCanvas.style.display = 'none'; };
+const showOriginal = (e) => { e.preventDefault(); originalCanvas.classList.add('show'); };
+const hideOriginal = (e) => { e.preventDefault(); originalCanvas.classList.remove('show'); };
 compareBtn.addEventListener('mousedown', showOriginal);
 compareBtn.addEventListener('touchstart', showOriginal, {passive: false});
 ['mouseup', 'mouseleave', 'touchend', 'touchcancel'].forEach(evt => compareBtn.addEventListener(evt, hideOriginal));
@@ -559,15 +546,17 @@ document.getElementById('closeBtn').onclick = () => {
     if (!confirm('确定要关闭当前图像吗？所有未保存的操作将丢失。')) return;
     
     history = [];
-    document.getElementById('fileInput4096').value = "";
+    document.getElementById('fileInput10M').value = "";
     document.getElementById('fileInput2048').value = "";
     viewScale = 1; viewPanX = 0; viewPanY = 0;
     updateTransform();
     effectCacheType = cloneSource = toneColor = null;
     isSettingCloneSource = isAimingSample = isAimingPatch = isSettingToneSource = isAimingToneSample = isUltraSmooth = false;
-    cloneToast.style.display = cloneCrosshair.style.display = brushCursor.style.display = 'none';
-    document.getElementById('uploadOverlay').style.display = 'flex';
-    document.getElementById('exportBtn').style.display = document.getElementById('compareBtn').style.display = document.getElementById('closeBtn').style.display = 'none';
+    cloneToast.classList.remove('show'); cloneCrosshair.style.display = brushCursor.style.display = 'none';
+    
+    uploadOverlay.classList.remove('hidden');
+    mainHeader.classList.add('hidden');
+    mainControls.classList.add('hidden');
     document.getElementById('undoBtn').disabled = true;
 };
 
@@ -602,7 +591,7 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
         currentTool = e.target.getAttribute('data-tool');
         effectCacheType = null;
         if (currentTool === 'clone' || currentTool === 'tone' || currentTool === 'smooth') {
-            cloneToast.style.display = 'flex';
+            cloneToast.classList.add('show');
             if (currentTool === 'clone') {
                 cloneSource = null; isSettingCloneSource = true;
                 cloneToast.innerText = 'drop to select'; cloneToast.classList.add('active');
@@ -615,36 +604,56 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
             }
             cloneCrosshair.style.display = brushCursor.style.display = 'none';
         } else {
-            cloneToast.style.display = cloneCrosshair.style.display = brushCursor.style.display = 'none';
+            cloneToast.classList.remove('show');
+            cloneCrosshair.style.display = brushCursor.style.display = 'none';
             isSettingCloneSource = isSettingToneSource = isAimingSample = isAimingPatch = isAimingToneSample = false;
         }
     };
 });
 
-function handleImageUpload(e, maxSize) {
+function handleImageUpload(e, limitType, limitValue) {
     const file = e.target.files[0];
     if (!file) return;
     e.target.value = "";
     const img = new Image();
     img.onload = () => {
         let w = img.width, h = img.height;
-        if (maxSize && (w > maxSize || h > maxSize)) {
-            const r = Math.min(maxSize/w, maxSize/h);
-            w = Math.round(w * r); h = Math.round(h * r);
+        
+        // Handle constraint logic smoothly
+        if (limitType === 'area') {
+            // Limit Area (e.g. 10,000,000 pixels)
+            if (w * h > limitValue) {
+                const ratio = Math.sqrt(limitValue / (w * h));
+                w = Math.round(w * ratio);
+                h = Math.round(h * ratio);
+            }
+        } else if (limitType === 'dimension') {
+            // Limit Dimension (e.g. max side 2048)
+            if (limitValue && (w > limitValue || h > limitValue)) {
+                const r = Math.min(limitValue/w, limitValue/h);
+                w = Math.round(w * r); h = Math.round(h * r);
+            }
         }
+        
         canvas.width = snapshotCanvas.width = effectCanvas.width = originalCanvas.width = cloneStrokeCanvas.width = w;
         canvas.height = snapshotCanvas.height = effectCanvas.height = originalCanvas.height = cloneStrokeCanvas.height = h;
         cleanCanvas.width = cleanSnapshotCanvas.width = w; cleanCanvas.height = cleanSnapshotCanvas.height = h;
+        
         ctx.drawImage(img, 0, 0, w, h); originalCtx.drawImage(img, 0, 0, w, h); cleanCtx.drawImage(img, 0, 0, w, h);
-        document.getElementById('uploadOverlay').style.display = 'none';
-        document.getElementById('exportBtn').style.display = document.getElementById('compareBtn').style.display = document.getElementById('closeBtn').style.display = 'block';
+        
+        uploadOverlay.classList.add('hidden');
+        mainHeader.classList.remove('hidden');
+        mainControls.classList.remove('hidden');
+        
         effectCacheType = null; updateCursorSize(); fitToScreen(); history = []; saveState();
         URL.revokeObjectURL(img.src);
     };
     img.src = URL.createObjectURL(file);
 }
-document.getElementById('fileInput4096').onchange = (e) => handleImageUpload(e, 4096);
-document.getElementById('fileInput2048').onchange = (e) => handleImageUpload(e, 2048);
+
+// Applying the requested 10M Max Area Pixel limit for Open Image
+document.getElementById('fileInput10M').onchange = (e) => handleImageUpload(e, 'area', 10000000);
+document.getElementById('fileInput2048').onchange = (e) => handleImageUpload(e, 'dimension', 2048);
 
 function saveState() {
     if (history.length >= 5) history.shift();
@@ -683,7 +692,7 @@ document.getElementById('exportBtn').onclick = async () => {
 };
 
 let isPanning = false, pinchStartDist = 0, pinchStartScale = 1, pinchCenterX = 0, pinchCenterY = 0, pinchStartPanX = 0, pinchStartPanY = 0, lastPanX = 0, lastPanY = 0;
-const isOverlayActive = () => document.getElementById('uploadOverlay').style.display !== 'none';
+const isOverlayActive = () => !uploadOverlay.classList.contains('hidden');
 function screenToImage(screenX, screenY) { return { x: (screenX - viewPanX) / viewScale, y: (screenY - viewPanY) / viewScale }; }
 
 workspace.addEventListener('wheel', (e) => {
@@ -860,7 +869,7 @@ function endDrawing() {
             tempCtx.drawImage(snapshotCanvas, Math.min(canvas.width - 1, Math.max(0, Math.floor(lastX))), Math.min(canvas.height - 1, Math.max(0, Math.floor(lastY))), 1, 1, 0, 0, 1, 1);
             const pxData = tempCtx.getImageData(0,0,1,1).data;
             toneColor = { r: pxData[0], g: pxData[1], b: pxData[2] }; isAimingToneSample = isSettingToneSource = false;
-            cloneToast.innerHTML = `<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:rgb(${toneColor.r},${toneColor.g},${toneColor.b});border:1px solid rgba(255,255,255,0.5);margin-right:6px;vertical-align:middle;box-shadow:0 0 4px rgba(0,0,0,0.5);"></span> reselect`;
+            cloneToast.innerHTML = `<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:rgb(${toneColor.r},${toneColor.g},${toneColor.b});border:2px solid #fff;margin-right:6px;vertical-align:middle;box-shadow:0 0 4px rgba(0,0,0,0.5);"></span> reselect`;
             cloneToast.classList.remove('active'); setCrosshair(lastX, lastY); return;
         } else { brushCursor.style.display = 'none'; effectCacheType = null; saveState(); return; }
     }
