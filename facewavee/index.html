@@ -223,7 +223,7 @@
     <div style="display: flex; flex-direction: column; gap: 20px;">
         <div class="upload-btn">
             Open Image
-            <input type="file" id="fileInput8M" class="file-input" accept="image/*">
+            <input type="file" id="fileInput10M" class="file-input" accept="image/*">
         </div>
         <div class="upload-btn outline">
             Open Max 2048
@@ -545,6 +545,11 @@ compareBtn.addEventListener('touchstart', showOriginal, {passive: false});
 document.getElementById('closeBtn').onclick = () => {
     if (!confirm('确定要关闭当前图像吗？所有未保存的操作将丢失。')) return;
     
+    // 核心优化：退出时彻底清空全部历史记录占用的内存
+    history.forEach(state => {
+        state.main.width = 0; state.main.height = 0;
+        state.clean.width = 0; state.clean.height = 0;
+    });
     history = [];
     document.getElementById('fileInput10M').value = "";
     document.getElementById('fileInput2048').value = "";
@@ -621,11 +626,22 @@ function handleImageUpload(e, limitType, limitValue) {
         
         // Handle constraint logic smoothly
         if (limitType === 'area') {
-            // Limit Area (e.g. 10,000,000 pixels)
-            if (w * h > limitValue) {
-                const ratio = Math.sqrt(limitValue / (w * h));
+            // 核心优化: 动态检测移动设备并设置更安全的内存上限 (约600万像素)，避免多Canvas叠加击穿内存
+            const isMobile = window.innerWidth <= 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            const safeLimit = isMobile ? Math.min(limitValue, 6000000) : limitValue;
+            
+            if (w * h > safeLimit) {
+                const ratio = Math.sqrt(safeLimit / (w * h));
                 w = Math.round(w * ratio);
                 h = Math.round(h * ratio);
+            }
+            
+            // 核心优化: 防止极端长图导致单边超出移动端 Canvas/WebGL 最大支持尺寸 (通常为 4096px)
+            const maxDim = 4096;
+            if (w > maxDim || h > maxDim) {
+                const r = Math.min(maxDim / w, maxDim / h);
+                w = Math.round(w * r);
+                h = Math.round(h * r);
             }
         } else if (limitType === 'dimension') {
             // Limit Dimension (e.g. max side 2048)
@@ -656,7 +672,17 @@ document.getElementById('fileInput10M').onchange = (e) => handleImageUpload(e, '
 document.getElementById('fileInput2048').onchange = (e) => handleImageUpload(e, 'dimension', 2048);
 
 function saveState() {
-    if (history.length >= 5) history.shift();
+    // 核心优化: 移动端减少历史记录层数以防 OOM 闪退
+    const isMobile = window.innerWidth <= 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const maxHistory = isMobile ? 3 : 5;
+    
+    if (history.length >= maxHistory) {
+        const removed = history.shift();
+        // 强制释放移出数组的 Canvas 内存
+        removed.main.width = 0; removed.main.height = 0;
+        removed.clean.width = 0; removed.clean.height = 0;
+    }
+    
     history.push({
         main: document.createElement('canvas'),
         clean: document.createElement('canvas')
