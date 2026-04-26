@@ -95,7 +95,7 @@
     .header-actions button:active:not(:disabled) { opacity: 0.6; }
     .header-actions .close-btn { color: #ff453a; }
 
-    /* Upload Overlay */
+    /* Upload Overlay & Import Modal */
     .upload-overlay { 
         position: absolute; 
         top: 0; left: 0; width: 100%; height: 100%; 
@@ -110,6 +110,27 @@
         transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.5s;
     }
     .upload-overlay.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+
+    /* Import Panel Additions */
+    #importOverlay { z-index: 10000; }
+    .import-panel {
+        background: var(--glass-bg);
+        backdrop-filter: saturate(180%) blur(25px);
+        -webkit-backdrop-filter: saturate(180%) blur(25px);
+        padding: 30px;
+        border-radius: 32px;
+        border: 1px solid var(--glass-border);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 24px;
+        width: 85%;
+        max-width: 320px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    }
+    .import-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); }
+    .dimension-display { font-size: 28px; font-weight: 700; color: var(--accent); letter-spacing: 1px; font-variant-numeric: tabular-nums; }
+    #importSlider { width: 100%; }
     
     .upload-btn { 
         position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;
@@ -124,23 +145,6 @@
     .file-input { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
     
     .footer-text { position: absolute; bottom: var(--safe-bottom); width: 100%; text-align: center; font-size: 11px; color: var(--text-muted); letter-spacing: 2px; text-transform: uppercase; pointer-events: none; }
-
-    /* Size Modal */
-    .size-modal {
-        background: var(--glass-bg);
-        backdrop-filter: saturate(180%) blur(25px);
-        -webkit-backdrop-filter: saturate(180%) blur(25px);
-        border: 1px solid var(--glass-border);
-        border-radius: 24px;
-        padding: 30px;
-        width: 85%;
-        max-width: 320px;
-        text-align: center;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        box-shadow: 0 15px 40px rgba(0,0,0,0.5);
-    }
 
     /* Floating Controls Bottom Sheet */
     .controls { 
@@ -159,11 +163,11 @@
     .controls.hidden { transform: translateY(100%); opacity: 0; pointer-events: none; }
 
     .sliders { display: flex; flex-direction: column; gap: 18px; margin-bottom: 24px; padding: 0 10px; }
-    .slider-row { display: flex; align-items: center; gap: 15px; width: 100%; }
-    .slider-row label { width: 65px; font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; flex-shrink: 0;}
+    .slider-row { display: flex; align-items: center; gap: 15px; }
+    .slider-row label { width: 65px; font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
     
     /* iOS Style Sliders */
-    input[type=range] { flex: 1; -webkit-appearance: none; background: transparent; height: 30px; border-radius: 15px; outline: none; margin: 0; width: 100%; }
+    input[type=range] { flex: 1; -webkit-appearance: none; background: transparent; height: 30px; border-radius: 15px; outline: none; margin: 0; }
     input[type=range]::-webkit-slider-runnable-track { height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; }
     input[type=range]::-webkit-slider-thumb { 
         -webkit-appearance: none; 
@@ -184,7 +188,7 @@
         font-size: 11px; font-weight: 600; cursor: pointer; 
         text-transform: uppercase; letter-spacing: 0.5px; 
         padding: 10px 0; border-radius: 16px; 
-        transition: all 0.35s cubic-bezier(0.25, 1, 0.5, 1); /* 优化过渡动画更流畅自然 */
+        transition: all 0.35s cubic-bezier(0.25, 1, 0.5, 1); 
         flex: 1; text-align: center;
     }
     .tool-btn.active { background: rgba(255,255,255,0.15); color: var(--accent); box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
@@ -192,7 +196,7 @@
     /* Toast */
     .floating-toast {
         position: absolute; 
-        top: calc(var(--safe-top) + 85px); /* 动态避开菜单栏，防止遮挡 */
+        top: calc(var(--safe-top) + 85px); 
         left: 50%; transform: translateX(-50%) translateY(-10px);
         background: rgba(30, 30, 30, 0.75); color: #fff; padding: 10px 24px; border-radius: 100px;
         font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
@@ -215,14 +219,11 @@
     .crosshair::after { top: 50%; left: 50%; width: 1.5px; height: 12px; transform: translate(-50%, -50%); border-radius: 1px; }
     .brush-cursor { z-index: 160; border: 1.5px solid rgba(255,255,255,0.8); }
     
-    /* 移动端细微调整：完美适配按钮，不遮挡、不挤压 */
     @media (max-width: 430px) {
         header { padding: 10px 12px; gap: 10px; }
         .logo { font-size: 13px; letter-spacing: 1px; }
         .header-actions { gap: 10px; }
         .header-actions button { font-size: 12px; }
-        
-        /* 移动端底部按钮背景宽度略微增加 */
         .tools { padding: 4px 6px; } 
     }
     
@@ -266,12 +267,12 @@
     <div class="footer-text">created by wavee</div>
 </div>
 
-<div class="upload-overlay hidden" id="sizeSelectOverlay" style="z-index: 10000;">
-    <div class="size-modal">
-        <h3 style="margin-bottom: 15px; font-size: 14px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700;">Scale Image</h3>
-        <div style="margin-bottom: 25px; font-size: 14px; color: var(--text-muted); font-weight: 600;" id="sizeDisplay">100% (0 x 0)</div>
-        <input type="range" id="imagePercentSlider" min="1" max="100" value="100" style="margin-bottom: 30px;">
-        <button class="upload-btn" id="confirmSizeBtn" style="padding: 12px 35px; font-size: 13px;">Import</button>
+<div class="upload-overlay hidden" id="importOverlay">
+    <div class="import-panel">
+        <div class="import-title">Set Image Size</div>
+        <div class="dimension-display" id="importDimensions">0 × 0</div>
+        <input type="range" id="importSlider" min="1" max="100" value="100">
+        <div class="upload-btn" id="importConfirmBtn" style="width: 100%; padding: 16px 0;">Import（导入）</div>
     </div>
 </div>
 
@@ -515,11 +516,13 @@ let lastDabX = 0, lastDabY = 0;
 let strokeBounds = { minX: 0, minY: 0, maxX: 0, maxY: 0 };
 let pendingDrawEvent = null, drawRAF = null;
 let reshapeDirtyRect = null; 
+let pendingImage = null; // Store image before import
 
 const cloneToast = document.getElementById('cloneToast');
 const cloneCrosshair = document.getElementById('cloneSourceCrosshair');
 const brushCursor = document.getElementById('brushCursor');
 const uploadOverlay = document.getElementById('uploadOverlay');
+const importOverlay = document.getElementById('importOverlay');
 const mainHeader = document.getElementById('mainHeader');
 const mainControls = document.getElementById('mainControls');
 
@@ -558,8 +561,8 @@ function updateTransform() {
 }
 function fitToScreen() {
     const padX = 30;
-    const topPad = 80;    // Offset for floating header
-    const bottomPad = 200; // Offset for floating bottom sheet
+    const topPad = 80;    
+    const bottomPad = 200; 
     
     const availW = workspace.clientWidth - padX;
     const availH = workspace.clientHeight - topPad - bottomPad;
@@ -574,7 +577,7 @@ function fitToScreen() {
     updateTransform();
 }
 window.addEventListener('resize', () => {
-    if (uploadOverlay.classList.contains('hidden')) fitToScreen();
+    if (uploadOverlay.classList.contains('hidden') && importOverlay.classList.contains('hidden')) fitToScreen();
 });
 
 const compareBtn = document.getElementById('compareBtn');
@@ -587,7 +590,6 @@ compareBtn.addEventListener('touchstart', showOriginal, {passive: false});
 document.getElementById('closeBtn').onclick = () => {
     if (!confirm('确定要关闭当前图像吗？所有未保存的操作将丢失。')) return;
     
-    // 核心优化：退出时彻底清空全部历史记录占用的内存
     history.forEach(state => {
         state.main.width = 0; state.main.height = 0;
         state.clean.width = 0; state.clean.height = 0;
@@ -663,80 +665,68 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
     };
 });
 
-// ==========================================
-// 全新的图片上传和尺寸缩放流程
-// ==========================================
-let pendingUploadImage = null;
-const sizeSelectOverlay = document.getElementById('sizeSelectOverlay');
-const imagePercentSlider = document.getElementById('imagePercentSlider');
-const sizeDisplay = document.getElementById('sizeDisplay');
-
-document.getElementById('fileInputMain').onchange = (e) => {
+function handleImageUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
-    e.target.value = ""; // 重置 input 允许重复选择同文件
+    e.target.value = "";
     
     const img = new Image();
     img.onload = () => {
-        pendingUploadImage = img;
-        // 唤起选择尺寸弹窗
-        sizeSelectOverlay.classList.remove('hidden');
-        imagePercentSlider.value = 100;
-        updateSizeDisplay();
+        pendingImage = img;
+        const origW = img.width;
+        const origH = img.height;
+        
+        const importSlider = document.getElementById('importSlider');
+        const importDimensions = document.getElementById('importDimensions');
+        
+        // Reset slider to 100%
+        importSlider.value = 100;
+        importDimensions.innerText = `${origW} × ${origH}`;
+        
+        // Show import settings overlay
+        importOverlay.classList.remove('hidden');
+        
+        // Dynamic resize calculation
+        importSlider.oninput = (ev) => {
+            const scale = parseInt(ev.target.value) / 100;
+            const curW = Math.max(1, Math.round(origW * scale));
+            const curH = Math.max(1, Math.round(origH * scale));
+            importDimensions.innerText = `${curW} × ${curH}`;
+        };
     };
     img.src = URL.createObjectURL(file);
-};
-
-function updateSizeDisplay() {
-    if (!pendingUploadImage) return;
-    const pct = imagePercentSlider.value;
-    const w = Math.round(pendingUploadImage.width * (pct / 100));
-    const h = Math.round(pendingUploadImage.height * (pct / 100));
-    sizeDisplay.innerText = `${pct}% (${w} x ${h})`;
 }
 
-imagePercentSlider.oninput = updateSizeDisplay;
+document.getElementById('fileInputMain').onchange = (e) => handleImageUpload(e);
 
-document.getElementById('confirmSizeBtn').onclick = () => {
-    if (!pendingUploadImage) return;
+// Proceed with Import Confirm
+document.getElementById('importConfirmBtn').onclick = () => {
+    if (!pendingImage) return;
     
-    const pct = imagePercentSlider.value / 100;
-    // 确保最小尺寸为 1x1 像素
-    const w = Math.max(1, Math.round(pendingUploadImage.width * pct));
-    const h = Math.max(1, Math.round(pendingUploadImage.height * pct));
+    const scale = parseInt(document.getElementById('importSlider').value) / 100;
+    const w = Math.max(1, Math.round(pendingImage.width * scale));
+    const h = Math.max(1, Math.round(pendingImage.height * scale));
     
-    // 初始化画布尺寸
     canvas.width = snapshotCanvas.width = effectCanvas.width = originalCanvas.width = cloneStrokeCanvas.width = w;
     canvas.height = snapshotCanvas.height = effectCanvas.height = originalCanvas.height = cloneStrokeCanvas.height = h;
     cleanCanvas.width = cleanSnapshotCanvas.width = w; cleanCanvas.height = cleanSnapshotCanvas.height = h;
     
-    // 将缩放后的图像绘制到目标画布中
-    ctx.drawImage(pendingUploadImage, 0, 0, w, h); 
-    originalCtx.drawImage(pendingUploadImage, 0, 0, w, h); 
-    cleanCtx.drawImage(pendingUploadImage, 0, 0, w, h);
+    ctx.drawImage(pendingImage, 0, 0, w, h); 
+    originalCtx.drawImage(pendingImage, 0, 0, w, h); 
+    cleanCtx.drawImage(pendingImage, 0, 0, w, h);
     
-    // 切换UI状态
+    importOverlay.classList.add('hidden');
     uploadOverlay.classList.add('hidden');
-    sizeSelectOverlay.classList.add('hidden');
     mainHeader.classList.remove('hidden');
     mainControls.classList.remove('hidden');
     
-    effectCacheType = null; 
-    updateCursorSize(); 
-    fitToScreen(); 
-    history = []; 
-    redoHistory = []; 
-    saveState();
+    effectCacheType = null; updateCursorSize(); fitToScreen(); history = []; redoHistory = []; saveState();
     
-    // 内存释放
-    URL.revokeObjectURL(pendingUploadImage.src);
-    pendingUploadImage = null;
+    URL.revokeObjectURL(pendingImage.src);
+    pendingImage = null;
 };
 
-// ==========================================
-
 function saveState() {
-    // 每次产生新操作时，清空 Redo 栈并释放内存
     if (redoHistory.length > 0) {
         redoHistory.forEach(state => {
             state.main.width = 0; state.main.height = 0;
@@ -746,13 +736,11 @@ function saveState() {
         document.getElementById('redoBtn').disabled = true;
     }
 
-    // 核心优化: 移动端减少历史记录层数以防 OOM 闪退
     const isMobile = window.innerWidth <= 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     const maxHistory = isMobile ? 3 : 5;
     
     if (history.length >= maxHistory) {
         const removed = history.shift();
-        // 强制释放移出数组的 Canvas 内存
         removed.main.width = 0; removed.main.height = 0;
         removed.clean.width = 0; removed.clean.height = 0;
     }
@@ -807,7 +795,7 @@ document.getElementById('exportBtn').onclick = async () => {
 };
 
 let isPanning = false, pinchStartDist = 0, pinchStartScale = 1, pinchCenterX = 0, pinchCenterY = 0, pinchStartPanX = 0, pinchStartPanY = 0, lastPanX = 0, lastPanY = 0;
-const isOverlayActive = () => !uploadOverlay.classList.contains('hidden') || !sizeSelectOverlay.classList.contains('hidden');
+const isOverlayActive = () => !uploadOverlay.classList.contains('hidden') || !importOverlay.classList.contains('hidden');
 function screenToImage(screenX, screenY) { return { x: (screenX - viewPanX) / viewScale, y: (screenY - viewPanY) / viewScale }; }
 
 workspace.addEventListener('wheel', (e) => {
