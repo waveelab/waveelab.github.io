@@ -69,7 +69,6 @@
         display: flex; 
         justify-content: space-between; 
         align-items: center; 
-        gap: 2em; /* 核心优化：确保标题与菜单栏无论如何都有至少2字符距离 */
         padding: 12px 20px; 
         background: var(--glass-bg); 
         backdrop-filter: saturate(180%) blur(25px);
@@ -82,17 +81,32 @@
     }
     header.hidden { transform: translateY(-150%); opacity: 0; pointer-events: none; }
 
-    .logo { flex-shrink: 0; font-size: 14px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--text); }
-    .header-actions { 
-        display: flex; gap: 14px; 
-        flex-wrap: nowrap; overflow-x: auto; 
-        -webkit-overflow-scrolling: touch;
+    /* UI: 无论何时保证距离右侧菜单栏至少两字符宽度 (2em) */
+    .logo { 
+        font-size: 14px; 
+        font-weight: 700; 
+        letter-spacing: 2px; 
+        text-transform: uppercase; 
+        color: var(--text); 
+        flex-shrink: 0; 
+        margin-right: 2em; 
     }
-    .header-actions::-webkit-scrollbar { display: none; } /* 隐藏滚动条 */
+    
+    /* UI: 允许移动端极窄屏幕水平滑动，防止按钮丢失 */
+    .header-actions { 
+        display: flex; 
+        gap: 14px; 
+        overflow-x: auto; 
+        -webkit-overflow-scrolling: touch; 
+        scrollbar-width: none; 
+    }
+    .header-actions::-webkit-scrollbar { display: none; }
     .header-actions button { 
-        background: none; border: none; color: var(--accent); white-space: nowrap;
+        background: none; border: none; color: var(--accent); 
         font-size: 13px; font-weight: 600; cursor: pointer; 
         transition: color 0.2s, opacity 0.2s; touch-action: none; 
+        white-space: nowrap; 
+        flex-shrink: 0; 
     }
     .header-actions button:disabled { color: var(--text-muted); cursor: not-allowed; opacity: 0.5; }
     .header-actions button:active:not(:disabled) { opacity: 0.6; }
@@ -168,28 +182,27 @@
     /* iOS Style Segmented Tools */
     .tools { 
         display: flex; gap: 8px; justify-content: space-between;
-        background: rgba(0,0,0,0.3); 
-        padding: 6px 12px; /* 核心优化：底部工具按键的背影稍微加宽 */
-        border-radius: 22px;
+        background: rgba(0,0,0,0.3); padding: 4px; border-radius: 20px;
     }
     .tool-btn { 
         background: transparent; border: none; color: var(--text-muted); 
         font-size: 11px; font-weight: 600; cursor: pointer; 
         text-transform: uppercase; letter-spacing: 0.5px; 
         padding: 10px 0; border-radius: 16px; 
-        transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); /* 核心优化：高阶阻尼贝塞尔动画曲线，无比流畅 */
-        flex: 1; text-align: center; transform-origin: center;
+        /* UI: 采用丝滑的贝塞尔曲线过渡动画 */
+        transition: background-color 0.35s cubic-bezier(0.16, 1, 0.3, 1), color 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1), transform 0.15s ease; 
+        flex: 1; text-align: center;
     }
-    .tool-btn.active { 
-        background: rgba(255,255,255,0.15); 
-        color: var(--accent); 
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3); 
-        transform: scale(1.05); /* 核心优化：选中时增加微缩放立体反馈 */
-    }
+    /* UI: 按下时的回弹微缩放动画 */
+    .tool-btn:active { transform: scale(0.92); }
+    .tool-btn.active { background: rgba(255,255,255,0.15); color: var(--accent); box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
 
     /* Toast */
     .floating-toast {
-        position: absolute; top: 90px; left: 50%; transform: translateX(-50%) translateY(-10px);
+        position: absolute; 
+        /* UI: 动态计算距顶部安全区的距离，防止被顶部菜单栏遮挡 */
+        top: calc(var(--safe-top) + 85px); 
+        left: 50%; transform: translateX(-50%) translateY(-10px);
         background: rgba(30, 30, 30, 0.75); color: #fff; padding: 10px 24px; border-radius: 100px;
         font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
         z-index: 200; cursor: pointer; border: 1px solid var(--glass-border);
@@ -210,6 +223,15 @@
     .crosshair::before { top: 50%; left: 50%; width: 12px; height: 1.5px; transform: translate(-50%, -50%); border-radius: 1px; }
     .crosshair::after { top: 50%; left: 50%; width: 1.5px; height: 12px; transform: translate(-50%, -50%); border-radius: 1px; }
     .brush-cursor { z-index: 160; border: 1.5px solid rgba(255,255,255,0.8); }
+
+    /* 移动端特殊微调 */
+    @media (max-width: 768px) {
+        .header-actions { gap: 12px; }
+        .header-actions button { font-size: 12px; }
+        /* UI: 移动端让工具栏背影稍微变宽 2px (padding 4px -> 5px) */
+        .tools { padding: 5px; gap: 4px; } 
+        .tool-btn { padding: 11px 0; }
+    }
 </style>
 </head> 
 <body>
