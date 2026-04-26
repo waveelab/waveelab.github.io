@@ -82,7 +82,7 @@
     header.hidden { transform: translateY(-150%); opacity: 0; pointer-events: none; }
 
     .logo { font-size: 14px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--text); }
-    .header-actions { display: flex; gap: 18px; }
+    .header-actions { display: flex; gap: 14px; }
     .header-actions button { 
         background: none; border: none; color: var(--accent); 
         font-size: 13px; font-weight: 600; cursor: pointer; 
@@ -215,6 +215,7 @@
         <button id="closeBtn">Close</button>
         <button id="compareBtn">Compare</button>
         <button id="undoBtn" disabled>Undo</button>
+        <button id="redoBtn" disabled>Redo</button>
         <button id="exportBtn">Save</button>
     </div>
 </header>
@@ -459,7 +460,7 @@ const brushCtx = brushCanvas.getContext('2d');
 const cloneStrokeCanvas = document.createElement('canvas');
 const cloneStrokeCtx = cloneStrokeCanvas.getContext('2d');
 
-let history = [], currentTool = 'reshape', isDrawing = false;
+let history = [], redoHistory = [], currentTool = 'reshape', isDrawing = false;
 let brushSizeScreen = 120, brushPressure = 0.2;
 let anchorX = 0, anchorY = 0, lastX = 0, lastY = 0;
 let viewScale = 1, viewPanX = 0, viewPanY = 0;
@@ -550,7 +551,12 @@ document.getElementById('closeBtn').onclick = () => {
         state.main.width = 0; state.main.height = 0;
         state.clean.width = 0; state.clean.height = 0;
     });
+    redoHistory.forEach(state => {
+        state.main.width = 0; state.main.height = 0;
+        state.clean.width = 0; state.clean.height = 0;
+    });
     history = [];
+    redoHistory = [];
     document.getElementById('fileInput10M').value = "";
     document.getElementById('fileInput2048').value = "";
     viewScale = 1; viewPanX = 0; viewPanY = 0;
@@ -563,6 +569,7 @@ document.getElementById('closeBtn').onclick = () => {
     mainHeader.classList.add('hidden');
     mainControls.classList.add('hidden');
     document.getElementById('undoBtn').disabled = true;
+    document.getElementById('redoBtn').disabled = true;
 };
 
 document.getElementById('sizeSlider').oninput = (e) => {
@@ -626,9 +633,9 @@ function handleImageUpload(e, limitType, limitValue) {
         
         // Handle constraint logic smoothly
         if (limitType === 'area') {
-            // 核心优化: 动态检测移动设备并设置更安全的内存上限 (约600万像素)，避免多Canvas叠加击穿内存
+            // 核心优化: 动态检测移动设备并设置更安全的内存上限 (约800万像素)，避免多Canvas叠加击穿内存
             const isMobile = window.innerWidth <= 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-            const safeLimit = isMobile ? Math.min(limitValue, 6000000) : limitValue;
+            const safeLimit = isMobile ? Math.min(limitValue, 8000000) : limitValue;
             
             if (w * h > safeLimit) {
                 const ratio = Math.sqrt(safeLimit / (w * h));
@@ -661,7 +668,7 @@ function handleImageUpload(e, limitType, limitValue) {
         mainHeader.classList.remove('hidden');
         mainControls.classList.remove('hidden');
         
-        effectCacheType = null; updateCursorSize(); fitToScreen(); history = []; saveState();
+        effectCacheType = null; updateCursorSize(); fitToScreen(); history = []; redoHistory = []; saveState();
         URL.revokeObjectURL(img.src);
     };
     img.src = URL.createObjectURL(file);
@@ -672,6 +679,16 @@ document.getElementById('fileInput10M').onchange = (e) => handleImageUpload(e, '
 document.getElementById('fileInput2048').onchange = (e) => handleImageUpload(e, 'dimension', 2048);
 
 function saveState() {
+    // 每次产生新操作时，清空 Redo 栈并释放内存
+    if (redoHistory.length > 0) {
+        redoHistory.forEach(state => {
+            state.main.width = 0; state.main.height = 0;
+            state.clean.width = 0; state.clean.height = 0;
+        });
+        redoHistory = [];
+        document.getElementById('redoBtn').disabled = true;
+    }
+
     // 核心优化: 移动端减少历史记录层数以防 OOM 闪退
     const isMobile = window.innerWidth <= 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     const maxHistory = isMobile ? 3 : 5;
@@ -697,10 +714,25 @@ function saveState() {
 
 document.getElementById('undoBtn').onclick = () => {
     if (history.length <= 1) return;
-    history.pop();
+    const currentState = history.pop();
+    redoHistory.push(currentState);
+    
     const prevState = history[history.length - 1];
     ctx.drawImage(prevState.main, 0, 0); cleanCtx.drawImage(prevState.clean, 0, 0);
-    effectCacheType = null; document.getElementById('undoBtn').disabled = history.length <= 1;
+    effectCacheType = null; 
+    document.getElementById('undoBtn').disabled = history.length <= 1;
+    document.getElementById('redoBtn').disabled = redoHistory.length === 0;
+};
+
+document.getElementById('redoBtn').onclick = () => {
+    if (redoHistory.length === 0) return;
+    const nextState = redoHistory.pop();
+    history.push(nextState);
+    
+    ctx.drawImage(nextState.main, 0, 0); cleanCtx.drawImage(nextState.clean, 0, 0);
+    effectCacheType = null; 
+    document.getElementById('undoBtn').disabled = history.length <= 1;
+    document.getElementById('redoBtn').disabled = redoHistory.length === 0;
 };
 
 document.getElementById('exportBtn').onclick = async () => {
