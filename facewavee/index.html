@@ -1,875 +1,793 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>facewavee</title>
+<html lang="en"> <head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"> <title>facewavee</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0a0a0a">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Facewavee">
+<link rel="apple-touch-icon" href="icon-192.png">
+
+<style>
+    :root {
+        --bg-color: #000000;
+        --panel-bg: #0a0a0a;
+        --accent: #ffffff;
+        --text: #ffffff;
+        --text-muted: #666666;
+        --border: #1a1a1a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; user-select: none; -webkit-user-select: none; }
     
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#0a0a0a">
+    body { 
+        background-color: var(--bg-color); 
+        color: var(--text); 
+        overflow: hidden; 
+        height: 100vh; 
+        height: 100dvh; 
+        display: flex; 
+        flex-direction: column; 
+    }
     
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Facewavee">
-    <link rel="apple-touch-icon" href="icon-192.png">
+    header { 
+        display: flex; justify-content: space-between; align-items: center; 
+        padding: max(12px, env(safe-area-inset-top)) max(15px, env(safe-area-inset-right)) 12px max(15px, env(safe-area-inset-left)); 
+        background: var(--panel-bg); z-index: 100; border-bottom: 1px solid var(--border); flex-shrink: 0; 
+    }
+    .logo { font-size: 13px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--text); }
+    .header-actions { display: flex; gap: 15px; }
+    .header-actions button { background: none; border: none; color: var(--accent); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; padding: 5px; touch-action: none; }
+    .header-actions button:disabled { color: #333; cursor: not-allowed; }
+    .header-actions .close-btn { color: #888; }
+    #compareBtn:active { color: #888; }
 
-    <style>
-        :root {
-            --bg-color: #000000;
-            --panel-bg: #0a0a0a;
-            --accent: #ffffff;
-            --text: #ffffff;
-            --text-muted: #666666;
-            --border: #1a1a1a;
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; user-select: none; -webkit-user-select: none; }
-        
-        body { 
-            background-color: var(--bg-color); 
-            color: var(--text); 
-            overflow: hidden; 
-            height: 100vh; 
-            height: 100dvh; 
-            display: flex; 
-            flex-direction: column; 
-        }
-        
-        header { 
-            display: flex; justify-content: space-between; align-items: center; 
-            padding: max(12px, env(safe-area-inset-top)) max(15px, env(safe-area-inset-right)) 12px max(15px, env(safe-area-inset-left)); 
-            background: var(--panel-bg); z-index: 100; border-bottom: 1px solid var(--border); flex-shrink: 0; 
-        }
-        .logo { font-size: 13px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--text); }
-        .header-actions { display: flex; gap: 15px; }
-        .header-actions button { background: none; border: none; color: var(--accent); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; padding: 5px; touch-action: none; }
-        .header-actions button:disabled { color: #333; cursor: not-allowed; }
-        .header-actions .close-btn { color: #888; }
-        #compareBtn:active { color: #888; }
+    .workspace { flex: 1; position: relative; background: #050505; overflow: hidden; cursor: crosshair; touch-action: none; }
+    #mainCanvas { position: absolute; transform-origin: 0 0; image-rendering: -webkit-optimize-contrast; z-index: 1; }
+    #originalCanvas { position: absolute; transform-origin: 0 0; image-rendering: -webkit-optimize-contrast; z-index: 5; display: none; pointer-events: none; }
 
-        .workspace { flex: 1; position: relative; background: #050505; overflow: hidden; cursor: crosshair; touch-action: none; }
-        #mainCanvas { position: absolute; transform-origin: 0 0; image-rendering: -webkit-optimize-contrast; z-index: 1; }
-        #originalCanvas { position: absolute; transform-origin: 0 0; image-rendering: -webkit-optimize-contrast; z-index: 5; display: none; pointer-events: none; }
+    .upload-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-color); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
+    .upload-btn { position: relative; overflow: hidden; display: inline-block; background: var(--text); color: var(--bg-color); padding: 14px 36px; font-size: 13px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; transition: background 0.2s; text-align: center; }
+    .upload-btn.outline { background: transparent; color: var(--text); border: 1px solid var(--text); padding: 13px 35px; }
+    .upload-btn:active { opacity: 0.7; }
+    .file-input { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+    
+    .footer-text { position: absolute; bottom: max(30px, env(safe-area-inset-bottom)); width: 100%; text-align: center; font-size: 10px; color: #444444; letter-spacing: 1.5px; text-transform: uppercase; pointer-events: none; }
 
-        .upload-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-color); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
-        .upload-btn { position: relative; overflow: hidden; display: inline-block; background: var(--text); color: var(--bg-color); padding: 14px 36px; font-size: 13px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; transition: background 0.2s; text-align: center; }
-        .upload-btn.outline { background: transparent; color: var(--text); border: 1px solid var(--text); padding: 13px 35px; }
-        .upload-btn:active { opacity: 0.7; }
-        .file-input { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
-        
-        .footer-text { position: absolute; bottom: max(30px, env(safe-area-inset-bottom)); width: 100%; text-align: center; font-size: 10px; color: #444444; letter-spacing: 1.5px; text-transform: uppercase; pointer-events: none; }
+    .controls { 
+        background: var(--panel-bg); 
+        padding: 15px max(20px, env(safe-area-inset-right)) max(25px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); 
+        border-top: 1px solid var(--border); z-index: 100; touch-action: none; flex-shrink: 0; 
+    }
+    .sliders { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; }
+    .slider-row { display: flex; align-items: center; gap: 10px; }
+    .slider-row label { width: 65px; font-size: 10px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+    
+    input[type=range] { flex: 1; -webkit-appearance: none; background: transparent; height: 30px; border-radius: 0; outline: none; margin: 0; }
+    input[type=range]::-webkit-slider-runnable-track { height: 2px; background: #333; }
+    input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 20px; width: 16px; border-radius: 0; background: #fff; cursor: pointer; margin-top: -9px; }
 
-        .controls { 
-            background: var(--panel-bg); 
-            padding: 15px max(20px, env(safe-area-inset-right)) max(25px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); 
-            border-top: 1px solid var(--border); z-index: 100; touch-action: none; flex-shrink: 0; 
-        }
-        .sliders { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; }
-        .slider-row { display: flex; align-items: center; gap: 10px; }
-        .slider-row label { width: 65px; font-size: 10px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
-        
-        input[type=range] { flex: 1; -webkit-appearance: none; background: transparent; height: 30px; border-radius: 0; outline: none; margin: 0; }
-        input[type=range]::-webkit-slider-runnable-track { height: 2px; background: #333; }
-        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 20px; width: 16px; border-radius: 0; background: #fff; cursor: pointer; margin-top: -9px; }
+    .tools { display: flex; justify-content: space-between; gap: 6px; }
+    .tool-btn { background: none; border: none; color: var(--text-muted); font-size: 10.5px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 0; transition: 0.2s; flex: 1; text-align: center; }
+    .tool-btn.active { color: var(--accent); position: relative; }
+    .tool-btn.active::after { content: ''; position: absolute; bottom: 0; left: 15%; width: 70%; height: 2px; background: var(--accent); }
 
-        .tools { display: flex; justify-content: space-between; gap: 6px; }
-        .tool-btn { background: none; border: none; color: var(--text-muted); font-size: 10.5px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 0; transition: 0.2s; flex: 1; text-align: center; }
-        .tool-btn.active { color: var(--accent); position: relative; }
-        .tool-btn.active::after { content: ''; position: absolute; bottom: 0; left: 15%; width: 70%; height: 2px; background: var(--accent); }
+    .floating-toast {
+        position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.75); color: #fff; padding: 8px 20px; border-radius: 20px;
+        font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+        z-index: 200; cursor: pointer; border: 1px solid rgba(255,255,255,0.2);
+        backdrop-filter: blur(5px); transition: all 0.2s; pointer-events: auto; display: flex; align-items: center;
+    }
+    .floating-toast.active { background: rgba(255, 255, 255, 0.95); color: #000; box-shadow: 0 0 15px rgba(255,255,255,0.2); }
 
-        .floating-toast {
-            position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.75); color: #fff; padding: 8px 20px; border-radius: 20px;
-            font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
-            z-index: 200; cursor: pointer; border: 1px solid rgba(255,255,255,0.2);
-            backdrop-filter: blur(5px); transition: all 0.2s; pointer-events: auto; display: flex; align-items: center;
-        }
-        .floating-toast.active { background: rgba(255, 255, 255, 0.95); color: #000; box-shadow: 0 0 15px rgba(255,255,255,0.2); }
-
-        .crosshair, .brush-cursor {
-            position: absolute; top: 0; left: 0; pointer-events: none; border-radius: 50%;
-            box-shadow: 0 0 0 1px rgba(0,0,0,0.3), inset 0 0 0 1px rgba(0,0,0,0.3);
-        }
-        .crosshair { z-index: 150; border: 1.5px dashed rgba(255,255,255,0.9); }
-        .crosshair::before, .crosshair::after { content: ''; position: absolute; background: rgba(255,255,255,0.9); box-shadow: 0 0 1px rgba(0,0,0,0.5); }
-        .crosshair::before { top: 50%; left: 50%; width: 10px; height: 1.5px; transform: translate(-50%, -50%); }
-        .crosshair::after { top: 50%; left: 50%; width: 1.5px; height: 10px; transform: translate(-50%, -50%); }
-        .brush-cursor { z-index: 160; border: 1.5px solid rgba(255,255,255,0.9); }
-    </style>
-</head>
-<body>
-
-    <header>
-        <div class="logo">facewavee</div>
-        <div class="header-actions">
-            <button id="closeBtn" class="close-btn" style="display: none;">Close</button>
-            <button id="compareBtn" style="display: none;">Compare</button>
-            <button id="undoBtn" disabled>Undo</button>
-            <button id="exportBtn" style="display: none;">Save</button>
-        </div>
-    </header>
-
-    <div class="workspace" id="workspace">
-        <div id="cloneToast" class="floating-toast" style="display:none;">drop to select</div>
-        <div id="cloneSourceCrosshair" class="crosshair" style="display:none;"></div>
-        <div id="brushCursor" class="brush-cursor" style="display:none;"></div>
-        
-        <canvas id="mainCanvas"></canvas>
-        <canvas id="originalCanvas"></canvas>
+    .crosshair, .brush-cursor {
+        position: absolute; top: 0; left: 0; pointer-events: none; border-radius: 50%;
+        box-shadow: 0 0 0 1px rgba(0,0,0,0.3), inset 0 0 0 1px rgba(0,0,0,0.3);
+    }
+    .crosshair { z-index: 150; border: 1.5px dashed rgba(255,255,255,0.9); }
+    .crosshair::before, .crosshair::after { content: ''; position: absolute; background: rgba(255,255,255,0.9); box-shadow: 0 0 1px rgba(0,0,0,0.5); }
+    .crosshair::before { top: 50%; left: 50%; width: 10px; height: 1.5px; transform: translate(-50%, -50%); }
+    .crosshair::after { top: 50%; left: 50%; width: 1.5px; height: 10px; transform: translate(-50%, -50%); }
+    .brush-cursor { z-index: 160; border: 1.5px solid rgba(255,255,255,0.9); }
+</style>
+</head> <body>
+<header>
+    <div class="logo">facewavee</div>
+    <div class="header-actions">
+        <button id="closeBtn" class="close-btn" style="display: none;">Close</button>
+        <button id="compareBtn" style="display: none;">Compare</button>
+        <button id="undoBtn" disabled>Undo</button>
+        <button id="exportBtn" style="display: none;">Save</button>
     </div>
+</header>
 
-    <div class="upload-overlay" id="uploadOverlay">
-        <div style="display: flex; flex-direction: column; gap: 15px;">
-            <div class="upload-btn">
-                Open Image
-                <input type="file" id="fileInput4096" class="file-input" accept="image/*">
-            </div>
-            <div class="upload-btn outline">
-                Open Max 2048
-                <input type="file" id="fileInput2048" class="file-input" accept="image/*">
-            </div>
-        </div>
-        <div class="footer-text">created by wavee</div>
-    </div>
+<div class="workspace" id="workspace">
+    <div id="cloneToast" class="floating-toast" style="display:none;">drop to select</div>
+    <div id="cloneSourceCrosshair" class="crosshair" style="display:none;"></div>
+    <div id="brushCursor" class="brush-cursor" style="display:none;"></div>
+    
+    <canvas id="mainCanvas"></canvas>
+    <canvas id="originalCanvas"></canvas>
+</div>
 
-    <div class="controls">
-        <div class="sliders">
-            <div class="slider-row">
-                <label>Size</label>
-                <input type="range" id="sizeSlider" min="10" max="150" value="120">
-            </div>
-            <div class="slider-row">
-                <label>Intensity</label>
-                <input type="range" id="pressureSlider" min="0.05" max="1.0" step="0.05" value="0.5">
-            </div>
+<div class="upload-overlay" id="uploadOverlay">
+    <div style="display: flex; flex-direction: column; gap: 15px;">
+        <div class="upload-btn">
+            Open Image
+            <input type="file" id="fileInput4096" class="file-input" accept="image/*">
         </div>
-        <div class="tools">
-            <button class="tool-btn active" data-tool="reshape">Reshape</button>
-            <button class="tool-btn" data-tool="smooth">Smooth</button>
-            <button class="tool-btn" data-tool="detail">Detail</button>
-            <button class="tool-btn" data-tool="clone">Patch</button>
-            <button class="tool-btn" data-tool="tone">Tone</button>
-            <button class="tool-btn" data-tool="eraser">Eraser</button>
+        <div class="upload-btn outline">
+            Open Max 2048
+            <input type="file" id="fileInput2048" class="file-input" accept="image/*">
         </div>
     </div>
+    <div class="footer-text">created by wavee</div>
+</div>
 
+<div class="controls">
+    <div class="sliders">
+        <div class="slider-row">
+            <label>Size</label>
+            <input type="range" id="sizeSlider" min="10" max="150" value="120">
+        </div>
+        <div class="slider-row">
+            <label>Intensity</label>
+            <input type="range" id="pressureSlider" min="0.05" max="1.0" step="0.05" value="0.5">
+        </div>
+    </div>
+    <div class="tools">
+        <button class="tool-btn active" data-tool="reshape">Reshape</button>
+        <button class="tool-btn" data-tool="smooth">Smooth</button>
+        <button class="tool-btn" data-tool="detail">Detail</button>
+        <button class="tool-btn" data-tool="clone">Patch</button>
+        <button class="tool-btn" data-tool="tone">Tone</button>
+        <button class="tool-btn" data-tool="eraser">Eraser</button>
+    </div>
+</div>
 <script>
-    // ==========================================
-    // WebGL GPU 加速引擎 (重构整合了液化 Reshape 功能)
-    // ==========================================
-    const GLFilter = (function() {
-        const cvs = document.createElement('canvas');
-        const gl = cvs.getContext('webgl', { premultipliedAlpha: false });
-        if (!gl) return null;
+// ==========================================
+// WebGL GPU 加速引擎 (重构整合了液化 Reshape 功能)
+// ==========================================
+const GLFilter = (function() {
+    const cvs = document.createElement('canvas');
+    const gl = cvs.getContext('webgl', { premultipliedAlpha: false });
+    if (!gl) return null;
+    function compile(type, source) {
+        const shader = gl.createShader(type);
+        gl.shaderSource(shader, source);
+        gl.compileShader(shader);
+        return shader;
+    }
+    function createProgram(fsSource) {
+        const vsSource = `attribute vec2 a_pos; varying vec2 v_uv; void main(){ gl_Position=vec4(a_pos,0.0,1.0); v_uv=a_pos*0.5+0.5; v_uv.y=1.0-v_uv.y; }`;
+        const p = gl.createProgram();
+        gl.attachShader(p, compile(gl.VERTEX_SHADER, vsSource));
+        gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fsSource));
+        gl.linkProgram(p);
+        return p;
+    }
+    const reshapeProg = createProgram(` precision highp float; varying vec2 v_uv; uniform sampler2D u_tex; uniform vec2 u_center; uniform vec2 u_delta; uniform float u_radius; uniform float u_pressure; uniform vec2 u_resolution; void main(){ vec2 coord = v_uv * u_resolution; vec2 diff = coord - u_center; float dist = length(diff); if (dist < u_radius) { float normDist = dist / u_radius; float w = max(0.0, 0.5 + 0.5 * cos(normDist * 3.14159265359)); w = pow(w, 1.2) * u_pressure; vec2 srcCoord = coord - u_delta * w; gl_FragColor = texture2D(u_tex, srcCoord / u_resolution); } else { gl_FragColor = texture2D(u_tex, v_uv); } }`);
+    const detailProg = createProgram(`precision mediump float; varying vec2 v_uv; uniform sampler2D u_tex; uniform vec2 u_px; void main(){ vec4 c = texture2D(u_tex, v_uv); vec4 t = texture2D(u_tex, v_uv + vec2(0.0, -u_px.y)), b = texture2D(u_tex, v_uv + vec2(0.0, u_px.y)); vec4 l = texture2D(u_tex, v_uv + vec2(-u_px.x, 0.0)), r = texture2D(u_tex, v_uv + vec2(u_px.x, 0.0)); vec4 sharp = c * 5.0 - t - b - l - r; gl_FragColor = mix(c, sharp, 0.3); gl_FragColor.a = c.a; }`);
+    const bilateralProg = createProgram(`precision mediump float; varying vec2 v_uv; uniform sampler2D u_tex; uniform vec2 u_px; uniform vec2 u_dir; uniform float u_radius; uniform float u_edge; void main(){ vec4 c = texture2D(u_tex, v_uv); vec4 sum = vec4(0.0); float wSum = 0.0; int rad = int(u_radius); for(int i=-25; i<=25; i++) { if(i < -rad || i > rad) continue; vec4 s = texture2D(u_tex, v_uv + float(i) * u_px * u_dir); float diff = abs(s.r-c.r) + abs(s.g-c.g) + abs(s.b-c.b); float w = max(0.0, 1.0 - diff / u_edge); sum += s * w; wSum += w; } gl_FragColor = sum / wSum; gl_FragColor.a = c.a; }`);
+    const boxProg = createProgram(`precision mediump float; varying vec2 v_uv; uniform sampler2D u_tex; uniform vec2 u_px; uniform vec2 u_dir; uniform float u_radius; void main(){ vec4 sum = vec4(0.0); float wSum = 0.0; int rad = int(u_radius); for(int i=-45; i<=45; i++) { if(i < -rad || i > rad) continue; sum += texture2D(u_tex, v_uv + float(i) * u_px * u_dir); wSum += 1.0; } gl_FragColor = sum / wSum; vec4 c = texture2D(u_tex, v_uv); gl_FragColor.a = c.a; }`);
+    const mixProg = createProgram(`precision mediump float; varying vec2 v_uv; uniform sampler2D u_blurTex; uniform sampler2D u_origTex; uniform float u_mix; uniform float u_noiseScale; float rand(vec2 co){ return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453); } void main(){ vec4 orig = texture2D(u_origTex, v_uv); vec4 result = mix(orig, texture2D(u_blurTex, v_uv), u_mix); float noise = (rand(v_uv) + rand(v_uv + vec2(1.0, 1.0)) - 1.0) * u_noiseScale; result.rgb += noise; result.a = orig.a; gl_FragColor = result; }`);
 
-        function compile(type, source) {
-            const shader = gl.createShader(type);
-            gl.shaderSource(shader, source);
-            gl.compileShader(shader);
-            return shader;
-        }
-        function createProgram(fsSource) {
-            const vsSource = `attribute vec2 a_pos; varying vec2 v_uv; void main(){ gl_Position=vec4(a_pos,0.0,1.0); v_uv=a_pos*0.5+0.5; v_uv.y=1.0-v_uv.y; }`;
-            const p = gl.createProgram();
-            gl.attachShader(p, compile(gl.VERTEX_SHADER, vsSource));
-            gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fsSource));
-            gl.linkProgram(p);
-            return p;
-        }
+    const quadBuf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]), gl.STATIC_DRAW);
+    let w = 0, h = 0;
+    let texOrig = gl.createTexture(), texA = gl.createTexture(), texB = gl.createTexture();
+    let texSnapshot = gl.createTexture(), texCleanSnapshot = gl.createTexture();
+    let fboA = gl.createFramebuffer(), fboB = gl.createFramebuffer();
 
-        // --- 新增：Reshape 高性能液化 Shader ---
-        const reshapeProg = createProgram(`
-            precision highp float; varying vec2 v_uv; uniform sampler2D u_tex; 
-            uniform vec2 u_center; uniform vec2 u_delta; uniform float u_radius; 
-            uniform float u_pressure; uniform vec2 u_resolution;
-            void main(){
-                vec2 coord = v_uv * u_resolution; 
-                vec2 diff = coord - u_center;
-                float dist = length(diff);
-                if (dist < u_radius) {
-                    float normDist = dist / u_radius;
-                    // 完全等效于你 CPU 版本的 Math.pow(0.5 + 0.5 * Math.cos((dist/r)*PI), 1.2)
-                    float w = max(0.0, 0.5 + 0.5 * cos(normDist * 3.14159265359));
-                    w = pow(w, 1.2) * u_pressure;
-                    vec2 srcCoord = coord - u_delta * w;
-                    gl_FragColor = texture2D(u_tex, srcCoord / u_resolution);
-                } else {
-                    gl_FragColor = texture2D(u_tex, v_uv);
-                }
-            }`);
-
-        const detailProg = createProgram(`precision mediump float; varying vec2 v_uv; uniform sampler2D u_tex; uniform vec2 u_px;
-            void main(){
-                vec4 c = texture2D(u_tex, v_uv);
-                vec4 t = texture2D(u_tex, v_uv + vec2(0.0, -u_px.y)), b = texture2D(u_tex, v_uv + vec2(0.0, u_px.y));
-                vec4 l = texture2D(u_tex, v_uv + vec2(-u_px.x, 0.0)), r = texture2D(u_tex, v_uv + vec2(u_px.x, 0.0));
-                vec4 sharp = c * 5.0 - t - b - l - r;
-                gl_FragColor = mix(c, sharp, 0.3); gl_FragColor.a = c.a;
-            }`);
+    function initTex(tex) {
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    }
+    
+    return {
+        canvas: cvs,
+        resize: function(nw, nh) {
+            if(w===nw && h===nh) return;
+            w=nw; h=nh; cvs.width=w; cvs.height=h;
+            gl.viewport(0,0,w,h);
+            [texOrig, texA, texB, texSnapshot, texCleanSnapshot].forEach(t => {
+                initTex(t);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+            });
+            gl.bindFramebuffer(gl.FRAMEBUFFER, fboA);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texA, 0);
+            gl.bindFramebuffer(gl.FRAMEBUFFER, fboB);
+            gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texB, 0);
+        },
+        updateReshapeSnapshots: function(snap, cleanSnap) {
+            gl.bindTexture(gl.TEXTURE_2D, texSnapshot);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, snap);
+            gl.bindTexture(gl.TEXTURE_2D, texCleanSnapshot);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cleanSnap);
+        },
+        processReshape: function(isClean, cx, cy, dx, dy, radius, pressure) {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            gl.viewport(0, 0, w, h);
+            gl.enable(gl.SCISSOR_TEST);
+            const pad = Math.ceil(radius + Math.max(Math.abs(dx), Math.abs(dy)) + 2);
+            const destX = cx + dx, destY = cy + dy;
+            const minX = Math.max(0, Math.floor(destX - pad));
+            const maxX = Math.min(w, Math.ceil(destX + pad));
+            const minY = Math.max(0, Math.floor(destY - pad));
+            const maxY = Math.min(h, Math.ceil(destY + pad));
+            const rectW = maxX - minX, rectH = maxY - minY;
             
-        const bilateralProg = createProgram(`precision mediump float; varying vec2 v_uv; uniform sampler2D u_tex; uniform vec2 u_px; uniform vec2 u_dir; uniform float u_radius; uniform float u_edge;
-            void main(){
-                vec4 c = texture2D(u_tex, v_uv); vec4 sum = vec4(0.0); float wSum = 0.0; int rad = int(u_radius);
-                for(int i=-25; i<=25; i++) {
-                    if(i < -rad || i > rad) continue;
-                    vec4 s = texture2D(u_tex, v_uv + float(i) * u_px * u_dir);
-                    float diff = abs(s.r-c.r) + abs(s.g-c.g) + abs(s.b-c.b);
-                    float w = max(0.0, 1.0 - diff / u_edge);
-                    sum += s * w; wSum += w;
-                }
-                gl_FragColor = sum / wSum; gl_FragColor.a = c.a;
-            }`);
-
-        const boxProg = createProgram(`precision mediump float; varying vec2 v_uv; uniform sampler2D u_tex; uniform vec2 u_px; uniform vec2 u_dir; uniform float u_radius;
-            void main(){
-                vec4 sum = vec4(0.0); float wSum = 0.0; int rad = int(u_radius);
-                for(int i=-45; i<=45; i++) {
-                    if(i < -rad || i > rad) continue;
-                    sum += texture2D(u_tex, v_uv + float(i) * u_px * u_dir); wSum += 1.0;
-                }
-                gl_FragColor = sum / wSum; vec4 c = texture2D(u_tex, v_uv); gl_FragColor.a = c.a;
-            }`);
-
-        const mixProg = createProgram(`precision mediump float; varying vec2 v_uv; uniform sampler2D u_blurTex; uniform sampler2D u_origTex; uniform float u_mix; uniform float u_noiseScale;
-            float rand(vec2 co){ return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453); }
-            void main(){
-                vec4 orig = texture2D(u_origTex, v_uv); vec4 result = mix(orig, texture2D(u_blurTex, v_uv), u_mix);
-                float noise = (rand(v_uv) + rand(v_uv + vec2(1.0, 1.0)) - 1.0) * u_noiseScale;
-                result.rgb += noise; result.a = orig.a; gl_FragColor = result;
-            }`);
-
-        const quadBuf = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]), gl.STATIC_DRAW);
-
-        let w = 0, h = 0;
-        let texOrig = gl.createTexture(), texA = gl.createTexture(), texB = gl.createTexture();
-        let texSnapshot = gl.createTexture(), texCleanSnapshot = gl.createTexture(); // 新增液化所需纹理缓冲
-        let fboA = gl.createFramebuffer(), fboB = gl.createFramebuffer();
-
-        function initTex(tex) {
-            gl.bindTexture(gl.TEXTURE_2D, tex);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-            // 开启 GPU 硬件级双线性插值，消除液化锯齿
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-        }
-
-        return {
-            canvas: cvs,
-            resize: function(nw, nh) {
-                if(w===nw && h===nh) return; w=nw; h=nh; cvs.width=w; cvs.height=h; gl.viewport(0,0,w,h);
-                [texOrig, texA, texB, texSnapshot, texCleanSnapshot].forEach(t => { initTex(t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); });
-                gl.bindFramebuffer(gl.FRAMEBUFFER, fboA); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texA, 0);
-                gl.bindFramebuffer(gl.FRAMEBUFFER, fboB); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texB, 0);
-            },
-            updateReshapeSnapshots: function(snap, cleanSnap) {
-                gl.bindTexture(gl.TEXTURE_2D, texSnapshot);
-                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, snap);
-                gl.bindTexture(gl.TEXTURE_2D, texCleanSnapshot);
-                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cleanSnap);
-            },
-            processReshape: function(isClean, cx, cy, dx, dy, radius, pressure) {
-                gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-                gl.viewport(0, 0, w, h);
-                
-                // 开启局部剪裁优化，极大节省 GPU 算力！
-                gl.enable(gl.SCISSOR_TEST);
-                const pad = Math.ceil(radius + Math.max(Math.abs(dx), Math.abs(dy)) + 2);
-                const destX = cx + dx, destY = cy + dy;
-                const minX = Math.max(0, Math.floor(destX - pad));
-                const maxX = Math.min(w, Math.ceil(destX + pad));
-                const minY = Math.max(0, Math.floor(destY - pad));
-                const maxY = Math.min(h, Math.ceil(destY + pad));
-                const rectW = maxX - minX, rectH = maxY - minY;
-                
-                if (rectW <= 0 || rectH <= 0) { gl.disable(gl.SCISSOR_TEST); return null; }
-                gl.scissor(minX, h - maxY, rectW, rectH); // WebGL Y轴朝上，需翻转
-                
-                gl.useProgram(reshapeProg);
-                const posLoc = gl.getAttribLocation(reshapeProg, "a_pos");
-                gl.enableVertexAttribArray(posLoc);
-                gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
-                gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
-                
-                gl.activeTexture(gl.TEXTURE0); 
-                gl.bindTexture(gl.TEXTURE_2D, isClean ? texCleanSnapshot : texSnapshot); 
-                gl.uniform1i(gl.getUniformLocation(reshapeProg, "u_tex"), 0);
-                
-                gl.uniform2f(gl.getUniformLocation(reshapeProg, "u_center"), destX, destY);
-                gl.uniform2f(gl.getUniformLocation(reshapeProg, "u_delta"), dx, dy);
-                gl.uniform1f(gl.getUniformLocation(reshapeProg, "u_radius"), radius);
-                gl.uniform1f(gl.getUniformLocation(reshapeProg, "u_pressure"), pressure);
-                gl.uniform2f(gl.getUniformLocation(reshapeProg, "u_resolution"), w, h);
-                
-                gl.drawArrays(gl.TRIANGLES, 0, 6);
+            if (rectW <= 0 || rectH <= 0) {
                 gl.disable(gl.SCISSOR_TEST);
-                
-                // 返回渲染边界供 2D Context 局部拷贝更新
-                return { x: minX, y: minY, w: rectW, h: rectH };
-            },
-            process: function(type, sourceCanvas, isUltra) {
-                gl.bindTexture(gl.TEXTURE_2D, texOrig);
-                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, sourceCanvas);
-                
-                gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
-                
-                const drawQuad = (prog, inTex, outFbo) => {
-                    gl.useProgram(prog);
-                    const posLoc = gl.getAttribLocation(prog, "a_pos");
-                    gl.enableVertexAttribArray(posLoc);
-                    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
-                    
-                    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, inTex);
-                    gl.uniform1i(gl.getUniformLocation(prog, "u_tex"), 0);
-                    const pxLoc = gl.getUniformLocation(prog, "u_px");
-                    if(pxLoc) gl.uniform2f(pxLoc, 1.0/w, 1.0/h);
-                    
-                    gl.bindFramebuffer(gl.FRAMEBUFFER, outFbo);
-                    gl.drawArrays(gl.TRIANGLES, 0, 6);
-                };
+                return null;
+            }
+            gl.scissor(minX, h - maxY, rectW, rectH);
+            gl.useProgram(reshapeProg);
+            const posLoc = gl.getAttribLocation(reshapeProg, "a_pos");
+            gl.enableVertexAttribArray(posLoc);
+            gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+            gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, isClean ? texCleanSnapshot : texSnapshot);
+            gl.uniform1i(gl.getUniformLocation(reshapeProg, "u_tex"), 0);
+            gl.uniform2f(gl.getUniformLocation(reshapeProg, "u_center"), destX, destY);
+            gl.uniform2f(gl.getUniformLocation(reshapeProg, "u_delta"), dx, dy);
+            gl.uniform1f(gl.getUniformLocation(reshapeProg, "u_radius"), radius);
+            gl.uniform1f(gl.getUniformLocation(reshapeProg, "u_pressure"), pressure);
+            gl.uniform2f(gl.getUniformLocation(reshapeProg, "u_resolution"), w, h);
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+            gl.disable(gl.SCISSOR_TEST);
+            return { x: minX, y: minY, w: rectW, h: rectH };
+        },
+        process: function(type, sourceCanvas, isUltra) {
+            gl.bindTexture(gl.TEXTURE_2D, texOrig);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, sourceCanvas);
+            gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+            
+            const drawQuad = (prog, inTex, outFbo) => {
+                gl.useProgram(prog);
+                const posLoc = gl.getAttribLocation(prog, "a_pos");
+                gl.enableVertexAttribArray(posLoc);
+                gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, inTex);
+                gl.uniform1i(gl.getUniformLocation(prog, "u_tex"), 0);
+                const pxLoc = gl.getUniformLocation(prog, "u_px");
+                if(pxLoc) gl.uniform2f(pxLoc, 1.0/w, 1.0/h);
+                gl.bindFramebuffer(gl.FRAMEBUFFER, outFbo);
+                gl.drawArrays(gl.TRIANGLES, 0, 6);
+            };
 
-                if (type === 'detail') {
-                    drawQuad(detailProg, texOrig, null);
-                } else if (type === 'smooth') {
-                    if (!isUltra) {
-                        gl.useProgram(bilateralProg);
-                        gl.uniform1f(gl.getUniformLocation(bilateralProg, "u_radius"), Math.max(3, Math.floor(w * 0.006)));
-                        gl.uniform1f(gl.getUniformLocation(bilateralProg, "u_edge"), 75.0 / 255.0);
-                        
-                        gl.uniform2f(gl.getUniformLocation(bilateralProg, "u_dir"), 1.0, 0.0);
-                        drawQuad(bilateralProg, texOrig, fboA);
-                        
-                        gl.uniform2f(gl.getUniformLocation(bilateralProg, "u_dir"), 0.0, 1.0);
-                        drawQuad(bilateralProg, texA, fboB);
-                    } else {
-                        gl.useProgram(boxProg);
-                        gl.uniform1f(gl.getUniformLocation(boxProg, "u_radius"), Math.max(5, Math.floor(w * 0.012)));
-                        
-                        let currentIn = texOrig;
-                        for(let i=0; i<3; i++) {
-                            gl.uniform2f(gl.getUniformLocation(boxProg, "u_dir"), 1.0, 0.0); drawQuad(boxProg, currentIn, fboA);
-                            gl.uniform2f(gl.getUniformLocation(boxProg, "u_dir"), 0.0, 1.0); drawQuad(boxProg, texA, fboB);
-                            currentIn = texB;
-                        }
+            if (type === 'detail') {
+                drawQuad(detailProg, texOrig, null);
+            } else if (type === 'smooth') {
+                if (!isUltra) {
+                    gl.useProgram(bilateralProg);
+                    gl.uniform1f(gl.getUniformLocation(bilateralProg, "u_radius"), Math.max(3, Math.floor(w * 0.006)));
+                    gl.uniform1f(gl.getUniformLocation(bilateralProg, "u_edge"), 75.0 / 255.0);
+                    gl.uniform2f(gl.getUniformLocation(bilateralProg, "u_dir"), 1.0, 0.0);
+                    drawQuad(bilateralProg, texOrig, fboA);
+                    gl.uniform2f(gl.getUniformLocation(bilateralProg, "u_dir"), 0.0, 1.0);
+                    drawQuad(bilateralProg, texA, fboB);
+                } else {
+                    gl.useProgram(boxProg);
+                    gl.uniform1f(gl.getUniformLocation(boxProg, "u_radius"), Math.max(5, Math.floor(w * 0.012)));
+                    let currentIn = texOrig;
+                    for(let i=0; i<3; i++) {
+                        gl.uniform2f(gl.getUniformLocation(boxProg, "u_dir"), 1.0, 0.0);
+                        drawQuad(boxProg, currentIn, fboA);
+                        gl.uniform2f(gl.getUniformLocation(boxProg, "u_dir"), 0.0, 1.0);
+                        drawQuad(boxProg, texA, fboB);
+                        currentIn = texB;
                     }
-                    
-                    gl.useProgram(mixProg);
-                    const posLoc = gl.getAttribLocation(mixProg, "a_pos");
-                    gl.enableVertexAttribArray(posLoc); gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
-                    
-                    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, texB); gl.uniform1i(gl.getUniformLocation(mixProg, "u_blurTex"), 0);
-                    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, texOrig); gl.uniform1i(gl.getUniformLocation(mixProg, "u_origTex"), 1);
-                    
-                    gl.uniform1f(gl.getUniformLocation(mixProg, "u_mix"), isUltra ? 1.0 : 0.85);
-                    gl.uniform1f(gl.getUniformLocation(mixProg, "u_noiseScale"), 1.5 / 255.0);
-                    
-                    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-                    gl.drawArrays(gl.TRIANGLES, 0, 6);
                 }
+                gl.useProgram(mixProg);
+                const posLoc = gl.getAttribLocation(mixProg, "a_pos");
+                gl.enableVertexAttribArray(posLoc);
+                gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, texB);
+                gl.uniform1i(gl.getUniformLocation(mixProg, "u_blurTex"), 0);
+                gl.activeTexture(gl.TEXTURE1);
+                gl.bindTexture(gl.TEXTURE_2D, texOrig);
+                gl.uniform1i(gl.getUniformLocation(mixProg, "u_origTex"), 1);
+                gl.uniform1f(gl.getUniformLocation(mixProg, "u_mix"), isUltra ? 1.0 : 0.85);
+                gl.uniform1f(gl.getUniformLocation(mixProg, "u_noiseScale"), 1.5 / 255.0);
+                gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+                gl.drawArrays(gl.TRIANGLES, 0, 6);
             }
-        };
-    })();
-    // ==========================================
-
-    const workspace = document.getElementById('workspace');
-    
-    const canvas = document.getElementById('mainCanvas');
-    const ctx = canvas.getContext('2d', { willReadFrequently: true, alpha: false });
-    
-    const originalCanvas = document.getElementById('originalCanvas');
-    const originalCtx = originalCanvas.getContext('2d', { alpha: false });
-    
-    const snapshotCanvas = document.createElement('canvas');
-    const snapshotCtx = snapshotCanvas.getContext('2d', { willReadFrequently: true, alpha: false });
-    
-    const cleanCanvas = document.createElement('canvas');
-    const cleanCtx = cleanCanvas.getContext('2d', { willReadFrequently: true, alpha: false });
-    const cleanSnapshotCanvas = document.createElement('canvas');
-    const cleanSnapshotCtx = cleanSnapshotCanvas.getContext('2d', { willReadFrequently: true, alpha: false });
-
-    const effectCanvas = document.createElement('canvas');
-    const effectCtx = effectCanvas.getContext('2d', { willReadFrequently: true }); 
-    const brushCanvas = document.createElement('canvas');
-    const brushCtx = brushCanvas.getContext('2d'); 
-
-    const cloneStrokeCanvas = document.createElement('canvas');
-    const cloneStrokeCtx = cloneStrokeCanvas.getContext('2d', { willReadFrequently: true });
-
-    let history = [], currentTool = 'reshape', isDrawing = false;
-    let brushSizeScreen = 120, brushPressure = 0.5;
-    let anchorX = 0, anchorY = 0, lastX = 0, lastY = 0;
-    
-    let viewScale = 1, viewPanX = 0, viewPanY = 0;
-    let effectCacheType = null; 
-
-    let cloneSource = null, isSettingCloneSource = false, isAimingSample = false, isAimingPatch = false;
-    let cloneOffsetX = 0, cloneOffsetY = 0;
-    let toneColor = null, isSettingToneSource = false, isAimingToneSample = false;
-    let isUltraSmooth = false; 
-
-    let crosshairImgX = 0, crosshairImgY = 0, brushImgX = 0, brushImgY = 0;
-    let lastDabX = 0, lastDabY = 0; 
-    let strokeBounds = { minX: 0, minY: 0, maxX: 0, maxY: 0 }; 
-
-    const cloneToast = document.getElementById('cloneToast');
-    const cloneCrosshair = document.getElementById('cloneSourceCrosshair');
-    const brushCursor = document.getElementById('brushCursor');
-
-    function updateCursorSize() {
-        const sizeStr = brushSizeScreen + 'px';
-        cloneCrosshair.style.width = cloneCrosshair.style.height = sizeStr;
-        brushCursor.style.width = brushCursor.style.height = sizeStr;
-    }
-
-    function setCrosshair(x, y) {
-        crosshairImgX = x; crosshairImgY = y;
-        const screenX = x * viewScale + viewPanX, screenY = y * viewScale + viewPanY;
-        cloneCrosshair.style.transform = `translate(calc(${screenX}px - 50%), calc(${screenY}px - 50%))`;
-    }
-
-    function setBrushCursor(x, y) {
-        brushImgX = x; brushImgY = y;
-        const screenX = x * viewScale + viewPanX, screenY = y * viewScale + viewPanY;
-        brushCursor.style.transform = `translate(calc(${screenX}px - 50%), calc(${screenY}px - 50%))`;
-    }
-
-    function updateTransform() {
-        const matrix = `matrix(${viewScale}, 0, 0, ${viewScale}, ${viewPanX}, ${viewPanY})`;
-        canvas.style.transform = originalCanvas.style.transform = matrix;
-        if (currentTool === 'clone' || currentTool === 'tone') {
-            if (cloneCrosshair.style.display !== 'none') setCrosshair(crosshairImgX, crosshairImgY);
-            if (brushCursor.style.display !== 'none') setBrushCursor(brushImgX, brushImgY);
-        }
-    }
-
-    function fitToScreen() {
-        const padding = 20;
-        const scaleX = (workspace.clientWidth - padding) / canvas.width, scaleY = (workspace.clientHeight - padding) / canvas.height;
-        viewScale = Math.min(scaleX, scaleY);
-        viewPanX = (workspace.clientWidth - canvas.width * viewScale) / 2; viewPanY = (workspace.clientHeight - canvas.height * viewScale) / 2;
-        updateTransform();
-    }
-
-    window.addEventListener('resize', () => { if (document.getElementById('uploadOverlay').style.display === 'none') fitToScreen(); });
-
-    const compareBtn = document.getElementById('compareBtn');
-    const showOriginal = (e) => { e.preventDefault(); originalCanvas.style.display = 'block'; };
-    const hideOriginal = (e) => { e.preventDefault(); originalCanvas.style.display = 'none'; };
-    compareBtn.addEventListener('mousedown', showOriginal); compareBtn.addEventListener('touchstart', showOriginal, {passive: false});
-    ['mouseup', 'mouseleave', 'touchend', 'touchcancel'].forEach(evt => compareBtn.addEventListener(evt, hideOriginal));
-
-    document.getElementById('closeBtn').onclick = () => {
-        history = []; 
-        document.getElementById('fileInput4096').value = "";
-        document.getElementById('fileInput2048').value = "";
-        viewScale = 1; viewPanX = 0; viewPanY = 0; updateTransform();
-        effectCacheType = cloneSource = toneColor = null; 
-        isSettingCloneSource = isAimingSample = isAimingPatch = isSettingToneSource = isAimingToneSample = isUltraSmooth = false;
-        
-        cloneToast.style.display = cloneCrosshair.style.display = brushCursor.style.display = 'none';
-        document.getElementById('uploadOverlay').style.display = 'flex';
-        document.getElementById('exportBtn').style.display = document.getElementById('compareBtn').style.display = document.getElementById('closeBtn').style.display = 'none';
-        document.getElementById('undoBtn').disabled = true;
-    };
-
-    document.getElementById('sizeSlider').oninput = (e) => { brushSizeScreen = parseInt(e.target.value); updateCursorSize(); };
-    document.getElementById('pressureSlider').oninput = (e) => { brushPressure = parseFloat(e.target.value); };
-    
-    const handleToastClick = (e) => {
-        e.preventDefault(); e.stopPropagation();
-        if (currentTool === 'clone' || currentTool === 'tone') {
-            currentTool === 'clone' ? (cloneSource = null, isSettingCloneSource = true) : (toneColor = null, isSettingToneSource = true);
-            isAimingSample = isAimingPatch = isAimingToneSample = isDrawing = false;
-            cloneToast.innerText = currentTool === 'clone' ? 'drop to select' : 'drop to select';
-            cloneToast.classList.add('active');
-            cloneCrosshair.style.display = brushCursor.style.display = 'none';
-        } else if (currentTool === 'smooth') {
-            isUltraSmooth = !isUltraSmooth;
-            cloneToast.innerText = isUltraSmooth ? 'ULTRA SMOOTH: ON' : 'ULTRA SMOOTH: OFF';
-            isUltraSmooth ? cloneToast.classList.add('active') : cloneToast.classList.remove('active');
-            effectCacheType = null; 
         }
     };
-    cloneToast.addEventListener('mousedown', handleToastClick); cloneToast.addEventListener('touchstart', handleToastClick, {passive: false});
+})();
 
-    document.querySelectorAll('.tool-btn').forEach(btn => {
-        btn.onclick = (e) => {
-            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active')); e.target.classList.add('active');
-            currentTool = e.target.getAttribute('data-tool'); effectCacheType = null; 
+// ==========================================
+const workspace = document.getElementById('workspace');
+const canvas = document.getElementById('mainCanvas');
+// 【性能优化】增加了 desynchronized: true，大幅降低触控绘画时的延迟
+const ctx = canvas.getContext('2d', { willReadFrequently: true, alpha: false, desynchronized: true });
+const originalCanvas = document.getElementById('originalCanvas');
+const originalCtx = originalCanvas.getContext('2d', { alpha: false });
+const snapshotCanvas = document.createElement('canvas');
+const snapshotCtx = snapshotCanvas.getContext('2d', { willReadFrequently: true, alpha: false, desynchronized: true });
+const cleanCanvas = document.createElement('canvas');
+const cleanCtx = cleanCanvas.getContext('2d', { willReadFrequently: true, alpha: false });
+const cleanSnapshotCanvas = document.createElement('canvas');
+const cleanSnapshotCtx = cleanSnapshotCanvas.getContext('2d', { willReadFrequently: true, alpha: false });
+const effectCanvas = document.createElement('canvas');
+const effectCtx = effectCanvas.getContext('2d', { willReadFrequently: true, desynchronized: true });
+const brushCanvas = document.createElement('canvas');
+const brushCtx = brushCanvas.getContext('2d');
+const cloneStrokeCanvas = document.createElement('canvas');
+const cloneStrokeCtx = cloneStrokeCanvas.getContext('2d', { willReadFrequently: true });
 
-            if (currentTool === 'clone' || currentTool === 'tone' || currentTool === 'smooth') {
-                cloneToast.style.display = 'flex';
-                if (currentTool === 'clone') {
-                    cloneSource = null; isSettingCloneSource = true; cloneToast.innerText = 'drop to select'; cloneToast.classList.add('active');
-                } else if (currentTool === 'tone') {
-                    toneColor = null; isSettingToneSource = true; cloneToast.innerText = 'drop to select'; cloneToast.classList.add('active');
-                } else {
-                    cloneToast.innerText = isUltraSmooth ? 'ULTRA SMOOTH: ON' : 'ULTRA SMOOTH: OFF';
-                    isUltraSmooth ? cloneToast.classList.add('active') : cloneToast.classList.remove('active');
-                }
-                cloneCrosshair.style.display = brushCursor.style.display = 'none';
-            } else {
-                cloneToast.style.display = cloneCrosshair.style.display = brushCursor.style.display = 'none';
-                isSettingCloneSource = isSettingToneSource = isAimingSample = isAimingPatch = isAimingToneSample = false;
-            }
-        };
-    });
+let history = [], currentTool = 'reshape', isDrawing = false;
+let brushSizeScreen = 120, brushPressure = 0.5;
+let anchorX = 0, anchorY = 0, lastX = 0, lastY = 0;
+let viewScale = 1, viewPanX = 0, viewPanY = 0;
+let effectCacheType = null;
+let cloneSource = null, isSettingCloneSource = false, isAimingSample = false, isAimingPatch = false;
+let cloneOffsetX = 0, cloneOffsetY = 0;
+let toneColor = null, isSettingToneSource = false, isAimingToneSample = false;
+let isUltraSmooth = false;
+let crosshairImgX = 0, crosshairImgY = 0, brushImgX = 0, brushImgY = 0;
+let lastDabX = 0, lastDabY = 0;
+let strokeBounds = { minX: 0, minY: 0, maxX: 0, maxY: 0 };
+let pendingDrawEvent = null, drawRAF = null;
 
-    function handleImageUpload(e, maxSize) {
-        const file = e.target.files[0]; if (!file) return;
-        e.target.value = ""; 
-        
-        const img = new Image();
-        img.onload = () => {
-            let w = img.width, h = img.height;
-            if (maxSize && (w > maxSize || h > maxSize)) { 
-                const r = Math.min(maxSize/w, maxSize/h); 
-                w = Math.round(w * r); h = Math.round(h * r); 
-            }
-            
-            canvas.width = snapshotCanvas.width = effectCanvas.width = originalCanvas.width = cloneStrokeCanvas.width = w;
-            canvas.height = snapshotCanvas.height = effectCanvas.height = originalCanvas.height = cloneStrokeCanvas.height = h;
-            cleanCanvas.width = cleanSnapshotCanvas.width = w; cleanCanvas.height = cleanSnapshotCanvas.height = h;
-            
-            ctx.drawImage(img, 0, 0, w, h); originalCtx.drawImage(img, 0, 0, w, h); cleanCtx.drawImage(img, 0, 0, w, h);
-            
-            document.getElementById('uploadOverlay').style.display = 'none';
-            document.getElementById('exportBtn').style.display = document.getElementById('compareBtn').style.display = document.getElementById('closeBtn').style.display = 'block';
-            
-            effectCacheType = null; updateCursorSize(); fitToScreen(); 
-            history = []; 
-            saveState(); 
-            URL.revokeObjectURL(img.src);
-        };
-        img.src = URL.createObjectURL(file);
+const cloneToast = document.getElementById('cloneToast');
+const cloneCrosshair = document.getElementById('cloneSourceCrosshair');
+const brushCursor = document.getElementById('brushCursor');
+
+function updateCursorSize() {
+    const sizeStr = brushSizeScreen + 'px';
+    cloneCrosshair.style.width = cloneCrosshair.style.height = sizeStr;
+    brushCursor.style.width = brushCursor.style.height = sizeStr;
+}
+function setCrosshair(x, y) {
+    crosshairImgX = x; crosshairImgY = y;
+    const screenX = x * viewScale + viewPanX, screenY = y * viewScale + viewPanY;
+    cloneCrosshair.style.transform = `translate(calc(${screenX}px - 50%), calc(${screenY}px - 50%))`;
+}
+function setBrushCursor(x, y) {
+    brushImgX = x; brushImgY = y;
+    const screenX = x * viewScale + viewPanX, screenY = y * viewScale + viewPanY;
+    brushCursor.style.transform = `translate(calc(${screenX}px - 50%), calc(${screenY}px - 50%))`;
+}
+function updateTransform() {
+    const matrix = `matrix(${viewScale}, 0, 0, ${viewScale}, ${viewPanX}, ${viewPanY})`;
+    canvas.style.transform = originalCanvas.style.transform = matrix;
+    if (currentTool === 'clone' || currentTool === 'tone') {
+        if (cloneCrosshair.style.display !== 'none') setCrosshair(crosshairImgX, crosshairImgY);
+        if (brushCursor.style.display !== 'none') setBrushCursor(brushImgX, brushImgY);
     }
+}
+function fitToScreen() {
+    const padding = 20;
+    const scaleX = (workspace.clientWidth - padding) / canvas.width, scaleY = (workspace.clientHeight - padding) / canvas.height;
+    viewScale = Math.min(scaleX, scaleY);
+    viewPanX = (workspace.clientWidth - canvas.width * viewScale) / 2;
+    viewPanY = (workspace.clientHeight - canvas.height * viewScale) / 2;
+    updateTransform();
+}
+window.addEventListener('resize', () => {
+    if (document.getElementById('uploadOverlay').style.display === 'none') fitToScreen();
+});
 
-    document.getElementById('fileInput4096').onchange = (e) => handleImageUpload(e, 4096);
-    document.getElementById('fileInput2048').onchange = (e) => handleImageUpload(e, 2048);
+const compareBtn = document.getElementById('compareBtn');
+const showOriginal = (e) => { e.preventDefault(); originalCanvas.style.display = 'block'; };
+const hideOriginal = (e) => { e.preventDefault(); originalCanvas.style.display = 'none'; };
+compareBtn.addEventListener('mousedown', showOriginal);
+compareBtn.addEventListener('touchstart', showOriginal, {passive: false});
+['mouseup', 'mouseleave', 'touchend', 'touchcancel'].forEach(evt => compareBtn.addEventListener(evt, hideOriginal));
 
-    function saveState() {
-        if (history.length >= 5) history.shift();
-        history.push({ main: ctx.getImageData(0, 0, canvas.width, canvas.height), clean: cleanCtx.getImageData(0, 0, canvas.width, canvas.height) });
-        document.getElementById('undoBtn').disabled = history.length <= 1;
-    }
-
-    document.getElementById('undoBtn').onclick = () => {
-        if (history.length <= 1) return; history.pop();
-        const prevState = history[history.length - 1];
-        ctx.putImageData(prevState.main, 0, 0); cleanCtx.putImageData(prevState.clean, 0, 0);
-        effectCacheType = null; document.getElementById('undoBtn').disabled = history.length <= 1;
-    };
-
-    document.getElementById('exportBtn').onclick = async () => {
-        const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
-        if (navigator.share) {
-            try {
-                const response = await fetch(dataUrl); const file = new File([await response.blob()], 'facewave_edit.jpg', { type: 'image/jpeg' });
-                if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Facewave Edit' }); return; }
-            } catch (err) { console.log("Share fallback", err); }
-        }
-        const a = document.createElement('a'); a.download = 'facewave_edit.jpg'; a.href = dataUrl; a.click();
-    };
-
-    let isPanning = false, pinchStartDist = 0, pinchStartScale = 1, pinchCenterX = 0, pinchCenterY = 0, pinchStartPanX = 0, pinchStartPanY = 0, lastPanX = 0, lastPanY = 0;
-    let pendingDrawEvent = null, drawRAF = null;
-    const isOverlayActive = () => document.getElementById('uploadOverlay').style.display !== 'none';
-
-    function screenToImage(screenX, screenY) { return { x: (screenX - viewPanX) / viewScale, y: (screenY - viewPanY) / viewScale }; }
-
-    workspace.addEventListener('wheel', (e) => {
-        if (isOverlayActive()) return; e.preventDefault();
-        const rect = workspace.getBoundingClientRect(), mouseX = e.clientX - rect.left, mouseY = e.clientY - rect.top;
-        let newScale = Math.max(0.1, Math.min(viewScale * Math.exp(-e.deltaY * 0.001), 20)); 
-        viewPanX = mouseX - (mouseX - viewPanX) * (newScale / viewScale); viewPanY = mouseY - (mouseY - viewPanY) * (newScale / viewScale);
-        viewScale = newScale; updateTransform();
-    }, { passive: false });
-
-    workspace.addEventListener('pointerdown', (e) => {
-        if (e.target === cloneToast || e.target.parentElement === cloneToast || isOverlayActive()) return; 
-        if (e.button === 1 || e.button === 2) { isPanning = true; lastPanX = e.clientX; lastPanY = e.clientY; }
-    });
-
-    workspace.addEventListener('contextmenu', e => { if (!isOverlayActive()) e.preventDefault(); });
-
-    workspace.addEventListener('touchstart', (e) => {
-        if (e.target === cloneToast || e.target.parentElement === cloneToast || isOverlayActive()) return; 
-        e.preventDefault(); 
-        if (e.touches.length === 2) {
-            isDrawing = isAimingSample = isAimingPatch = isAimingToneSample = false;
-            if (currentTool === 'clone' || currentTool === 'tone') {
-                if (currentTool === 'clone' && isSettingCloneSource || currentTool === 'tone' && isSettingToneSource) cloneCrosshair.style.display = 'none';
-                else { brushCursor.style.display = 'none'; if (cloneSource && currentTool === 'clone') setCrosshair(cloneSource.x, cloneSource.y); }
-            }
-            isPanning = true; const t1 = e.touches[0], t2 = e.touches[1];
-            pinchStartDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY); pinchStartScale = viewScale;
-            const rect = workspace.getBoundingClientRect(); pinchCenterX = (t1.clientX + t2.clientX) / 2 - rect.left; pinchCenterY = (t1.clientY + t2.clientY) / 2 - rect.top;
-            pinchStartPanX = viewPanX; pinchStartPanY = viewPanY;
-        } else if (e.touches.length === 1 && !isPanning) startDrawing(e.touches[0]);
-    }, {passive: false});
-
-    workspace.addEventListener('mousedown', (e) => {
-        if (e.target === cloneToast || e.target.parentElement === cloneToast || isOverlayActive()) return;
-        if (e.button === 0 && !isPanning) startDrawing(e);
-    });
-
-    function startDrawing(touchOrMouse) {
-        const rect = workspace.getBoundingClientRect(), imgPos = screenToImage(touchOrMouse.clientX - rect.left, touchOrMouse.clientY - rect.top);
-        snapshotCtx.drawImage(canvas, 0, 0); 
-        
-        if (currentTool === 'clone' || currentTool === 'tone') {
-            const isToolSettingSource = currentTool === 'clone' ? isSettingCloneSource : isSettingToneSource;
-            const sourceVar = currentTool === 'clone' ? cloneSource : toneColor;
-            
-            if (isToolSettingSource || !sourceVar) {
-                currentTool === 'clone' ? isAimingSample = true : isAimingToneSample = true;
-                cloneCrosshair.style.display = 'block'; brushCursor.style.display = 'none'; setCrosshair(imgPos.x, imgPos.y);
-            } else {
-                if(currentTool === 'clone') {
-                    isAimingPatch = true; cloneOffsetX = cloneSource.x - imgPos.x; cloneOffsetY = cloneSource.y - imgPos.y;
-                    cloneCrosshair.style.display = 'block'; setCrosshair(cloneSource.x, cloneSource.y);
-                } else {
-                    strokeBounds = { minX: imgPos.x, minY: imgPos.y, maxX: imgPos.x, maxY: imgPos.y }; lastDabX = imgPos.x; lastDabY = imgPos.y; cloneCrosshair.style.display = 'none'; 
-                }
-                cloneStrokeCtx.clearRect(0, 0, canvas.width, canvas.height);
-                brushCursor.style.display = 'block'; setBrushCursor(imgPos.x, imgPos.y);
-            }
-            anchorX = lastX = imgPos.x; anchorY = lastY = imgPos.y; isDrawing = true; return; 
-        }
-
-        anchorX = lastX = imgPos.x; anchorY = lastY = imgPos.y; isDrawing = true;
-        
-        if (currentTool === 'reshape') {
-            cleanSnapshotCtx.drawImage(cleanCanvas, 0, 0);
-            if (GLFilter) {
-                GLFilter.resize(canvas.width, canvas.height);
-                GLFilter.updateReshapeSnapshots(snapshotCanvas, cleanSnapshotCanvas);
-            }
-        } 
-        else if (currentTool === 'smooth') {
-            const requiredCache = isUltraSmooth ? 'smooth_ultra' : 'smooth_regular';
-            if (effectCacheType !== requiredCache) { prepareProfessionalRetouch(); effectCacheType = requiredCache; }
-        } else if (currentTool === 'detail') {
-            if (effectCacheType !== 'detail') { prepareDetail(); effectCacheType = 'detail'; }
-        } else if (currentTool === 'eraser') {
-            if (effectCacheType !== 'eraser') { effectCtx.clearRect(0, 0, canvas.width, canvas.height); effectCtx.drawImage(cleanCanvas, 0, 0); effectCacheType = 'eraser'; }
-        }
-    }
-
-    workspace.addEventListener('touchmove', (e) => {
-        if (isOverlayActive()) return; e.preventDefault(); 
-        if (isPanning && e.touches.length === 2) {
-            const t1 = e.touches[0], t2 = e.touches[1];
-            let newScale = Math.max(0.1, Math.min(pinchStartScale * (Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY) / pinchStartDist), 20));
-            const rect = workspace.getBoundingClientRect();
-            viewPanX = ((t1.clientX + t2.clientX) / 2 - rect.left) - (pinchCenterX - pinchStartPanX) * (newScale / pinchStartScale);
-            viewPanY = ((t1.clientY + t2.clientY) / 2 - rect.top) - (pinchCenterY - pinchStartPanY) * (newScale / pinchStartScale);
-            viewScale = newScale; updateTransform();
-        } else if (isDrawing && e.touches.length === 1) { pendingDrawEvent = e.touches[0]; if (!drawRAF) drawRAF = requestAnimationFrame(processDrawMove); }
-    }, {passive: false});
-
-    workspace.addEventListener('mousemove', (e) => {
-        if (isOverlayActive()) return;
-        if (isPanning) { viewPanX += e.clientX - lastPanX; viewPanY += e.clientY - lastPanY; lastPanX = e.clientX; lastPanY = e.clientY; updateTransform(); return; }
-        if (isDrawing) { pendingDrawEvent = e; if (!drawRAF) drawRAF = requestAnimationFrame(processDrawMove); }
-    });
+// 【交互增加】: 点击关闭时询问是否确定，防止未保存丢失进度
+document.getElementById('closeBtn').onclick = () => {
+    if (!confirm('确定要关闭当前图像吗？所有未保存的操作将丢失。')) return;
     
-    function processDrawMove() {
-        if (!pendingDrawEvent || !isDrawing) { drawRAF = null; return; }
-        moveDrawing(pendingDrawEvent); pendingDrawEvent = null; drawRAF = null;
+    history = [];
+    document.getElementById('fileInput4096').value = "";
+    document.getElementById('fileInput2048').value = "";
+    viewScale = 1; viewPanX = 0; viewPanY = 0;
+    updateTransform();
+    effectCacheType = cloneSource = toneColor = null;
+    isSettingCloneSource = isAimingSample = isAimingPatch = isSettingToneSource = isAimingToneSample = isUltraSmooth = false;
+    cloneToast.style.display = cloneCrosshair.style.display = brushCursor.style.display = 'none';
+    document.getElementById('uploadOverlay').style.display = 'flex';
+    document.getElementById('exportBtn').style.display = document.getElementById('compareBtn').style.display = document.getElementById('closeBtn').style.display = 'none';
+    document.getElementById('undoBtn').disabled = true;
+};
+
+document.getElementById('sizeSlider').oninput = (e) => {
+    brushSizeScreen = parseInt(e.target.value);
+    updateCursorSize();
+};
+document.getElementById('pressureSlider').oninput = (e) => { brushPressure = parseFloat(e.target.value); };
+
+const handleToastClick = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (currentTool === 'clone' || currentTool === 'tone') {
+        currentTool === 'clone' ? (cloneSource = null, isSettingCloneSource = true) : (toneColor = null, isSettingToneSource = true);
+        isAimingSample = isAimingPatch = isAimingToneSample = isDrawing = false;
+        cloneToast.innerText = currentTool === 'clone' ? 'drop to select' : 'drop to select';
+        cloneToast.classList.add('active');
+        cloneCrosshair.style.display = brushCursor.style.display = 'none';
+    } else if (currentTool === 'smooth') {
+        isUltraSmooth = !isUltraSmooth;
+        cloneToast.innerText = isUltraSmooth ? 'ULTRA SMOOTH: ON' : 'ULTRA SMOOTH: OFF';
+        isUltraSmooth ? cloneToast.classList.add('active') : cloneToast.classList.remove('active');
+        effectCacheType = null;
     }
+};
+cloneToast.addEventListener('mousedown', handleToastClick);
+cloneToast.addEventListener('touchstart', handleToastClick, {passive: false});
 
-    function moveDrawing(touchOrMouse) {
-        const rect = workspace.getBoundingClientRect(), imgPos = screenToImage(touchOrMouse.clientX - rect.left, touchOrMouse.clientY - rect.top);
-        if (currentTool === 'reshape') applyReshapeAdvanced(imgPos.x, imgPos.y);
-        else if (currentTool === 'clone') {
-            if (isAimingSample) setCrosshair(imgPos.x, imgPos.y);
-            else if (isAimingPatch) { setBrushCursor(imgPos.x, imgPos.y); setCrosshair(imgPos.x + cloneOffsetX, imgPos.y + cloneOffsetY); }
-        } else if (currentTool === 'tone') {
-            if (isAimingToneSample) setCrosshair(imgPos.x, imgPos.y);
-            else {
-                const r = (brushSizeScreen / viewScale) * 0.5, dist = Math.hypot(imgPos.x - lastDabX, imgPos.y - lastDabY), step = Math.max(1, r * 0.05); 
-                if (dist > step) {
-                    const stepsCount = Math.ceil(dist / step);
-                    for(let i = 1; i <= stepsCount; i++) applyToneBrush(lastDabX + (imgPos.x - lastDabX) * (i / stepsCount), lastDabY + (imgPos.y - lastDabY) * (i / stepsCount), true);
-                    flushStrokeBuffer(); lastDabX = imgPos.x; lastDabY = imgPos.y;
-                }
-                setBrushCursor(imgPos.x, imgPos.y);
-            }
-        } else {
-            const r = brushSizeScreen / viewScale, dist = Math.hypot(imgPos.x - lastX, imgPos.y - lastY), step = Math.max(1, r * 0.1); 
-            if (dist > step) {
-                const stepsCount = Math.ceil(dist / step);
-                for(let i = 1; i <= stepsCount; i++) applyBrushTool(lastX + (imgPos.x - lastX) * (i / stepsCount), lastY + (imgPos.y - lastY) * (i / stepsCount));
-            } else applyBrushTool(imgPos.x, imgPos.y);
-        }
-        lastX = imgPos.x; lastY = imgPos.y;
-    }
-
-    window.addEventListener('touchend', (e) => { if (isOverlayActive()) return; if (e.touches.length < 2) isPanning = false; if (e.touches.length === 0 && isDrawing) endDrawing(); });
-    window.addEventListener('mouseup', (e) => { if (isOverlayActive()) return; if (e.button === 1 || e.button === 2) isPanning = false; if (e.button === 0 && isDrawing) endDrawing(); });
-
-    function endDrawing() {
-        if (!isDrawing) return;
-        isDrawing = false; if (currentTool === 'reshape') effectCacheType = null; 
-        
-        if (currentTool === 'clone') {
-            if (isAimingSample) {
-                cloneSource = { x: lastX, y: lastY }; isAimingSample = isSettingCloneSource = false;
-                cloneToast.innerText = 'drop to draw'; cloneToast.classList.remove('active'); setCrosshair(cloneSource.x, cloneSource.y); return; 
-            } else if (isAimingPatch) {
-                applyCloneStamp(lastX, lastY); isAimingPatch = false; brushCursor.style.display = 'none';
+document.querySelectorAll('.tool-btn').forEach(btn => {
+    btn.onclick = (e) => {
+        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        currentTool = e.target.getAttribute('data-tool');
+        effectCacheType = null;
+        if (currentTool === 'clone' || currentTool === 'tone' || currentTool === 'smooth') {
+            cloneToast.style.display = 'flex';
+            if (currentTool === 'clone') {
                 cloneSource = null; isSettingCloneSource = true;
                 cloneToast.innerText = 'drop to select'; cloneToast.classList.add('active');
-                cloneCrosshair.style.display = 'none'; effectCacheType = null; saveState(); return;
+            } else if (currentTool === 'tone') {
+                toneColor = null; isSettingToneSource = true;
+                cloneToast.innerText = 'drop to select'; cloneToast.classList.add('active');
+            } else {
+                cloneToast.innerText = isUltraSmooth ? 'ULTRA SMOOTH: ON' : 'ULTRA SMOOTH: OFF';
+                isUltraSmooth ? cloneToast.classList.add('active') : cloneToast.classList.remove('active');
             }
-        } else if (currentTool === 'tone') {
-            if (isAimingToneSample) {
-                const pxData = snapshotCtx.getImageData(Math.min(canvas.width - 1, Math.max(0, Math.floor(lastX))), Math.min(canvas.height - 1, Math.max(0, Math.floor(lastY))), 1, 1).data;
-                toneColor = { r: pxData[0], g: pxData[1], b: pxData[2] }; isAimingToneSample = isSettingToneSource = false;
-                cloneToast.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:rgb(${toneColor.r},${toneColor.g},${toneColor.b});border:1px solid #fff;margin-right:5px;vertical-align:middle;"></span> reselect`;
-                cloneToast.classList.remove('active'); setCrosshair(lastX, lastY); return; 
-            } else { brushCursor.style.display = 'none'; effectCacheType = null; saveState(); return; }
+            cloneCrosshair.style.display = brushCursor.style.display = 'none';
+        } else {
+            cloneToast.style.display = cloneCrosshair.style.display = brushCursor.style.display = 'none';
+            isSettingCloneSource = isSettingToneSource = isAimingSample = isAimingPatch = isAimingToneSample = false;
         }
-        saveState();
-    }
+    };
+});
 
-    function flushStrokeBuffer() {
-        const updateW = Math.ceil(strokeBounds.maxX - strokeBounds.minX), updateH = Math.ceil(strokeBounds.maxY - strokeBounds.minY);
-        if (updateW <= 0 || updateH <= 0) return;
-        ctx.clearRect(strokeBounds.minX, strokeBounds.minY, updateW, updateH);
-        ctx.drawImage(snapshotCanvas, strokeBounds.minX, strokeBounds.minY, updateW, updateH, strokeBounds.minX, strokeBounds.minY, updateW, updateH);
-        ctx.globalAlpha = brushPressure; ctx.drawImage(cloneStrokeCanvas, strokeBounds.minX, strokeBounds.minY, updateW, updateH, strokeBounds.minX, strokeBounds.minY, updateW, updateH);
-        ctx.globalAlpha = 1.0; 
-    }
+function handleImageUpload(e, maxSize) {
+    const file = e.target.files[0];
+    if (!file) return;
+    e.target.value = "";
+    const img = new Image();
+    img.onload = () => {
+        let w = img.width, h = img.height;
+        if (maxSize && (w > maxSize || h > maxSize)) {
+            const r = Math.min(maxSize/w, maxSize/h);
+            w = Math.round(w * r); h = Math.round(h * r);
+        }
+        canvas.width = snapshotCanvas.width = effectCanvas.width = originalCanvas.width = cloneStrokeCanvas.width = w;
+        canvas.height = snapshotCanvas.height = effectCanvas.height = originalCanvas.height = cloneStrokeCanvas.height = h;
+        cleanCanvas.width = cleanSnapshotCanvas.width = w; cleanCanvas.height = cleanSnapshotCanvas.height = h;
+        ctx.drawImage(img, 0, 0, w, h); originalCtx.drawImage(img, 0, 0, w, h); cleanCtx.drawImage(img, 0, 0, w, h);
+        document.getElementById('uploadOverlay').style.display = 'none';
+        document.getElementById('exportBtn').style.display = document.getElementById('compareBtn').style.display = document.getElementById('closeBtn').style.display = 'block';
+        effectCacheType = null; updateCursorSize(); fitToScreen(); history = []; saveState();
+        URL.revokeObjectURL(img.src);
+    };
+    img.src = URL.createObjectURL(file);
+}
+document.getElementById('fileInput4096').onchange = (e) => handleImageUpload(e, 4096);
+document.getElementById('fileInput2048').onchange = (e) => handleImageUpload(e, 2048);
 
-    function applyToneBrush(x, y, deferRender = false) {
-        if (!toneColor) return;
-        const r = (brushSizeScreen / viewScale) * 0.5, sx = Math.max(0, Math.floor(x - r)), sy = Math.max(0, Math.floor(y - r));
-        const ex = Math.min(canvas.width, Math.ceil(x + r)), ey = Math.min(canvas.height, Math.ceil(y + r)), bw = ex - sx, bh = ey - sy; if (bw <= 0 || bh <= 0) return;
+function saveState() {
+    if (history.length >= 5) history.shift();
+    history.push({
+        main: ctx.getImageData(0, 0, canvas.width, canvas.height),
+        clean: cleanCtx.getImageData(0, 0, canvas.width, canvas.height)
+    });
+    document.getElementById('undoBtn').disabled = history.length <= 1;
+}
 
-        if (sx < strokeBounds.minX) strokeBounds.minX = sx; if (sy < strokeBounds.minY) strokeBounds.minY = sy;
-        if (ex > strokeBounds.maxX) strokeBounds.maxX = ex; if (ey > strokeBounds.maxY) strokeBounds.maxY = ey;
+document.getElementById('undoBtn').onclick = () => {
+    if (history.length <= 1) return;
+    history.pop();
+    const prevState = history[history.length - 1];
+    ctx.putImageData(prevState.main, 0, 0); cleanCtx.putImageData(prevState.clean, 0, 0);
+    effectCacheType = null; document.getElementById('undoBtn').disabled = history.length <= 1;
+};
 
-        brushCanvas.width = bw; brushCanvas.height = bh; brushCtx.clearRect(0, 0, bw, bh);
-        const g = brushCtx.createRadialGradient(x - sx, y - sy, 0, x - sx, y - sy, r);
-        g.addColorStop(0, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0.4)`); g.addColorStop(0.15, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0.15)`);
-        g.addColorStop(0.35, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0.04)`); g.addColorStop(0.6, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0.008)`);
-        g.addColorStop(1, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0)`);
-
-        brushCtx.globalCompositeOperation = 'source-over'; brushCtx.fillStyle = g; brushCtx.fillRect(0, 0, bw, bh);
-        cloneStrokeCtx.globalCompositeOperation = 'source-over'; cloneStrokeCtx.drawImage(brushCanvas, sx, sy);
-        if (!deferRender) flushStrokeBuffer();
-    }
-
-    function applyCloneStamp(x, y) {
-        if (!cloneSource) return;
-        const r = (brushSizeScreen / viewScale) * 0.5, srcX = x + cloneOffsetX, srcY = y + cloneOffsetY;
-        const sx = Math.max(0, Math.floor(x - r)), sy = Math.max(0, Math.floor(y - r));
-        const ex = Math.min(canvas.width, Math.ceil(x + r)), ey = Math.min(canvas.height, Math.ceil(y + r)), bw = ex - sx, bh = ey - sy; if (bw <= 0 || bh <= 0) return;
-
-        brushCanvas.width = bw; brushCanvas.height = bh; brushCtx.clearRect(0, 0, bw, bh);
-        let reqSrcX = srcX - r + sx - (x - r), reqSrcY = srcY - r + sy - (y - r), reqW = bw, reqH = bh, drawDestX = 0, drawDestY = 0;
-
-        if (reqSrcX < 0) { drawDestX = -reqSrcX; reqW += reqSrcX; reqSrcX = 0; }
-        if (reqSrcY < 0) { drawDestY = -reqSrcY; reqH += reqSrcY; reqSrcY = 0; }
-        if (reqSrcX + reqW > canvas.width) reqW = canvas.width - reqSrcX; if (reqSrcY + reqH > canvas.height) reqH = canvas.height - reqSrcY;
-
-        if (reqW > 0 && reqH > 0) brushCtx.drawImage(snapshotCanvas, reqSrcX, reqSrcY, reqW, reqH, drawDestX, drawDestY, reqW, reqH);
-
-        const g = brushCtx.createRadialGradient(x - sx, y - sy, 0, x - sx, y - sy, r);
-        g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(0.2, 'rgba(0,0,0,0.95)'); g.addColorStop(0.5, 'rgba(0,0,0,0.6)'); g.addColorStop(0.8, 'rgba(0,0,0,0.1)'); g.addColorStop(1, 'rgba(0,0,0,0)'); 
-
-        brushCtx.globalCompositeOperation = 'destination-in'; brushCtx.fillStyle = g; brushCtx.fillRect(0, 0, bw, bh);
-
-        if (sx < strokeBounds.minX) strokeBounds.minX = sx; if (sy < strokeBounds.minY) strokeBounds.minY = sy;
-        if (ex > strokeBounds.maxX) strokeBounds.maxX = ex; if (ey > strokeBounds.maxY) strokeBounds.maxY = ey;
-        cloneStrokeCtx.globalCompositeOperation = 'source-over'; cloneStrokeCtx.drawImage(brushCanvas, sx, sy); flushStrokeBuffer();
-    }
-
-    // --- 核心更新：纯 WebGL 渲染管线执行液化 ---
-    function applyReshapeAdvanced(curX, curY) {
-        const dx = curX - anchorX, dy = curY - anchorY, distFromAnchorSq = dx*dx + dy*dy, r = brushSizeScreen / viewScale; 
-        
-        if (GLFilter) {
-            // 处理 Main Canvas 液化，且利用剪裁边界极速拷贝回 CPU 内存
-            const rectMain = GLFilter.processReshape(false, anchorX, anchorY, dx, dy, r, brushPressure);
-            if (rectMain) {
-                ctx.clearRect(rectMain.x, rectMain.y, rectMain.w, rectMain.h);
-                ctx.drawImage(GLFilter.canvas, rectMain.x, rectMain.y, rectMain.w, rectMain.h, rectMain.x, rectMain.y, rectMain.w, rectMain.h);
+document.getElementById('exportBtn').onclick = async () => {
+    const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
+    if (navigator.share) {
+        try {
+            const response = await fetch(dataUrl);
+            const file = new File([await response.blob()], 'facewave_edit.jpg', { type: 'image/jpeg' });
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({ files: [file], title: 'Facewave Edit' }); return;
             }
-            
-            // 处理 Clean Canvas 液化 (用于消除画笔的纯净图层同步液化)
-            const rectClean = GLFilter.processReshape(true, anchorX, anchorY, dx, dy, r, brushPressure);
-            if (rectClean) {
-                cleanCtx.clearRect(rectClean.x, rectClean.y, rectClean.w, rectClean.h);
-                cleanCtx.drawImage(GLFilter.canvas, rectClean.x, rectClean.y, rectClean.w, rectClean.h, rectClean.x, rectClean.y, rectClean.w, rectClean.h);
+        } catch (err) { console.log("Share fallback", err); }
+    }
+    const a = document.createElement('a'); a.download = 'facewave_edit.jpg'; a.href = dataUrl; a.click();
+};
+
+let isPanning = false, pinchStartDist = 0, pinchStartScale = 1, pinchCenterX = 0, pinchCenterY = 0, pinchStartPanX = 0, pinchStartPanY = 0, lastPanX = 0, lastPanY = 0;
+const isOverlayActive = () => document.getElementById('uploadOverlay').style.display !== 'none';
+function screenToImage(screenX, screenY) { return { x: (screenX - viewPanX) / viewScale, y: (screenY - viewPanY) / viewScale }; }
+
+workspace.addEventListener('wheel', (e) => {
+    if (isOverlayActive()) return;
+    e.preventDefault();
+    const rect = workspace.getBoundingClientRect(), mouseX = e.clientX - rect.left, mouseY = e.clientY - rect.top;
+    let newScale = Math.max(0.1, Math.min(viewScale * Math.exp(-e.deltaY * 0.001), 20));
+    viewPanX = mouseX - (mouseX - viewPanX) * (newScale / viewScale); viewPanY = mouseY - (mouseY - viewPanY) * (newScale / viewScale);
+    viewScale = newScale; updateTransform();
+}, { passive: false });
+
+workspace.addEventListener('pointerdown', (e) => {
+    if (e.target === cloneToast || e.target.parentElement === cloneToast || isOverlayActive()) return;
+    if (e.button === 1 || e.button === 2) { isPanning = true; lastPanX = e.clientX; lastPanY = e.clientY; }
+});
+workspace.addEventListener('contextmenu', e => { if (!isOverlayActive()) e.preventDefault(); });
+
+workspace.addEventListener('touchstart', (e) => {
+    if (e.target === cloneToast || e.target.parentElement === cloneToast || isOverlayActive()) return;
+    e.preventDefault();
+    if (e.touches.length === 2) {
+        isDrawing = isAimingSample = isAimingPatch = isAimingToneSample = false;
+        if (currentTool === 'clone' || currentTool === 'tone') {
+            if (currentTool === 'clone' && isSettingCloneSource || currentTool === 'tone' && isSettingToneSource) cloneCrosshair.style.display = 'none';
+            else { brushCursor.style.display = 'none'; if (cloneSource && currentTool === 'clone') setCrosshair(cloneSource.x, cloneSource.y); }
+        }
+        isPanning = true; const t1 = e.touches[0], t2 = e.touches[1];
+        pinchStartDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY); pinchStartScale = viewScale;
+        const rect = workspace.getBoundingClientRect();
+        pinchCenterX = (t1.clientX + t2.clientX) / 2 - rect.left; pinchCenterY = (t1.clientY + t2.clientY) / 2 - rect.top;
+        pinchStartPanX = viewPanX; pinchStartPanY = viewPanY;
+    } else if (e.touches.length === 1 && !isPanning) startDrawing(e.touches[0]);
+}, {passive: false});
+
+workspace.addEventListener('mousedown', (e) => {
+    if (e.target === cloneToast || e.target.parentElement === cloneToast || isOverlayActive()) return;
+    if (e.button === 0 && !isPanning) startDrawing(e);
+});
+
+function startDrawing(touchOrMouse) {
+    const rect = workspace.getBoundingClientRect(), imgPos = screenToImage(touchOrMouse.clientX - rect.left, touchOrMouse.clientY - rect.top);
+    snapshotCtx.drawImage(canvas, 0, 0);
+    if (currentTool === 'clone' || currentTool === 'tone') {
+        const isToolSettingSource = currentTool === 'clone' ? isSettingCloneSource : isSettingToneSource;
+        const sourceVar = currentTool === 'clone' ? cloneSource : toneColor;
+        if (isToolSettingSource || !sourceVar) {
+            currentTool === 'clone' ? isAimingSample = true : isAimingToneSample = true;
+            cloneCrosshair.style.display = 'block'; brushCursor.style.display = 'none';
+            setCrosshair(imgPos.x, imgPos.y);
+        } else {
+            if(currentTool === 'clone') {
+                isAimingPatch = true; cloneOffsetX = cloneSource.x - imgPos.x; cloneOffsetY = cloneSource.y - imgPos.y;
+                cloneCrosshair.style.display = 'block'; setCrosshair(cloneSource.x, cloneSource.y);
+            } else {
+                strokeBounds = { minX: imgPos.x, minY: imgPos.y, maxX: imgPos.x, maxY: imgPos.y };
+                lastDabX = imgPos.x; lastDabY = imgPos.y; cloneCrosshair.style.display = 'none';
             }
+            cloneStrokeCtx.clearRect(0, 0, canvas.width, canvas.height); brushCursor.style.display = 'block'; setBrushCursor(imgPos.x, imgPos.y);
         }
-        
-        // 当移动距离越过半个画笔半径时，刷新快照锚点 (和原先 CPU 版本一致的控制流)
-        if (distFromAnchorSq > (r * 0.5) * (r * 0.5)) { 
-            snapshotCtx.drawImage(canvas, 0, 0); 
-            cleanSnapshotCtx.drawImage(cleanCanvas, 0, 0); 
-            if (GLFilter) GLFilter.updateReshapeSnapshots(snapshotCanvas, cleanSnapshotCanvas);
-            anchorX = curX; anchorY = curY; 
-        }
+        anchorX = lastX = imgPos.x; anchorY = lastY = imgPos.y; isDrawing = true; return;
     }
-
-    function prepareProfessionalRetouch() {
-        effectCtx.clearRect(0, 0, canvas.width, canvas.height);
-        if(GLFilter) {
-            GLFilter.resize(canvas.width, canvas.height);
-            GLFilter.process('smooth', snapshotCanvas, isUltraSmooth);
-            effectCtx.drawImage(GLFilter.canvas, 0, 0);
-        }
-    }
-
-    function prepareDetail() {
-        effectCtx.clearRect(0, 0, canvas.width, canvas.height);
-        if(GLFilter) {
-            GLFilter.resize(canvas.width, canvas.height);
-            GLFilter.process('detail', snapshotCanvas, false);
-            effectCtx.drawImage(GLFilter.canvas, 0, 0);
+    anchorX = lastX = imgPos.x; anchorY = lastY = imgPos.y; isDrawing = true;
+    if (currentTool === 'reshape') {
+        cleanSnapshotCtx.drawImage(cleanCanvas, 0, 0);
+        if (GLFilter) { GLFilter.resize(canvas.width, canvas.height); GLFilter.updateReshapeSnapshots(snapshotCanvas, cleanSnapshotCanvas); }
+    } else if (currentTool === 'smooth') {
+        const requiredCache = isUltraSmooth ? 'smooth_ultra' : 'smooth_regular';
+        if (effectCacheType !== requiredCache) { prepareProfessionalRetouch(); effectCacheType = requiredCache; }
+    } else if (currentTool === 'detail') {
+        if (effectCacheType !== 'detail') { prepareDetail(); effectCacheType = 'detail'; }
+    } else if (currentTool === 'eraser') {
+        if (effectCacheType !== 'eraser') {
+            effectCtx.clearRect(0, 0, canvas.width, canvas.height); effectCtx.drawImage(cleanCanvas, 0, 0); effectCacheType = 'eraser';
         }
     }
+}
 
-    function applyBrushTool(x, y) {
-        const r = brushSizeScreen / viewScale, sx = Math.max(0, Math.floor(x - r)), sy = Math.max(0, Math.floor(y - r));
-        const ex = Math.min(canvas.width, Math.ceil(x + r)), ey = Math.min(canvas.height, Math.ceil(y + r)), bw = ex - sx, bh = ey - sy; if (bw <= 0 || bh <= 0) return;
+workspace.addEventListener('touchmove', (e) => {
+    if (isOverlayActive()) return; e.preventDefault();
+    if (isPanning && e.touches.length === 2) {
+        const t1 = e.touches[0], t2 = e.touches[1];
+        let newScale = Math.max(0.1, Math.min(pinchStartScale * (Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY) / pinchStartDist), 20));
+        const rect = workspace.getBoundingClientRect();
+        viewPanX = ((t1.clientX + t2.clientX) / 2 - rect.left) - (pinchCenterX - pinchStartPanX) * (newScale / pinchStartScale);
+        viewPanY = ((t1.clientY + t2.clientY) / 2 - rect.top) - (pinchCenterY - pinchStartPanY) * (newScale / pinchStartScale);
+        viewScale = newScale; updateTransform();
+    } else if (isDrawing && e.touches.length === 1) {
+        pendingDrawEvent = e.touches[0];
+        if (!drawRAF) drawRAF = requestAnimationFrame(processDrawMove);
+    }
+}, {passive: false});
 
-        brushCanvas.width = bw; brushCanvas.height = bh;
-        const g = brushCtx.createRadialGradient(x - sx, y - sy, 0, x - sx, y - sy, r);
-        let alpha = brushPressure * 0.195; 
-        if (currentTool === 'smooth' && isUltraSmooth) alpha *= 2; 
-        if (currentTool === 'detail') alpha = Math.min(1.0, brushPressure * 1.05); 
-        if (currentTool === 'eraser') alpha = brushPressure * 0.2; 
-        alpha = Math.min(1.0, alpha);
+workspace.addEventListener('mousemove', (e) => {
+    if (isOverlayActive()) return;
+    if (isPanning) {
+        viewPanX += e.clientX - lastPanX; viewPanY += e.clientY - lastPanY;
+        lastPanX = e.clientX; lastPanY = e.clientY; updateTransform(); return;
+    }
+    if (isDrawing) { pendingDrawEvent = e; if (!drawRAF) drawRAF = requestAnimationFrame(processDrawMove); }
+});
 
-        g.addColorStop(0, `rgba(0,0,0,${alpha})`); g.addColorStop(0.3, `rgba(0,0,0,${alpha * 0.8})`); 
-        g.addColorStop(0.6, `rgba(0,0,0,${alpha * 0.4})`); g.addColorStop(0.85, `rgba(0,0,0,${alpha * 0.1})`); g.addColorStop(1, 'rgba(0,0,0,0)');
-        
-        brushCtx.globalCompositeOperation = 'source-over'; brushCtx.fillStyle = g; brushCtx.fillRect(0, 0, bw, bh);
-        brushCtx.globalCompositeOperation = 'source-in'; brushCtx.drawImage(effectCanvas, sx, sy, bw, bh, 0, 0, bw, bh);
-        ctx.drawImage(brushCanvas, sx, sy);
+function processDrawMove() {
+    if (!pendingDrawEvent || !isDrawing) { drawRAF = null; return; }
+    moveDrawing(pendingDrawEvent); pendingDrawEvent = null; drawRAF = null;
+}
 
+function moveDrawing(touchOrMouse) {
+    const rect = workspace.getBoundingClientRect(), imgPos = screenToImage(touchOrMouse.clientX - rect.left, touchOrMouse.clientY - rect.top);
+    if (currentTool === 'reshape') applyReshapeAdvanced(imgPos.x, imgPos.y);
+    else if (currentTool === 'clone') {
+        if (isAimingSample) setCrosshair(imgPos.x, imgPos.y);
+        else if (isAimingPatch) { setBrushCursor(imgPos.x, imgPos.y); setCrosshair(imgPos.x + cloneOffsetX, imgPos.y + cloneOffsetY); }
+    } else if (currentTool === 'tone') {
+        if (isAimingToneSample) setCrosshair(imgPos.x, imgPos.y);
+        else {
+            const r = (brushSizeScreen / viewScale) * 0.5, dist = Math.hypot(imgPos.x - lastDabX, imgPos.y - lastDabY), step = Math.max(1, r * 0.05);
+            if (dist > step) {
+                const stepsCount = Math.ceil(dist / step);
+                for(let i = 1; i <= stepsCount; i++) applyToneBrush(lastDabX + (imgPos.x - lastDabX) * (i / stepsCount), lastDabY + (imgPos.y - lastDabY) * (i / stepsCount), true);
+                flushStrokeBuffer(); lastDabX = imgPos.x; lastDabY = imgPos.y;
+            }
+            setBrushCursor(imgPos.x, imgPos.y);
+        }
+    } else {
+        const r = brushSizeScreen / viewScale, dist = Math.hypot(imgPos.x - lastX, imgPos.y - lastY), step = Math.max(1, r * 0.1);
+        if (dist > step) {
+            const stepsCount = Math.ceil(dist / step);
+            for(let i = 1; i <= stepsCount; i++) applyBrushTool(lastX + (imgPos.x - lastX) * (i / stepsCount), lastY + (imgPos.y - lastY) * (i / stepsCount));
+        } else applyBrushTool(imgPos.x, imgPos.y);
+    }
+    lastX = imgPos.x; lastY = imgPos.y;
+}
+
+window.addEventListener('touchend', (e) => {
+    if (isOverlayActive()) return;
+    if (e.touches.length < 2) isPanning = false;
+    if (e.touches.length === 0 && isDrawing) endDrawing();
+});
+window.addEventListener('mouseup', (e) => {
+    if (isOverlayActive()) return;
+    if (e.button === 1 || e.button === 2) isPanning = false;
+    if (e.button === 0 && isDrawing) endDrawing();
+});
+
+function endDrawing() {
+    if (!isDrawing) return;
+    isDrawing = false;
+    
+    // 【性能/节能优化】提前清理多余的 RAF，阻止非必要的渲染循环占用系统资源
+    if (drawRAF) {
+        cancelAnimationFrame(drawRAF);
+        drawRAF = null;
     }
 
-    // ==========================================
-    // PWA: 注册 Service Worker
-    // ==========================================
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js')
-                .then(registration => {
-                    console.log('ServiceWorker 注册成功:', registration.scope);
-                })
-                .catch(error => {
-                    console.log('ServiceWorker 注册失败:', error);
-                });
-        });
+    if (currentTool === 'reshape') effectCacheType = null;
+    if (currentTool === 'clone') {
+        if (isAimingSample) {
+            cloneSource = { x: lastX, y: lastY }; isAimingSample = isSettingCloneSource = false;
+            cloneToast.innerText = 'drop to draw'; cloneToast.classList.remove('active');
+            setCrosshair(cloneSource.x, cloneSource.y); return;
+        } else if (isAimingPatch) {
+            applyCloneStamp(lastX, lastY); isAimingPatch = false; brushCursor.style.display = 'none';
+            cloneSource = null; isSettingCloneSource = true;
+            cloneToast.innerText = 'drop to select'; cloneToast.classList.add('active'); cloneCrosshair.style.display = 'none'; effectCacheType = null; saveState(); return;
+        }
+    } else if (currentTool === 'tone') {
+        if (isAimingToneSample) {
+            const pxData = snapshotCtx.getImageData(Math.min(canvas.width - 1, Math.max(0, Math.floor(lastX))), Math.min(canvas.height - 1, Math.max(0, Math.floor(lastY))), 1, 1).data;
+            toneColor = { r: pxData[0], g: pxData[1], b: pxData[2] }; isAimingToneSample = isSettingToneSource = false;
+            cloneToast.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:rgb(${toneColor.r},${toneColor.g},${toneColor.b});border:1px solid #fff;margin-right:5px;vertical-align:middle;"></span> reselect`;
+            cloneToast.classList.remove('active'); setCrosshair(lastX, lastY); return;
+        } else { brushCursor.style.display = 'none'; effectCacheType = null; saveState(); return; }
     }
-</script>
-</body>
-</html>
+    saveState();
+}
+
+function flushStrokeBuffer() {
+    const updateW = Math.ceil(strokeBounds.maxX - strokeBounds.minX), updateH = Math.ceil(strokeBounds.maxY - strokeBounds.minY);
+    if (updateW <= 0 || updateH <= 0) return;
+    ctx.clearRect(strokeBounds.minX, strokeBounds.minY, updateW, updateH);
+    ctx.drawImage(snapshotCanvas, strokeBounds.minX, strokeBounds.minY, updateW, updateH, strokeBounds.minX, strokeBounds.minY, updateW, updateH);
+    ctx.globalAlpha = brushPressure;
+    ctx.drawImage(cloneStrokeCanvas, strokeBounds.minX, strokeBounds.minY, updateW, updateH, strokeBounds.minX, strokeBounds.minY, updateW, updateH);
+    ctx.globalAlpha = 1.0;
+}
+
+function applyToneBrush(x, y, deferRender = false) {
+    if (!toneColor) return;
+    const r = (brushSizeScreen / viewScale) * 0.5, sx = Math.max(0, Math.floor(x - r)), sy = Math.max(0, Math.floor(y - r));
+    const ex = Math.min(canvas.width, Math.ceil(x + r)), ey = Math.min(canvas.height, Math.ceil(y + r)), bw = ex - sx, bh = ey - sy;
+    if (bw <= 0 || bh <= 0) return;
+    if (sx < strokeBounds.minX) strokeBounds.minX = sx; if (sy < strokeBounds.minY) strokeBounds.minY = sy;
+    if (ex > strokeBounds.maxX) strokeBounds.maxX = ex; if (ey > strokeBounds.maxY) strokeBounds.maxY = ey;
+    brushCanvas.width = bw; brushCanvas.height = bh; brushCtx.clearRect(0, 0, bw, bh);
+    const g = brushCtx.createRadialGradient(x - sx, y - sy, 0, x - sx, y - sy, r);
+    g.addColorStop(0, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0.4)`); g.addColorStop(0.15, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0.15)`);
+    g.addColorStop(0.35, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0.04)`); g.addColorStop(0.6, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0.008)`); g.addColorStop(1, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0)`);
+    brushCtx.globalCompositeOperation = 'source-over'; brushCtx.fillStyle = g; brushCtx.fillRect(0, 0, bw, bh);
+    cloneStrokeCtx.globalCompositeOperation = 'source-over'; cloneStrokeCtx.drawImage(brushCanvas, sx, sy);
+    if (!deferRender) flushStrokeBuffer();
+}
+
+function applyCloneStamp(x, y) {
+    if (!cloneSource) return;
+    const r = (brushSizeScreen / viewScale) * 0.5, srcX = x + cloneOffsetX, srcY = y + cloneOffsetY;
+    const sx = Math.max(0, Math.floor(x - r)), sy = Math.max(0, Math.floor(y - r));
+    const ex = Math.min(canvas.width, Math.ceil(x + r)), ey = Math.min(canvas.height, Math.ceil(y + r)), bw = ex - sx, bh = ey - sy;
+    if (bw <= 0 || bh <= 0) return;
+    brushCanvas.width = bw; brushCanvas.height = bh; brushCtx.clearRect(0, 0, bw, bh);
+    let reqSrcX = srcX - r + sx - (x - r), reqSrcY = srcY - r + sy - (y - r), reqW = bw, reqH = bh, drawDestX = 0, drawDestY = 0;
+    if (reqSrcX < 0) { drawDestX = -reqSrcX; reqW += reqSrcX; reqSrcX = 0; }
+    if (reqSrcY < 0) { drawDestY = -reqSrcY; reqH += reqSrcY; reqSrcY = 0; }
+    if (reqSrcX + reqW > canvas.width) reqW = canvas.width - reqSrcX; if (reqSrcY + reqH > canvas.height) reqH = canvas.height - reqSrcY;
+    if (reqW > 0 && reqH > 0) brushCtx.drawImage(snapshotCanvas, reqSrcX, reqSrcY, reqW, reqH, drawDestX, drawDestY, reqW, reqH);
+    const g = brushCtx.createRadialGradient(x - sx, y - sy, 0, x - sx, y - sy, r);
+    g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(0.2, 'rgba(0,0,0,0.95)'); g.addColorStop(0.5, 'rgba(0,0,0,0.6)'); g.addColorStop(0.8, 'rgba(0,0,0,0.1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    brushCtx.globalCompositeOperation = 'destination-in'; brushCtx.fillStyle = g; brushCtx.fillRect(0, 0, bw, bh);
+    if (sx < strokeBounds.minX) strokeBounds.minX = sx; if (sy < strokeBounds.minY) strokeBounds.minY = sy;
+    if (ex > strokeBounds.maxX) strokeBounds.maxX = ex; if (ey > strokeBounds.maxY) strokeBounds.maxY = ey;
+    cloneStrokeCtx.globalCompositeOperation = 'source-over'; cloneStrokeCtx.drawImage(brushCanvas, sx, sy);
+    flushStrokeBuffer();
+}
+
+function applyReshapeAdvanced(curX, curY) {
+    const dx = curX - anchorX, dy = curY - anchorY, distFromAnchorSq = dx*dx + dy*dy, r = brushSizeScreen / viewScale;
+    if (GLFilter) {
+        const rectMain = GLFilter.processReshape(false, anchorX, anchorY, dx, dy, r, brushPressure);
+        if (rectMain) {
+            ctx.clearRect(rectMain.x, rectMain.y, rectMain.w, rectMain.h);
+            ctx.drawImage(GLFilter.canvas, rectMain.x, rectMain.y, rectMain.w, rectMain.h, rectMain.x, rectMain.y, rectMain.w, rectMain.h);
+        }
+        const rectClean = GLFilter.processReshape(true, anchorX, anchorY, dx, dy, r, brushPressure);
+        if (rectClean) {
+            cleanCtx.clearRect(rectClean.x, rectClean.y, rectClean.w, rectClean.h);
+            cleanCtx.drawImage(GLFilter.canvas, rectClean.x, rectClean.y, rectClean.w, rectClean.h, rectClean.x, rectClean.y, rectClean.w, rectClean.h);
+        }
+    }
+    if (distFromAnchorSq > (r * 0.5) * (r * 0.5)) {
+        snapshotCtx.drawImage(canvas, 0, 0); cleanSnapshotCtx.drawImage(cleanCanvas, 0, 0);
+        if (GLFilter) GLFilter.updateReshapeSnapshots(snapshotCanvas, cleanSnapshotCanvas);
+        anchorX = curX; anchorY = curY;
+    }
+}
+
+function prepareProfessionalRetouch() {
+    effectCtx.clearRect(0, 0, canvas.width, canvas.height);
+    if(GLFilter) { GLFilter.resize(canvas.width, canvas.height); GLFilter.process('smooth', snapshotCanvas, isUltraSmooth); effectCtx.drawImage(GLFilter.canvas, 0, 0); }
+}
+
+function prepareDetail() {
+    effectCtx.clearRect(0, 0, canvas.width, canvas.height);
+    if(GLFilter) { GLFilter.resize(canvas.width, canvas.height); GLFilter.process('detail', snapshotCanvas, false); effectCtx.drawImage(GLFilter.canvas, 0, 0); }
+}
+
+function applyBrushTool(x, y) {
+    const r = brushSizeScreen / viewScale, sx = Math.max(0, Math.floor(x - r)), sy = Math.max(0, Math.floor(y - r));
+    const ex = Math.min(canvas.width, Math.ceil(x + r)), ey = Math.min(canvas.height, Math.ceil(y + r)), bw = ex - sx, bh = ey - sy;
+    if (bw <= 0 || bh <= 0) return;
+    brushCanvas.width = bw; brushCanvas.height = bh;
+    const g = brushCtx.createRadialGradient(x - sx, y - sy, 0, x - sx, y - sy, r);
+    let alpha = brushPressure * 0.195;
+    if (currentTool === 'smooth' && isUltraSmooth) alpha *= 2;
+    if (currentTool === 'detail') alpha = Math.min(1.0, brushPressure * 1.05);
+    if (currentTool === 'eraser') alpha = brushPressure * 0.2;
+    alpha = Math.min(1.0, alpha);
+    g.addColorStop(0, `rgba(0,0,0,${alpha})`); g.addColorStop(0.3, `rgba(0,0,0,${alpha * 0.8})`); g.addColorStop(0.6, `rgba(0,0,0,${alpha * 0.4})`); g.addColorStop(0.85, `rgba(0,0,0,${alpha * 0.1})`); g.addColorStop(1, 'rgba(0,0,0,0)');
+    brushCtx.globalCompositeOperation = 'source-over'; brushCtx.fillStyle = g; brushCtx.fillRect(0, 0, bw, bh);
+    brushCtx.globalCompositeOperation = 'source-in'; brushCtx.drawImage(effectCanvas, sx, sy, bw, bh, 0, 0, bw, bh);
+    ctx.drawImage(brushCanvas, sx, sy);
+}
+
+// ==========================================
+// PWA: 注册 Service Worker
+// ==========================================
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').then(registration => {
+            console.log('ServiceWorker 注册成功:', registration.scope);
+        }).catch(error => { console.log('ServiceWorker 注册失败:', error); });
+    });
+}
+</script> </body> </html>
