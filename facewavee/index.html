@@ -633,9 +633,9 @@ function handleImageUpload(e, limitType, limitValue) {
         
         // Handle constraint logic smoothly
         if (limitType === 'area') {
-            // 核心优化: 动态检测移动设备并设置更安全的内存上限 (约800万像素)，避免多Canvas叠加击穿内存
+            // 核心优化: 动态检测移动设备并设置更安全的内存上限 (约1000万像素)，避免多Canvas叠加击穿内存
             const isMobile = window.innerWidth <= 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-            const safeLimit = isMobile ? Math.min(limitValue, 8000000) : limitValue;
+            const safeLimit = isMobile ? Math.min(limitValue, 10000000) : limitValue;
             
             if (w * h > safeLimit) {
                 const ratio = Math.sqrt(safeLimit / (w * h));
