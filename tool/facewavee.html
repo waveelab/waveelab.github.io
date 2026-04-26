@@ -1,7 +1,11 @@
 <!DOCTYPE html>
-<html lang="en"> <head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"> <title>facewavee</title>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>facewavee</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0a0a0a">
+<meta name="theme-color" content="#000000">
 
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -11,13 +15,15 @@
 <style>
     :root {
         --bg-color: #000000;
-        --panel-bg: #0a0a0a;
+        --glass-bg: rgba(25, 25, 25, 0.65);
+        --glass-border: rgba(255, 255, 255, 0.1);
         --accent: #ffffff;
+        --accent-blue: #0A84FF; /* iOS Blue */
         --text: #ffffff;
-        --text-muted: #666666;
-        --border: #1a1a1a;
+        --text-muted: rgba(255, 255, 255, 0.5);
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; user-select: none; -webkit-user-select: none; }
+    
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
     
     body { 
         background-color: var(--bg-color); 
@@ -25,60 +31,120 @@
         overflow: hidden; 
         height: 100vh; 
         height: 100dvh; 
-        display: flex; 
-        flex-direction: column; 
+        position: relative; /* 改为绝对定位体系，方便底层图片穿透毛玻璃 */
     }
     
+    /* 顶部导航：毛玻璃效果 */
     header { 
+        position: absolute; top: 0; left: 0; width: 100%;
         display: flex; justify-content: space-between; align-items: center; 
-        padding: max(12px, env(safe-area-inset-top)) max(15px, env(safe-area-inset-right)) 12px max(15px, env(safe-area-inset-left)); 
-        background: var(--panel-bg); z-index: 100; border-bottom: 1px solid var(--border); flex-shrink: 0; 
+        padding: max(16px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) 16px max(20px, env(safe-area-inset-left)); 
+        background: var(--glass-bg); 
+        backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+        z-index: 100; border-bottom: 0.5px solid var(--glass-border); 
     }
-    .logo { font-size: 13px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--text); }
-    .header-actions { display: flex; gap: 15px; }
-    .header-actions button { background: none; border: none; color: var(--accent); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; padding: 5px; touch-action: none; }
-    .header-actions button:disabled { color: #333; cursor: not-allowed; }
-    .header-actions .close-btn { color: #888; }
-    #compareBtn:active { color: #888; }
+    
+    .logo { font-size: 15px; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; color: var(--text); }
+    
+    .header-actions { display: flex; gap: 12px; align-items: center; }
+    .header-actions button { 
+        background: rgba(255, 255, 255, 0.15); border: none; color: var(--text); 
+        font-size: 13px; font-weight: 600; cursor: pointer; padding: 8px 16px; 
+        border-radius: 20px; transition: all 0.25s cubic-bezier(0.25, 1, 0.5, 1);
+    }
+    .header-actions button:disabled { opacity: 0.3; cursor: not-allowed; }
+    .header-actions button:active:not(:disabled) { transform: scale(0.92); opacity: 0.8; }
+    .header-actions .close-btn { background: transparent; color: var(--text-muted); padding: 8px 4px; }
+    #exportBtn { background: var(--accent-blue); color: #fff; }
 
-    .workspace { flex: 1; position: relative; background: #050505; overflow: hidden; cursor: crosshair; touch-action: none; }
+    /* 工作区：全屏底层 */
+    .workspace { 
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+        background: var(--bg-color); overflow: hidden; cursor: crosshair; touch-action: none; z-index: 1; 
+    }
     #mainCanvas { position: absolute; transform-origin: 0 0; image-rendering: -webkit-optimize-contrast; z-index: 1; }
     #originalCanvas { position: absolute; transform-origin: 0 0; image-rendering: -webkit-optimize-contrast; z-index: 5; display: none; pointer-events: none; }
 
-    .upload-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-color); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
-    .upload-btn { position: relative; overflow: hidden; display: inline-block; background: var(--text); color: var(--bg-color); padding: 14px 36px; font-size: 13px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; transition: background 0.2s; text-align: center; }
-    .upload-btn.outline { background: transparent; color: var(--text); border: 1px solid var(--text); padding: 13px 35px; }
-    .upload-btn:active { opacity: 0.7; }
+    /* 上传页遮罩：平滑消隐动画 */
+    .upload-overlay { 
+        position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); 
+        backdrop-filter: blur(35px); -webkit-backdrop-filter: blur(35px);
+        display: flex; flex-direction: column; justify-content: center; align-items: center; 
+        z-index: 9999; transition: opacity 0.4s ease, visibility 0.4s;
+    }
+    .upload-overlay.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+    
+    .upload-btn { 
+        position: relative; overflow: hidden; display: inline-block; 
+        background: rgba(255, 255, 255, 0.95); color: #000; padding: 16px 44px; 
+        font-size: 15px; font-weight: 700; cursor: pointer; letter-spacing: 0.5px; 
+        border-radius: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.2s; text-align: center; 
+    }
+    .upload-btn.outline { 
+        background: rgba(255, 255, 255, 0.1); color: var(--text); box-shadow: none;
+        border: 0.5px solid rgba(255,255,255,0.2); 
+    }
+    .upload-btn:active { transform: scale(0.96); opacity: 0.8; }
     .file-input { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
     
-    .footer-text { position: absolute; bottom: max(30px, env(safe-area-inset-bottom)); width: 100%; text-align: center; font-size: 10px; color: #444444; letter-spacing: 1.5px; text-transform: uppercase; pointer-events: none; }
+    .footer-text { position: absolute; bottom: max(30px, env(safe-area-inset-bottom)); width: 100%; text-align: center; font-size: 11px; color: var(--text-muted); letter-spacing: 2px; text-transform: uppercase; pointer-events: none; }
 
+    /* 底部控制栏：毛玻璃效果与分段控件 */
     .controls { 
-        background: var(--panel-bg); 
-        padding: 15px max(20px, env(safe-area-inset-right)) max(25px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); 
-        border-top: 1px solid var(--border); z-index: 100; touch-action: none; flex-shrink: 0; 
+        position: absolute; bottom: 0; left: 0; width: 100%;
+        background: var(--glass-bg); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+        padding: 24px max(24px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left)); 
+        border-top: 0.5px solid var(--glass-border); z-index: 100; touch-action: none;
+        border-radius: 28px 28px 0 0; box-shadow: 0 -10px 40px rgba(0,0,0,0.3);
     }
-    .sliders { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; }
-    .slider-row { display: flex; align-items: center; gap: 10px; }
-    .slider-row label { width: 65px; font-size: 10px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
     
-    input[type=range] { flex: 1; -webkit-appearance: none; background: transparent; height: 30px; border-radius: 0; outline: none; margin: 0; }
-    input[type=range]::-webkit-slider-runnable-track { height: 2px; background: #333; }
-    input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 20px; width: 16px; border-radius: 0; background: #fff; cursor: pointer; margin-top: -9px; }
-
-    .tools { display: flex; justify-content: space-between; gap: 6px; }
-    .tool-btn { background: none; border: none; color: var(--text-muted); font-size: 10.5px; font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 0; transition: 0.2s; flex: 1; text-align: center; }
-    .tool-btn.active { color: var(--accent); position: relative; }
-    .tool-btn.active::after { content: ''; position: absolute; bottom: 0; left: 15%; width: 70%; height: 2px; background: var(--accent); }
-
-    .floating-toast {
-        position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
-        background: rgba(0, 0, 0, 0.75); color: #fff; padding: 8px 20px; border-radius: 20px;
-        font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
-        z-index: 200; cursor: pointer; border: 1px solid rgba(255,255,255,0.2);
-        backdrop-filter: blur(5px); transition: all 0.2s; pointer-events: auto; display: flex; align-items: center;
+    .sliders { display: flex; flex-direction: column; gap: 20px; margin-bottom: 24px; }
+    .slider-row { display: flex; align-items: center; gap: 15px; }
+    .slider-row label { width: 65px; font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+    
+    input[type=range] { flex: 1; -webkit-appearance: none; appearance: none; background: transparent; height: 30px; outline: none; margin: 0; }
+    input[type=range]::-webkit-slider-runnable-track { height: 4px; background: rgba(255, 255, 255, 0.15); border-radius: 2px; }
+    input[type=range]::-webkit-slider-thumb { 
+        -webkit-appearance: none; height: 26px; width: 26px; border-radius: 50%; 
+        background: #fff; cursor: pointer; margin-top: -11px; 
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
-    .floating-toast.active { background: rgba(255, 255, 255, 0.95); color: #000; box-shadow: 0 0 15px rgba(255,255,255,0.2); }
+    input[type=range]::-webkit-slider-thumb:active { transform: scale(1.15); }
+
+    /* 仿 iOS 分段选择器样式 */
+    .tools { 
+        display: flex; justify-content: space-between; gap: 6px; 
+        background: rgba(0, 0, 0, 0.3); padding: 5px; border-radius: 18px;
+        border: 0.5px solid rgba(255, 255, 255, 0.05);
+    }
+    .tool-btn { 
+        background: transparent; border: none; color: var(--text-muted); 
+        font-size: 11px; font-weight: 600; cursor: pointer; padding: 12px 0; 
+        transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1); flex: 1; text-align: center; 
+        border-radius: 14px; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .tool-btn.active { 
+        color: #fff; background: rgba(255, 255, 255, 0.15); 
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
+    }
+    .tool-btn:active:not(.active) { transform: scale(0.95); opacity: 0.8; }
+
+    /* 灵动弹窗 */
+    .floating-toast {
+        position: absolute; top: max(75px, env(safe-area-inset-top) + 65px); left: 50%; 
+        transform: translateX(-50%) scale(0.95); opacity: 0; visibility: hidden;
+        background: rgba(40, 40, 40, 0.8); color: #fff; padding: 10px 24px; border-radius: 30px;
+        font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+        z-index: 200; cursor: pointer; border: 0.5px solid rgba(255,255,255,0.15);
+        backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+        pointer-events: none; display: flex; align-items: center; justify-content: center;
+    }
+    .floating-toast.show { opacity: 1; visibility: visible; transform: translateX(-50%) scale(1); pointer-events: auto; }
+    .floating-toast.active { background: #fff; color: #000; box-shadow: 0 0 20px rgba(255,255,255,0.3); transform: translateX(-50%) scale(1.05); }
 
     .crosshair, .brush-cursor {
         position: absolute; top: 0; left: 0; pointer-events: none; border-radius: 50%;
@@ -86,15 +152,16 @@
     }
     .crosshair { z-index: 150; border: 1.5px dashed rgba(255,255,255,0.9); }
     .crosshair::before, .crosshair::after { content: ''; position: absolute; background: rgba(255,255,255,0.9); box-shadow: 0 0 1px rgba(0,0,0,0.5); }
-    .crosshair::before { top: 50%; left: 50%; width: 10px; height: 1.5px; transform: translate(-50%, -50%); }
-    .crosshair::after { top: 50%; left: 50%; width: 1.5px; height: 10px; transform: translate(-50%, -50%); }
+    .crosshair::before { top: 50%; left: 50%; width: 12px; height: 1.5px; transform: translate(-50%, -50%); }
+    .crosshair::after { top: 50%; left: 50%; width: 1.5px; height: 12px; transform: translate(-50%, -50%); }
     .brush-cursor { z-index: 160; border: 1.5px solid rgba(255,255,255,0.9); }
 </style>
 </head> <body>
+
 <header>
     <div class="logo">facewavee</div>
     <div class="header-actions">
-        <button id="closeBtn" class="close-btn" style="display: none;">Close</button>
+        <button id="closeBtn" class="close-btn" style="display: none;">Cancel</button>
         <button id="compareBtn" style="display: none;">Compare</button>
         <button id="undoBtn" disabled>Undo</button>
         <button id="exportBtn" style="display: none;">Save</button>
@@ -102,7 +169,7 @@
 </header>
 
 <div class="workspace" id="workspace">
-    <div id="cloneToast" class="floating-toast" style="display:none;">drop to select</div>
+    <div id="cloneToast" class="floating-toast">drop to select</div>
     <div id="cloneSourceCrosshair" class="crosshair" style="display:none;"></div>
     <div id="brushCursor" class="brush-cursor" style="display:none;"></div>
     
@@ -111,7 +178,7 @@
 </div>
 
 <div class="upload-overlay" id="uploadOverlay">
-    <div style="display: flex; flex-direction: column; gap: 15px;">
+    <div style="display: flex; flex-direction: column; gap: 16px;">
         <div class="upload-btn">
             Open Image
             <input type="file" id="fileInput4096" class="file-input" accept="image/*">
@@ -144,6 +211,7 @@
         <button class="tool-btn" data-tool="eraser">Eraser</button>
     </div>
 </div>
+
 <script>
 // ==========================================
 // WebGL GPU 加速引擎 (维持高稳定性)
@@ -368,6 +436,14 @@ const cloneToast = document.getElementById('cloneToast');
 const cloneCrosshair = document.getElementById('cloneSourceCrosshair');
 const brushCursor = document.getElementById('brushCursor');
 
+// 统一 UI 状态类函数
+function showToast(text, active = false) {
+    cloneToast.innerHTML = text;
+    cloneToast.classList.add('show');
+    active ? cloneToast.classList.add('active') : cloneToast.classList.remove('active');
+}
+function hideToast() { cloneToast.classList.remove('show', 'active'); }
+
 function prepareTempCanvas(cvs, ctx2d, reqW, reqH) {
     if (cvs.width < reqW || cvs.height < reqH) {
         cvs.width = Math.max(cvs.width, reqW + 100);
@@ -402,15 +478,18 @@ function updateTransform() {
     }
 }
 function fitToScreen() {
-    const padding = 20;
+    const padding = 30;
     const scaleX = (workspace.clientWidth - padding) / canvas.width, scaleY = (workspace.clientHeight - padding) / canvas.height;
     viewScale = Math.min(scaleX, scaleY);
     viewPanX = (workspace.clientWidth - canvas.width * viewScale) / 2;
     viewPanY = (workspace.clientHeight - canvas.height * viewScale) / 2;
     updateTransform();
 }
+
+const isOverlayActive = () => !document.getElementById('uploadOverlay').classList.contains('hidden');
+
 window.addEventListener('resize', () => {
-    if (document.getElementById('uploadOverlay').style.display === 'none') fitToScreen();
+    if (!isOverlayActive()) fitToScreen();
 });
 
 const compareBtn = document.getElementById('compareBtn');
@@ -430,8 +509,13 @@ document.getElementById('closeBtn').onclick = () => {
     updateTransform();
     effectCacheType = cloneSource = toneColor = null;
     isSettingCloneSource = isAimingSample = isAimingPatch = isSettingToneSource = isAimingToneSample = isUltraSmooth = false;
-    cloneToast.style.display = cloneCrosshair.style.display = brushCursor.style.display = 'none';
-    document.getElementById('uploadOverlay').style.display = 'flex';
+    
+    hideToast();
+    cloneCrosshair.style.display = brushCursor.style.display = 'none';
+    
+    // Smooth Fade In Overlay
+    document.getElementById('uploadOverlay').classList.remove('hidden');
+    
     document.getElementById('exportBtn').style.display = document.getElementById('compareBtn').style.display = document.getElementById('closeBtn').style.display = 'none';
     document.getElementById('undoBtn').disabled = true;
 };
@@ -447,13 +531,11 @@ const handleToastClick = (e) => {
     if (currentTool === 'clone' || currentTool === 'tone') {
         currentTool === 'clone' ? (cloneSource = null, isSettingCloneSource = true) : (toneColor = null, isSettingToneSource = true);
         isAimingSample = isAimingPatch = isAimingToneSample = isDrawing = false;
-        cloneToast.innerText = currentTool === 'clone' ? 'drop to select' : 'drop to select';
-        cloneToast.classList.add('active');
+        showToast('drop to select', true);
         cloneCrosshair.style.display = brushCursor.style.display = 'none';
     } else if (currentTool === 'smooth') {
         isUltraSmooth = !isUltraSmooth;
-        cloneToast.innerText = isUltraSmooth ? 'ULTRA SMOOTH: ON' : 'ULTRA SMOOTH: OFF';
-        isUltraSmooth ? cloneToast.classList.add('active') : cloneToast.classList.remove('active');
+        showToast(isUltraSmooth ? 'ULTRA SMOOTH: ON' : 'ULTRA SMOOTH: OFF', isUltraSmooth);
         effectCacheType = null;
     }
 };
@@ -467,20 +549,19 @@ document.querySelectorAll('.tool-btn').forEach(btn => {
         currentTool = e.target.getAttribute('data-tool');
         effectCacheType = null;
         if (currentTool === 'clone' || currentTool === 'tone' || currentTool === 'smooth') {
-            cloneToast.style.display = 'flex';
             if (currentTool === 'clone') {
                 cloneSource = null; isSettingCloneSource = true;
-                cloneToast.innerText = 'drop to select'; cloneToast.classList.add('active');
+                showToast('drop to select', true);
             } else if (currentTool === 'tone') {
                 toneColor = null; isSettingToneSource = true;
-                cloneToast.innerText = 'drop to select'; cloneToast.classList.add('active');
+                showToast('drop to select', true);
             } else {
-                cloneToast.innerText = isUltraSmooth ? 'ULTRA SMOOTH: ON' : 'ULTRA SMOOTH: OFF';
-                isUltraSmooth ? cloneToast.classList.add('active') : cloneToast.classList.remove('active');
+                showToast(isUltraSmooth ? 'ULTRA SMOOTH: ON' : 'ULTRA SMOOTH: OFF', isUltraSmooth);
             }
             cloneCrosshair.style.display = brushCursor.style.display = 'none';
         } else {
-            cloneToast.style.display = cloneCrosshair.style.display = brushCursor.style.display = 'none';
+            hideToast();
+            cloneCrosshair.style.display = brushCursor.style.display = 'none';
             isSettingCloneSource = isSettingToneSource = isAimingSample = isAimingPatch = isAimingToneSample = false;
         }
     };
@@ -501,7 +582,10 @@ function handleImageUpload(e, maxSize) {
         canvas.height = snapshotCanvas.height = effectCanvas.height = originalCanvas.height = cloneStrokeCanvas.height = h;
         cleanCanvas.width = cleanSnapshotCanvas.width = w; cleanCanvas.height = cleanSnapshotCanvas.height = h;
         ctx.drawImage(img, 0, 0, w, h); originalCtx.drawImage(img, 0, 0, w, h); cleanCtx.drawImage(img, 0, 0, w, h);
-        document.getElementById('uploadOverlay').style.display = 'none';
+        
+        // Smooth Fade Out Overlay
+        document.getElementById('uploadOverlay').classList.add('hidden');
+        
         document.getElementById('exportBtn').style.display = document.getElementById('compareBtn').style.display = document.getElementById('closeBtn').style.display = 'block';
         effectCacheType = null; updateCursorSize(); fitToScreen(); history = []; saveState();
         URL.revokeObjectURL(img.src);
@@ -548,7 +632,6 @@ document.getElementById('exportBtn').onclick = async () => {
 };
 
 let isPanning = false, pinchStartDist = 0, pinchStartScale = 1, pinchCenterX = 0, pinchCenterY = 0, pinchStartPanX = 0, pinchStartPanY = 0, lastPanX = 0, lastPanY = 0;
-const isOverlayActive = () => document.getElementById('uploadOverlay').style.display !== 'none';
 function screenToImage(screenX, screenY) { return { x: (screenX - viewPanX) / viewScale, y: (screenY - viewPanY) / viewScale }; }
 
 workspace.addEventListener('wheel', (e) => {
@@ -629,10 +712,7 @@ function startDrawing(touchOrMouse) {
         }
     }
 
-    // 【体验优化】增加一次单击触发，让用户不需要滑动也能原地点击擦除
-    if (['smooth', 'detail', 'eraser'].includes(currentTool)) {
-        applyBrushTool(imgPos.x, imgPos.y);
-    }
+    if (['smooth', 'detail', 'eraser'].includes(currentTool)) applyBrushTool(imgPos.x, imgPos.y);
 }
 
 workspace.addEventListener('touchmove', (e) => {
@@ -712,12 +792,13 @@ function endDrawing() {
     if (currentTool === 'clone') {
         if (isAimingSample) {
             cloneSource = { x: lastX, y: lastY }; isAimingSample = isSettingCloneSource = false;
-            cloneToast.innerText = 'drop to draw'; cloneToast.classList.remove('active');
+            showToast('drop to draw', false);
             setCrosshair(cloneSource.x, cloneSource.y); return;
         } else if (isAimingPatch) {
             applyCloneStamp(lastX, lastY); isAimingPatch = false; brushCursor.style.display = 'none';
             cloneSource = null; isSettingCloneSource = true;
-            cloneToast.innerText = 'drop to select'; cloneToast.classList.add('active'); cloneCrosshair.style.display = 'none'; effectCacheType = null; saveState(); return;
+            showToast('drop to select', true); 
+            cloneCrosshair.style.display = 'none'; effectCacheType = null; saveState(); return;
         }
     } else if (currentTool === 'tone') {
         if (isAimingToneSample) {
@@ -726,8 +807,8 @@ function endDrawing() {
             tempCtx.drawImage(snapshotCanvas, Math.min(canvas.width - 1, Math.max(0, Math.floor(lastX))), Math.min(canvas.height - 1, Math.max(0, Math.floor(lastY))), 1, 1, 0, 0, 1, 1);
             const pxData = tempCtx.getImageData(0,0,1,1).data;
             toneColor = { r: pxData[0], g: pxData[1], b: pxData[2] }; isAimingToneSample = isSettingToneSource = false;
-            cloneToast.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:rgb(${toneColor.r},${toneColor.g},${toneColor.b});border:1px solid #fff;margin-right:5px;vertical-align:middle;"></span> reselect`;
-            cloneToast.classList.remove('active'); setCrosshair(lastX, lastY); return;
+            showToast(`<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:rgb(${toneColor.r},${toneColor.g},${toneColor.b});border:1px solid #fff;margin-right:6px;vertical-align:middle;box-shadow: 0 1px 3px rgba(0,0,0,0.5);"></span> reselect`, false);
+            setCrosshair(lastX, lastY); return;
         } else { brushCursor.style.display = 'none'; effectCacheType = null; saveState(); return; }
     }
     saveState();
@@ -834,7 +915,6 @@ function prepareDetail() {
     if(GLFilter) { GLFilter.resize(canvas.width, canvas.height); GLFilter.process('detail', snapshotCanvas, false); effectCtx.drawImage(GLFilter.canvas, 0, 0); }
 }
 
-// 【Bug 修复核心代码】：反转遮罩逻辑，并提升橡皮擦专属强度
 function applyBrushTool(x, y) {
     const r = brushSizeScreen / viewScale, sx = Math.max(0, Math.floor(x - r)), sy = Math.max(0, Math.floor(y - r));
     const ex = Math.min(canvas.width, Math.ceil(x + r)), ey = Math.min(canvas.height, Math.ceil(y + r)), bw = ex - sx, bh = ey - sy;
@@ -842,14 +922,11 @@ function applyBrushTool(x, y) {
     
     prepareTempCanvas(brushCanvas, brushCtx, bw, bh);
 
-    // 1. 先绘制效果原图，杜绝黑色边缘污染
     brushCtx.drawImage(effectCanvas, sx, sy, bw, bh, 0, 0, bw, bh);
 
-    // 2. 根据当前工具调整画笔透明度
     let alpha = brushPressure * 0.195;
     if (currentTool === 'smooth' && isUltraSmooth) alpha *= 2;
     if (currentTool === 'detail') alpha = Math.min(1.0, brushPressure * 1.05);
-    // [修复：遗留痕迹] 之前橡皮擦乘以了 0.2 极度衰减，这里放大它以匹配用户的心理预期
     if (currentTool === 'eraser') alpha = Math.min(1.0, brushPressure * 1.5);
     alpha = Math.min(1.0, Math.max(0, alpha));
 
@@ -860,12 +937,10 @@ function applyBrushTool(x, y) {
     g.addColorStop(0.85, `rgba(0,0,0,${alpha * 0.1})`);
     g.addColorStop(1, 'rgba(0,0,0,0)');
 
-    // 3. [修复：黑边痕迹] 彻底改为使用 destination-in 来只裁剪 Alpha，而不混合 RGB
     brushCtx.globalCompositeOperation = 'destination-in';
     brushCtx.fillStyle = g;
     brushCtx.fillRect(0, 0, bw, bh);
 
-    // 4. 合并到主画布
     ctx.globalCompositeOperation = 'source-over';
     ctx.drawImage(brushCanvas, 0, 0, bw, bh, sx, sy, bw, bh);
 }
