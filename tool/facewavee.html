@@ -735,13 +735,13 @@ document.getElementById('exportBtn').onclick = async () => {
     if (navigator.share) {
         try {
             const response = await fetch(dataUrl);
-            const file = new File([await response.blob()], 'facewave_edit.jpg', { type: 'image/jpeg' });
+            const file = new File([await response.blob()], 'facewavee.jpg', { type: 'image/jpeg' });
             if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                await navigator.share({ files: [file], title: 'Facewave Edit' }); return;
+                await navigator.share({ files: [file], title: 'facewavee' }); return;
             }
         } catch (err) { console.log("Share fallback", err); }
     }
-    const a = document.createElement('a'); a.download = 'facewave_edit.jpg'; a.href = dataUrl; a.click();
+    const a = document.createElement('a'); a.download = 'facewavee.jpg'; a.href = dataUrl; a.click();
 };
 
 let isPanning = false, pinchStartDist = 0, pinchStartScale = 1, pinchCenterX = 0, pinchCenterY = 0, pinchStartPanX = 0, pinchStartPanY = 0, lastPanX = 0, lastPanY = 0;
