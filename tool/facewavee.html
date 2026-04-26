@@ -132,7 +132,7 @@
         </div>
         <div class="slider-row">
             <label>Intensity</label>
-            <input type="range" id="pressureSlider" min="0.05" max="1.0" step="0.05" value="0.2">
+            <input type="range" id="pressureSlider" min="0.05" max="1.0" step="0.05" value="0.5">
         </div>
     </div>
     <div class="tools">
@@ -146,16 +146,12 @@
 </div>
 <script>
 // ==========================================
-// WebGL GPU 加速引擎 (维持高稳定性)
+// WebGL GPU 加速引擎 (重构整合了液化 Reshape 功能)
 // ==========================================
 const GLFilter = (function() {
     const cvs = document.createElement('canvas');
     const gl = cvs.getContext('webgl', { premultipliedAlpha: false });
     if (!gl) return null;
-    
-    const glUpdateCanvas = document.createElement('canvas');
-    const glUpdateCtx = glUpdateCanvas.getContext('2d', { alpha: false });
-
     function compile(type, source) {
         const shader = gl.createShader(type);
         gl.shaderSource(shader, source);
@@ -212,27 +208,6 @@ const GLFilter = (function() {
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, snap);
             gl.bindTexture(gl.TEXTURE_2D, texCleanSnapshot);
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cleanSnap);
-        },
-        updateReshapeSnapshotsPartial: function(snap, cleanSnap, x, y, rw, rh) {
-            if (rw <= 0 || rh <= 0) return;
-            const minX = Math.max(0, Math.floor(x));
-            const minY = Math.max(0, Math.floor(y));
-            const maxX = Math.min(w, Math.ceil(x + rw));
-            const maxY = Math.min(h, Math.ceil(y + rh));
-            const updW = maxX - minX, updH = maxY - minY;
-            if (updW <= 0 || updH <= 0) return;
-
-            glUpdateCanvas.width = updW;
-            glUpdateCanvas.height = updH;
-            glUpdateCtx.globalCompositeOperation = 'copy'; 
-
-            glUpdateCtx.drawImage(snap, minX, minY, updW, updH, 0, 0, updW, updH);
-            gl.bindTexture(gl.TEXTURE_2D, texSnapshot);
-            gl.texSubImage2D(gl.TEXTURE_2D, 0, minX, minY, gl.RGBA, gl.UNSIGNED_BYTE, glUpdateCanvas);
-
-            glUpdateCtx.drawImage(cleanSnap, minX, minY, updW, updH, 0, 0, updW, updH);
-            gl.bindTexture(gl.TEXTURE_2D, texCleanSnapshot);
-            gl.texSubImage2D(gl.TEXTURE_2D, 0, minX, minY, gl.RGBA, gl.UNSIGNED_BYTE, glUpdateCanvas);
         },
         processReshape: function(isClean, cx, cy, dx, dy, radius, pressure) {
             gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -332,25 +307,25 @@ const GLFilter = (function() {
 // ==========================================
 const workspace = document.getElementById('workspace');
 const canvas = document.getElementById('mainCanvas');
-
-const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
+// 【性能优化】增加了 desynchronized: true，大幅降低触控绘画时的延迟
+const ctx = canvas.getContext('2d', { willReadFrequently: true, alpha: false, desynchronized: true });
 const originalCanvas = document.getElementById('originalCanvas');
 const originalCtx = originalCanvas.getContext('2d', { alpha: false });
 const snapshotCanvas = document.createElement('canvas');
-const snapshotCtx = snapshotCanvas.getContext('2d', { alpha: false, desynchronized: true });
+const snapshotCtx = snapshotCanvas.getContext('2d', { willReadFrequently: true, alpha: false, desynchronized: true });
 const cleanCanvas = document.createElement('canvas');
-const cleanCtx = cleanCanvas.getContext('2d', { alpha: false });
+const cleanCtx = cleanCanvas.getContext('2d', { willReadFrequently: true, alpha: false });
 const cleanSnapshotCanvas = document.createElement('canvas');
-const cleanSnapshotCtx = cleanSnapshotCanvas.getContext('2d', { alpha: false });
+const cleanSnapshotCtx = cleanSnapshotCanvas.getContext('2d', { willReadFrequently: true, alpha: false });
 const effectCanvas = document.createElement('canvas');
-const effectCtx = effectCanvas.getContext('2d', { desynchronized: true });
+const effectCtx = effectCanvas.getContext('2d', { willReadFrequently: true, desynchronized: true });
 const brushCanvas = document.createElement('canvas');
 const brushCtx = brushCanvas.getContext('2d');
 const cloneStrokeCanvas = document.createElement('canvas');
-const cloneStrokeCtx = cloneStrokeCanvas.getContext('2d');
+const cloneStrokeCtx = cloneStrokeCanvas.getContext('2d', { willReadFrequently: true });
 
 let history = [], currentTool = 'reshape', isDrawing = false;
-let brushSizeScreen = 120, brushPressure = 0.2;
+let brushSizeScreen = 120, brushPressure = 0.5;
 let anchorX = 0, anchorY = 0, lastX = 0, lastY = 0;
 let viewScale = 1, viewPanX = 0, viewPanY = 0;
 let effectCacheType = null;
@@ -362,21 +337,10 @@ let crosshairImgX = 0, crosshairImgY = 0, brushImgX = 0, brushImgY = 0;
 let lastDabX = 0, lastDabY = 0;
 let strokeBounds = { minX: 0, minY: 0, maxX: 0, maxY: 0 };
 let pendingDrawEvent = null, drawRAF = null;
-let reshapeDirtyRect = null; 
 
 const cloneToast = document.getElementById('cloneToast');
 const cloneCrosshair = document.getElementById('cloneSourceCrosshair');
 const brushCursor = document.getElementById('brushCursor');
-
-function prepareTempCanvas(cvs, ctx2d, reqW, reqH) {
-    if (cvs.width < reqW || cvs.height < reqH) {
-        cvs.width = Math.max(cvs.width, reqW + 100);
-        cvs.height = Math.max(cvs.height, reqH + 100);
-    }
-    ctx2d.globalCompositeOperation = 'source-over';
-    ctx2d.globalAlpha = 1.0;
-    ctx2d.clearRect(0, 0, reqW, reqH);
-}
 
 function updateCursorSize() {
     const sizeStr = brushSizeScreen + 'px';
@@ -420,6 +384,7 @@ compareBtn.addEventListener('mousedown', showOriginal);
 compareBtn.addEventListener('touchstart', showOriginal, {passive: false});
 ['mouseup', 'mouseleave', 'touchend', 'touchcancel'].forEach(evt => compareBtn.addEventListener(evt, hideOriginal));
 
+// 【交互增加】: 点击关闭时询问是否确定，防止未保存丢失进度
 document.getElementById('closeBtn').onclick = () => {
     if (!confirm('确定要关闭当前图像吗？所有未保存的操作将丢失。')) return;
     
@@ -514,14 +479,9 @@ document.getElementById('fileInput2048').onchange = (e) => handleImageUpload(e, 
 function saveState() {
     if (history.length >= 5) history.shift();
     history.push({
-        main: document.createElement('canvas'),
-        clean: document.createElement('canvas')
+        main: ctx.getImageData(0, 0, canvas.width, canvas.height),
+        clean: cleanCtx.getImageData(0, 0, canvas.width, canvas.height)
     });
-    const state = history[history.length - 1];
-    state.main.width = canvas.width; state.main.height = canvas.height;
-    state.clean.width = cleanCanvas.width; state.clean.height = cleanCanvas.height;
-    state.main.getContext('2d').drawImage(canvas, 0, 0);
-    state.clean.getContext('2d').drawImage(cleanCanvas, 0, 0);
     document.getElementById('undoBtn').disabled = history.length <= 1;
 }
 
@@ -529,7 +489,7 @@ document.getElementById('undoBtn').onclick = () => {
     if (history.length <= 1) return;
     history.pop();
     const prevState = history[history.length - 1];
-    ctx.drawImage(prevState.main, 0, 0); cleanCtx.drawImage(prevState.clean, 0, 0);
+    ctx.putImageData(prevState.main, 0, 0); cleanCtx.putImageData(prevState.clean, 0, 0);
     effectCacheType = null; document.getElementById('undoBtn').disabled = history.length <= 1;
 };
 
@@ -591,8 +551,6 @@ workspace.addEventListener('mousedown', (e) => {
 function startDrawing(touchOrMouse) {
     const rect = workspace.getBoundingClientRect(), imgPos = screenToImage(touchOrMouse.clientX - rect.left, touchOrMouse.clientY - rect.top);
     snapshotCtx.drawImage(canvas, 0, 0);
-    reshapeDirtyRect = null;
-    
     if (currentTool === 'clone' || currentTool === 'tone') {
         const isToolSettingSource = currentTool === 'clone' ? isSettingCloneSource : isSettingToneSource;
         const sourceVar = currentTool === 'clone' ? cloneSource : toneColor;
@@ -612,9 +570,7 @@ function startDrawing(touchOrMouse) {
         }
         anchorX = lastX = imgPos.x; anchorY = lastY = imgPos.y; isDrawing = true; return;
     }
-    
     anchorX = lastX = imgPos.x; anchorY = lastY = imgPos.y; isDrawing = true;
-    
     if (currentTool === 'reshape') {
         cleanSnapshotCtx.drawImage(cleanCanvas, 0, 0);
         if (GLFilter) { GLFilter.resize(canvas.width, canvas.height); GLFilter.updateReshapeSnapshots(snapshotCanvas, cleanSnapshotCanvas); }
@@ -627,11 +583,6 @@ function startDrawing(touchOrMouse) {
         if (effectCacheType !== 'eraser') {
             effectCtx.clearRect(0, 0, canvas.width, canvas.height); effectCtx.drawImage(cleanCanvas, 0, 0); effectCacheType = 'eraser';
         }
-    }
-
-    // 【体验优化】增加一次单击触发，让用户不需要滑动也能原地点击擦除
-    if (['smooth', 'detail', 'eraser'].includes(currentTool)) {
-        applyBrushTool(imgPos.x, imgPos.y);
     }
 }
 
@@ -706,7 +657,11 @@ function endDrawing() {
     if (!isDrawing) return;
     isDrawing = false;
     
-    if (drawRAF) { cancelAnimationFrame(drawRAF); drawRAF = null; }
+    // 【性能/节能优化】提前清理多余的 RAF，阻止非必要的渲染循环占用系统资源
+    if (drawRAF) {
+        cancelAnimationFrame(drawRAF);
+        drawRAF = null;
+    }
 
     if (currentTool === 'reshape') effectCacheType = null;
     if (currentTool === 'clone') {
@@ -721,10 +676,7 @@ function endDrawing() {
         }
     } else if (currentTool === 'tone') {
         if (isAimingToneSample) {
-            const tempC = document.createElement('canvas'); tempC.width=1; tempC.height=1;
-            const tempCtx = tempC.getContext('2d');
-            tempCtx.drawImage(snapshotCanvas, Math.min(canvas.width - 1, Math.max(0, Math.floor(lastX))), Math.min(canvas.height - 1, Math.max(0, Math.floor(lastY))), 1, 1, 0, 0, 1, 1);
-            const pxData = tempCtx.getImageData(0,0,1,1).data;
+            const pxData = snapshotCtx.getImageData(Math.min(canvas.width - 1, Math.max(0, Math.floor(lastX))), Math.min(canvas.height - 1, Math.max(0, Math.floor(lastY))), 1, 1).data;
             toneColor = { r: pxData[0], g: pxData[1], b: pxData[2] }; isAimingToneSample = isSettingToneSource = false;
             cloneToast.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:rgb(${toneColor.r},${toneColor.g},${toneColor.b});border:1px solid #fff;margin-right:5px;vertical-align:middle;"></span> reselect`;
             cloneToast.classList.remove('active'); setCrosshair(lastX, lastY); return;
@@ -750,14 +702,12 @@ function applyToneBrush(x, y, deferRender = false) {
     if (bw <= 0 || bh <= 0) return;
     if (sx < strokeBounds.minX) strokeBounds.minX = sx; if (sy < strokeBounds.minY) strokeBounds.minY = sy;
     if (ex > strokeBounds.maxX) strokeBounds.maxX = ex; if (ey > strokeBounds.maxY) strokeBounds.maxY = ey;
-    
-    prepareTempCanvas(brushCanvas, brushCtx, bw, bh);
+    brushCanvas.width = bw; brushCanvas.height = bh; brushCtx.clearRect(0, 0, bw, bh);
     const g = brushCtx.createRadialGradient(x - sx, y - sy, 0, x - sx, y - sy, r);
     g.addColorStop(0, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0.4)`); g.addColorStop(0.15, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0.15)`);
     g.addColorStop(0.35, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0.04)`); g.addColorStop(0.6, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0.008)`); g.addColorStop(1, `rgba(${toneColor.r}, ${toneColor.g}, ${toneColor.b}, 0)`);
     brushCtx.globalCompositeOperation = 'source-over'; brushCtx.fillStyle = g; brushCtx.fillRect(0, 0, bw, bh);
-    cloneStrokeCtx.globalCompositeOperation = 'source-over'; 
-    cloneStrokeCtx.drawImage(brushCanvas, 0, 0, bw, bh, sx, sy, bw, bh);
+    cloneStrokeCtx.globalCompositeOperation = 'source-over'; cloneStrokeCtx.drawImage(brushCanvas, sx, sy);
     if (!deferRender) flushStrokeBuffer();
 }
 
@@ -767,8 +717,7 @@ function applyCloneStamp(x, y) {
     const sx = Math.max(0, Math.floor(x - r)), sy = Math.max(0, Math.floor(y - r));
     const ex = Math.min(canvas.width, Math.ceil(x + r)), ey = Math.min(canvas.height, Math.ceil(y + r)), bw = ex - sx, bh = ey - sy;
     if (bw <= 0 || bh <= 0) return;
-    
-    prepareTempCanvas(brushCanvas, brushCtx, bw, bh);
+    brushCanvas.width = bw; brushCanvas.height = bh; brushCtx.clearRect(0, 0, bw, bh);
     let reqSrcX = srcX - r + sx - (x - r), reqSrcY = srcY - r + sy - (y - r), reqW = bw, reqH = bh, drawDestX = 0, drawDestY = 0;
     if (reqSrcX < 0) { drawDestX = -reqSrcX; reqW += reqSrcX; reqSrcX = 0; }
     if (reqSrcY < 0) { drawDestY = -reqSrcY; reqH += reqSrcY; reqSrcY = 0; }
@@ -779,20 +728,8 @@ function applyCloneStamp(x, y) {
     brushCtx.globalCompositeOperation = 'destination-in'; brushCtx.fillStyle = g; brushCtx.fillRect(0, 0, bw, bh);
     if (sx < strokeBounds.minX) strokeBounds.minX = sx; if (sy < strokeBounds.minY) strokeBounds.minY = sy;
     if (ex > strokeBounds.maxX) strokeBounds.maxX = ex; if (ey > strokeBounds.maxY) strokeBounds.maxY = ey;
-    cloneStrokeCtx.globalCompositeOperation = 'source-over'; 
-    cloneStrokeCtx.drawImage(brushCanvas, 0, 0, bw, bh, sx, sy, bw, bh);
+    cloneStrokeCtx.globalCompositeOperation = 'source-over'; cloneStrokeCtx.drawImage(brushCanvas, sx, sy);
     flushStrokeBuffer();
-}
-
-function updateDirtyRect(rect) {
-    if (!reshapeDirtyRect) reshapeDirtyRect = { x: rect.x, y: rect.y, w: rect.w, h: rect.h };
-    else {
-        const minX = Math.min(reshapeDirtyRect.x, rect.x);
-        const minY = Math.min(reshapeDirtyRect.y, rect.y);
-        const maxX = Math.max(reshapeDirtyRect.x + reshapeDirtyRect.w, rect.x + rect.w);
-        const maxY = Math.max(reshapeDirtyRect.y + reshapeDirtyRect.h, rect.y + rect.h);
-        reshapeDirtyRect = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
-    }
 }
 
 function applyReshapeAdvanced(curX, curY) {
@@ -802,24 +739,16 @@ function applyReshapeAdvanced(curX, curY) {
         if (rectMain) {
             ctx.clearRect(rectMain.x, rectMain.y, rectMain.w, rectMain.h);
             ctx.drawImage(GLFilter.canvas, rectMain.x, rectMain.y, rectMain.w, rectMain.h, rectMain.x, rectMain.y, rectMain.w, rectMain.h);
-            updateDirtyRect(rectMain);
         }
         const rectClean = GLFilter.processReshape(true, anchorX, anchorY, dx, dy, r, brushPressure);
         if (rectClean) {
             cleanCtx.clearRect(rectClean.x, rectClean.y, rectClean.w, rectClean.h);
             cleanCtx.drawImage(GLFilter.canvas, rectClean.x, rectClean.y, rectClean.w, rectClean.h, rectClean.x, rectClean.y, rectClean.w, rectClean.h);
-            updateDirtyRect(rectClean);
         }
     }
     if (distFromAnchorSq > (r * 0.5) * (r * 0.5)) {
-        if (reshapeDirtyRect) {
-            snapshotCtx.drawImage(canvas, reshapeDirtyRect.x, reshapeDirtyRect.y, reshapeDirtyRect.w, reshapeDirtyRect.h, reshapeDirtyRect.x, reshapeDirtyRect.y, reshapeDirtyRect.w, reshapeDirtyRect.h);
-            cleanSnapshotCtx.drawImage(cleanCanvas, reshapeDirtyRect.x, reshapeDirtyRect.y, reshapeDirtyRect.w, reshapeDirtyRect.h, reshapeDirtyRect.x, reshapeDirtyRect.y, reshapeDirtyRect.w, reshapeDirtyRect.h);
-            if (GLFilter) {
-                GLFilter.updateReshapeSnapshotsPartial(snapshotCanvas, cleanSnapshotCanvas, reshapeDirtyRect.x, reshapeDirtyRect.y, reshapeDirtyRect.w, reshapeDirtyRect.h);
-            }
-            reshapeDirtyRect = null;
-        }
+        snapshotCtx.drawImage(canvas, 0, 0); cleanSnapshotCtx.drawImage(cleanCanvas, 0, 0);
+        if (GLFilter) GLFilter.updateReshapeSnapshots(snapshotCanvas, cleanSnapshotCanvas);
         anchorX = curX; anchorY = curY;
     }
 }
@@ -834,45 +763,31 @@ function prepareDetail() {
     if(GLFilter) { GLFilter.resize(canvas.width, canvas.height); GLFilter.process('detail', snapshotCanvas, false); effectCtx.drawImage(GLFilter.canvas, 0, 0); }
 }
 
-// 【Bug 修复核心代码】：反转遮罩逻辑，并提升橡皮擦专属强度
 function applyBrushTool(x, y) {
     const r = brushSizeScreen / viewScale, sx = Math.max(0, Math.floor(x - r)), sy = Math.max(0, Math.floor(y - r));
     const ex = Math.min(canvas.width, Math.ceil(x + r)), ey = Math.min(canvas.height, Math.ceil(y + r)), bw = ex - sx, bh = ey - sy;
     if (bw <= 0 || bh <= 0) return;
-    
-    prepareTempCanvas(brushCanvas, brushCtx, bw, bh);
-
-    // 1. 先绘制效果原图，杜绝黑色边缘污染
-    brushCtx.drawImage(effectCanvas, sx, sy, bw, bh, 0, 0, bw, bh);
-
-    // 2. 根据当前工具调整画笔透明度
+    brushCanvas.width = bw; brushCanvas.height = bh;
+    const g = brushCtx.createRadialGradient(x - sx, y - sy, 0, x - sx, y - sy, r);
     let alpha = brushPressure * 0.195;
     if (currentTool === 'smooth' && isUltraSmooth) alpha *= 2;
     if (currentTool === 'detail') alpha = Math.min(1.0, brushPressure * 1.05);
-    // [修复：遗留痕迹] 之前橡皮擦乘以了 0.2 极度衰减，这里放大它以匹配用户的心理预期
-    if (currentTool === 'eraser') alpha = Math.min(1.0, brushPressure * 1.5);
-    alpha = Math.min(1.0, Math.max(0, alpha));
-
-    const g = brushCtx.createRadialGradient(x - sx, y - sy, 0, x - sx, y - sy, r);
-    g.addColorStop(0, `rgba(0,0,0,${alpha})`);
-    g.addColorStop(0.3, `rgba(0,0,0,${alpha * 0.8})`);
-    g.addColorStop(0.6, `rgba(0,0,0,${alpha * 0.4})`);
-    g.addColorStop(0.85, `rgba(0,0,0,${alpha * 0.1})`);
-    g.addColorStop(1, 'rgba(0,0,0,0)');
-
-    // 3. [修复：黑边痕迹] 彻底改为使用 destination-in 来只裁剪 Alpha，而不混合 RGB
-    brushCtx.globalCompositeOperation = 'destination-in';
-    brushCtx.fillStyle = g;
-    brushCtx.fillRect(0, 0, bw, bh);
-
-    // 4. 合并到主画布
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.drawImage(brushCanvas, 0, 0, bw, bh, sx, sy, bw, bh);
+    if (currentTool === 'eraser') alpha = brushPressure * 0.2;
+    alpha = Math.min(1.0, alpha);
+    g.addColorStop(0, `rgba(0,0,0,${alpha})`); g.addColorStop(0.3, `rgba(0,0,0,${alpha * 0.8})`); g.addColorStop(0.6, `rgba(0,0,0,${alpha * 0.4})`); g.addColorStop(0.85, `rgba(0,0,0,${alpha * 0.1})`); g.addColorStop(1, 'rgba(0,0,0,0)');
+    brushCtx.globalCompositeOperation = 'source-over'; brushCtx.fillStyle = g; brushCtx.fillRect(0, 0, bw, bh);
+    brushCtx.globalCompositeOperation = 'source-in'; brushCtx.drawImage(effectCanvas, sx, sy, bw, bh, 0, 0, bw, bh);
+    ctx.drawImage(brushCanvas, sx, sy);
 }
 
+// ==========================================
+// PWA: 注册 Service Worker
+// ==========================================
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').catch(error => { console.log('SW ERR:', error); });
+        navigator.serviceWorker.register('./sw.js').then(registration => {
+            console.log('ServiceWorker 注册成功:', registration.scope);
+        }).catch(error => { console.log('ServiceWorker 注册失败:', error); });
     });
 }
 </script> </body> </html>
