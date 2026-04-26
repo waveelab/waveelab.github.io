@@ -135,11 +135,11 @@
         <div class="sliders">
             <div class="slider-row">
                 <label>Size</label>
-                <input type="range" id="sizeSlider" min="10" max="150" value="120">
+                <input type="range" id="sizeSlider" min="10" max="150" value="96">
             </div>
             <div class="slider-row">
                 <label>Intensity</label>
-                <input type="range" id="pressureSlider" min="0.05" max="1.0" step="0.05" value="0.5">
+                <input type="range" id="pressureSlider" min="0.05" max="1.0" step="0.05" value="0.1">
             </div>
         </div>
         <div class="tools">
@@ -397,7 +397,7 @@
     const cloneStrokeCtx = cloneStrokeCanvas.getContext('2d', { willReadFrequently: true });
 
     let history = [], currentTool = 'reshape', isDrawing = false;
-    let brushSizeScreen = 120, brushPressure = 0.5;
+    let brushSizeScreen = 96, brushPressure = 0.1;
     let anchorX = 0, anchorY = 0, lastX = 0, lastY = 0;
     
     let viewScale = 1, viewPanX = 0, viewPanY = 0;
@@ -460,6 +460,7 @@
     ['mouseup', 'mouseleave', 'touchend', 'touchcancel'].forEach(evt => compareBtn.addEventListener(evt, hideOriginal));
 
     document.getElementById('closeBtn').onclick = () => {
+        if (!confirm('确定要关闭吗？未保存的更改将会丢失。')) return;
         history = []; 
         document.getElementById('fileInput4096').value = "";
         document.getElementById('fileInput2048').value = "";
