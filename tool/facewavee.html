@@ -647,7 +647,7 @@ function handleImageUpload(e, limitType, limitValue) {
         
         // Handle constraint logic smoothly
         if (limitType === 'dimension') {
-            // Limit Dimension (e.g. max side 2048)
+            // Limit Dimension (e.g. max side 3000)
             if (limitValue && (w > limitValue || h > limitValue)) {
                 const r = Math.min(limitValue/w, limitValue/h);
                 w = Math.round(w * r); h = Math.round(h * r);
@@ -670,8 +670,8 @@ function handleImageUpload(e, limitType, limitValue) {
     img.src = URL.createObjectURL(file);
 }
 
-// Applying the requested 2048 Max Dimension limit for Open Image
-document.getElementById('fileInputMain').onchange = (e) => handleImageUpload(e, 'dimension', 2048);
+// Applying the requested 3000 Max Dimension limit for Open Image
+document.getElementById('fileInputMain').onchange = (e) => handleImageUpload(e, 'dimension', 3000);
 
 function saveState() {
     // 每次产生新操作时，清空 Redo 栈并释放内存
