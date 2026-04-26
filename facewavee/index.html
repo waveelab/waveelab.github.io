@@ -69,6 +69,8 @@
         display: flex; 
         justify-content: space-between; 
         align-items: center; 
+        gap: 1em; /* 保证至少1个字节的留白 */
+        flex-wrap: nowrap; /* 防折行 */
         padding: 12px 20px; 
         background: var(--glass-bg); 
         backdrop-filter: saturate(180%) blur(25px);
@@ -81,32 +83,13 @@
     }
     header.hidden { transform: translateY(-150%); opacity: 0; pointer-events: none; }
 
-    /* UI: 无论何时保证距离右侧菜单栏至少两字符宽度 (2em) */
-    .logo { 
-        font-size: 14px; 
-        font-weight: 700; 
-        letter-spacing: 2px; 
-        text-transform: uppercase; 
-        color: var(--text); 
-        flex-shrink: 0; 
-        margin-right: 2em; 
-    }
-    
-    /* UI: 允许移动端极窄屏幕水平滑动，防止按钮丢失 */
-    .header-actions { 
-        display: flex; 
-        gap: 14px; 
-        overflow-x: auto; 
-        -webkit-overflow-scrolling: touch; 
-        scrollbar-width: none; 
-    }
-    .header-actions::-webkit-scrollbar { display: none; }
+    .logo { font-size: 14px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--text); flex-shrink: 0; }
+    .header-actions { display: flex; gap: 14px; flex-shrink: 1; }
     .header-actions button { 
         background: none; border: none; color: var(--accent); 
         font-size: 13px; font-weight: 600; cursor: pointer; 
         transition: color 0.2s, opacity 0.2s; touch-action: none; 
-        white-space: nowrap; 
-        flex-shrink: 0; 
+        white-space: nowrap;
     }
     .header-actions button:disabled { color: var(--text-muted); cursor: not-allowed; opacity: 0.5; }
     .header-actions button:active:not(:disabled) { opacity: 0.6; }
@@ -189,19 +172,15 @@
         font-size: 11px; font-weight: 600; cursor: pointer; 
         text-transform: uppercase; letter-spacing: 0.5px; 
         padding: 10px 0; border-radius: 16px; 
-        /* UI: 采用丝滑的贝塞尔曲线过渡动画 */
-        transition: background-color 0.35s cubic-bezier(0.16, 1, 0.3, 1), color 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1), transform 0.15s ease; 
+        transition: all 0.35s cubic-bezier(0.25, 1, 0.5, 1); /* 优化过渡动画更流畅自然 */
         flex: 1; text-align: center;
     }
-    /* UI: 按下时的回弹微缩放动画 */
-    .tool-btn:active { transform: scale(0.92); }
     .tool-btn.active { background: rgba(255,255,255,0.15); color: var(--accent); box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
 
     /* Toast */
     .floating-toast {
         position: absolute; 
-        /* UI: 动态计算距顶部安全区的距离，防止被顶部菜单栏遮挡 */
-        top: calc(var(--safe-top) + 85px); 
+        top: calc(var(--safe-top) + 85px); /* 动态避开菜单栏，防止遮挡 */
         left: 50%; transform: translateX(-50%) translateY(-10px);
         background: rgba(30, 30, 30, 0.75); color: #fff; padding: 10px 24px; border-radius: 100px;
         font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
@@ -223,14 +202,23 @@
     .crosshair::before { top: 50%; left: 50%; width: 12px; height: 1.5px; transform: translate(-50%, -50%); border-radius: 1px; }
     .crosshair::after { top: 50%; left: 50%; width: 1.5px; height: 12px; transform: translate(-50%, -50%); border-radius: 1px; }
     .brush-cursor { z-index: 160; border: 1.5px solid rgba(255,255,255,0.8); }
-
-    /* 移动端特殊微调 */
-    @media (max-width: 768px) {
-        .header-actions { gap: 12px; }
+    
+    /* 移动端细微调整：完美适配按钮，不遮挡、不挤压 */
+    @media (max-width: 430px) {
+        header { padding: 10px 12px; gap: 10px; }
+        .logo { font-size: 13px; letter-spacing: 1px; }
+        .header-actions { gap: 10px; }
         .header-actions button { font-size: 12px; }
-        /* UI: 移动端让工具栏背影稍微变宽 2px (padding 4px -> 5px) */
-        .tools { padding: 5px; gap: 4px; } 
-        .tool-btn { padding: 11px 0; }
+        
+        /* 移动端底部按钮背景宽度略微增加 */
+        .tools { padding: 4px 6px; } 
+    }
+    
+    @media (max-width: 360px) {
+        header { padding: 8px 10px; gap: 8px; }
+        .logo { font-size: 12px; letter-spacing: 0px; }
+        .header-actions { gap: 8px; }
+        .header-actions button { font-size: 11px; }
     }
 </style>
 </head> 
