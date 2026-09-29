@@ -2757,7 +2757,7 @@ const Paint=(()=>{
   return api;
 })();
 /* =====================================================================
-   Camera：竖版照片 200 万像素（复古手机高曝光 + DV 色彩，亮部泛蓝）/ 360p 12fps 竖版视频（与屏幕同为 3:4） / 前后摄 / 闪光灯
+   Camera：竖版照片 200 万像素（复古手机高曝光 + DV 色彩，亮部泛蓝）/ 240p 12fps 竖版视频（与屏幕同为 3:4） / 前后摄 / 闪光灯
    ===================================================================== */
 const Camera=(()=>{
   const api={id:'camera',title:'Camera',surface:'2d',kind:'tool'};
@@ -2765,81 +2765,82 @@ const Camera=(()=>{
   let mode='photo',stream=null,audioStream=null,facing='environment',flashOn=false,torchOK=false,phase='init',err='',flashT=0,whiteT=0,
       photoBlob=null,photoImg=null,videoBlob=null,videoURL=null,rec=null,chunks=[],recT=0,frameAcc=0,mime='',busy=false;
   const mk=(w,h)=>{const c=document.createElement('canvas');c.width=w;c.height=h;return[c,c.getContext('2d',{willReadFrequently:true})];};
-  const [vc,vcg]=mk(360,480);
+  const [vc,vcg]=mk(240,320);
   function crop(vw,vh,tw,th){const s=Math.max(tw/vw,th/vh),w=tw/s,h=th/s;return[(vw-w)/2,(vh-h)/2,w,h];}
   // 0.3MP 手机相机的调色：抬黑、提亮、轻微偏冷、颗粒；返回同时生成高光层用于蓝色泛光
-  // ===== 画质引擎（参考 retroeditor 的 GEL / NTSC / CRT / BLOOM / LOFI 模块，用 CPU 低成本实现）=====
-  // DEFAULT：高曝光 + 中性饱和 + 「0.3MP Edge Glow (Blue)」12 档（扩散 50 档）
-  const FXS=['DEFAULT','VHS','CRT','FILM','PIXEL'];let fx=0;
+  // ===== 画质引擎：按 retroeditor 着色器的算法与参数在 CPU 上复现 =====
+  // 所有模式共用可调「Film Exposure」（±2EV，默认 0 = 正常曝光）
+  const FXS=['DEFAULT','DV','CCD','VHS','GEL','FILM'];let fx=0,ev=0;
+  const P={
+    DEFAULT:{glow:.12,glowBlur:.5},
+    DV:{sharp:.8,lofi:.8},                                                                       // DV Sharpening 80 + Lo-Fi Degradation 80
+    CCD:{iblur:.12,bloomInt:.28,bloomRad:.6,bloomThresh:.66,glow:.25,glowBlur:.6,sat:.58},       // 千禧年卡片机：柔焦 + 高光扩散 + 蓝色边缘光
+    VHS:{ntscLuma:.5,ntscI:.25,ntscQ:.15,cross:.35,phase:.08,cont:.42,sat:.46,scan:.35,nChroma:.25,nLuma:.1},
+    GEL:{gelHue:.9,gelSat:.7,gelDens:.24,gelEmit:.28,gelLuma:.75,flare:.45,bloomRad:.5,bloomThresh:.6,bloomInt:.2,cont:.6},  // 粉紫色光学滤片 + 横向蓝色光条
+    FILM:{gelHue:.08,gelSat:.7,gelDens:.12,gelEmit:.1,gelLuma:.75,hal:.55,bloomRad:.5,bloomThresh:.7,bloomInt:.15,nLuma:.3,dust:.25,vig:.45,cont:.58,sat:.46}
+  };
   const bufs={};
-  function B(w,h){const k=w+'x'+h;if(!bufs[k]){const [c,g]=mk(w,h),n=w*h,F=()=>new Float32Array(n);bufs[k]={c,g,R:F(),G:F(),L:F(),A:F(),C:F(),D:F()};}return bufs[k];}
+  function B(w,h){const k=w+'x'+h;if(!bufs[k]){const [c,g]=mk(w,h),n=w*h,F=()=>new Float32Array(n);bufs[k]={c,g,R:F(),G:F(),L:F(),r0:F(),g0:F(),b0:F(),Y:F(),I:F(),Q:F()};}return bufs[k];}
   const ci=(v,a,b)=>v<a?a:v>b?b:v,sm=(e0,e1,x)=>{const t=ci((x-e0)/(e1-e0),0,1);return t*t*(3-2*t);};
-  // 逐级减半缩小再放大 = 便宜又平滑的大半径模糊
+  const RING=[[0,1],[.707,.707],[1,0],[.707,-.707],[0,-1],[-.707,-.707],[-1,0],[-.707,.707]];
+  function hsv(h,s,v){const f=n=>{const k=(n+h*6)%6;return v-v*s*Math.max(0,Math.min(k,4-k,1));};return[f(5),f(3),f(1)];}
   const chain=[];
   function blurred(c,w,h,f){let cw=w,ch=h,cur=c,i=0;const tw=Math.max(1,Math.round(w/f)),th=Math.max(1,Math.round(h/f));
-    while(cw>tw){cw=Math.max(tw,cw>>1);ch=Math.max(th,ch>>1);if(!chain[i])chain[i]=mk(1,1);const [cc,cg]=chain[i];if(cc.width!==cw||cc.height!==ch){cc.width=cw;cc.height=ch;}
-      cg.imageSmoothingEnabled=true;cg.drawImage(cur,0,0,cw,ch);cur=cc;i++;}
-    if(!chain.up)chain.up=mk(1,1);const [uc,ug]=chain.up;if(uc.width!==w||uc.height!==h){uc.width=w;uc.height=h;}ug.imageSmoothingEnabled=true;ug.clearRect(0,0,w,h);ug.drawImage(cur,0,0,w,h);
-    return ug.getImageData(0,0,w,h).data;}
-  function grade(R,G,L,n,k,con,sat,warm){const den=1-Math.exp(-k);
-    for(let p=0;p<n;p++){let r=(1-Math.exp(-k*R[p]))/den,g=(1-Math.exp(-k*G[p]))/den,b=(1-Math.exp(-k*L[p]))/den;
-      if(con){r=r+(r*r*(3-2*r)-r)*con;g=g+(g*g*(3-2*g)-g)*con;b=b+(b*b*(3-2*b)-b)*con;}
-      const l=.299*r+.587*g+.114*b;r=l+(r-l)*sat;g=l+(g-l)*sat;b=l+(b-l)*sat;if(warm){r+=warm*.04;b-=warm*.05;}
-      R[p]=ci(r,0,1);G[p]=ci(g,0,1);L[p]=ci(b,0,1);}}
-  function put(b,a,w,h){const {R,G,L}=b;for(let p=0,i=0;p<w*h;p++,i+=4){a[i]=R[p]*255;a[i+1]=G[p]*255;a[i+2]=L[p]*255;a[i+3]=255;}}
+    while(cw>tw){cw=Math.max(tw,cw>>1);ch=Math.max(th,ch>>1);if(!chain[i])chain[i]=mk(1,1);const [cc,cg]=chain[i];if(cc.width!==cw||cc.height!==ch){cc.width=cw;cc.height=ch;}cg.imageSmoothingEnabled=true;cg.drawImage(cur,0,0,cw,ch);cur=cc;i++;}
+    if(!chain.up)chain.up=mk(1,1);const [uc,ug]=chain.up;if(uc.width!==w||uc.height!==h){uc.width=w;uc.height=h;}ug.imageSmoothingEnabled=true;ug.clearRect(0,0,w,h);ug.drawImage(cur,0,0,w,h);return ug.getImageData(0,0,w,h).data;}
+  // safeBlur：8 点环形平均（与原文件一致），大半径时从预模糊图取样避免锯齿
+  function ringAt(src,w,h,x,y,rad,out,sc){let r=0,g=0,b=0;for(let k=0;k<8;k++){const X=ci(Math.round(x+RING[k][0]*rad),0,w-1),Y=ci(Math.round(y+RING[k][1]*rad),0,h-1),q=(Y*w+X)*4;r+=src[q];g+=src[q+1];b+=src[q+2];}out[0]=r/8*sc;out[1]=g/8*sc;out[2]=b/8*sc;}
   function proc(src,sx,sy,sw,sh,w,h,mirror,boost,kind){
-    const b=B(w,h),g=b.g,n=w*h,{R,G,L,A,C,D}=b,F=FXS[fx],u=w/800;
+    const b=B(w,h),g=b.g,n=w*h,{R,G,L,r0,g0,b0,Y,I,Q}=b,F=FXS[fx],p=P[F],u=w/1000,t=time;
     g.save();if(mirror){g.translate(w,0);g.scale(-1,1);}g.imageSmoothingEnabled=true;g.drawImage(src,sx,sy,sw,sh,0,0,w,h);g.restore();
-    const img=g.getImageData(0,0,w,h),a=img.data;for(let i=0,p=0;p<n;i+=4,p++){R[p]=a[i]/255;G[p]=a[i+1]/255;L[p]=a[i+2]/255;}
-    const bo=boost||1;
-    if(F==='DEFAULT'){
-      grade(R,G,L,n,2.4*bo,.25,1,0);put(b,a,w,h);g.putImageData(img,0,0);
-      // 0.3MP Edge Glow (Blue) @12：环形取样的模糊图，暗侧边缘泛出蓝光 + 很淡的整体柔光
-      const bd=blurred(b.c,w,h,Math.max(2,w/300)),r=Math.max(1,Math.round(32*u)),o=[[0,1],[.707,.707],[1,0],[.707,-.707],[0,-1],[-.707,-.707],[-1,0],[-.707,.707]].map(([x,y])=>[Math.round(x*r),Math.round(y*r)]);
-      const gl=.12,fr=[.12,.1,1];
-      for(let y=0;y<h;y++)for(let x=0;x<w;x++){let br=0,bg=0,bb=0;for(let k2=0;k2<8;k2++){const X=ci(x+o[k2][0],0,w-1),Y=ci(y+o[k2][1],0,h-1),q=(Y*w+X)*4;br+=bd[q];bg+=bd[q+1];bb+=bd[q+2];}
-        br/=2040;bg/=2040;bb/=2040;const p=y*w+x,oL=.299*R[p]+.587*G[p]+.114*L[p],f=sm(.01,.3,(.299*br+.587*bg+.114*bb)-oL)*gl*3.5,i=p*4;
-        a[i]=ci((R[p]+fr[0]*br*f+br*gl*.3)*255,0,255);a[i+1]=ci((G[p]+fr[1]*bg*f+bg*gl*.3)*255,0,255);a[i+2]=ci((L[p]+fr[2]*bb*f+bb*gl*.3)*255,0,255);}
-    }else if(F==='VHS'){
-      // NTSC：亮度带宽 55 / 色度 I 35 / Q 25 / 相位 +6 / Y-C 串扰彩虹 25 + 轻扫描线
-      grade(R,G,L,n,2.3*bo,.15,1.05,.3);
-      for(let p=0;p<n;p++){const r=R[p],g2=G[p],bl=L[p];A[p]=.299*r+.587*g2+.114*bl;C[p]=.596*r-.274*g2-.322*bl;D[p]=.211*r-.523*g2+.312*bl;}
-      const bY=Math.max(1,Math.round(6.75*u)),sI=Math.max(1,Math.round(26*u)),sQ=Math.max(2,Math.round(45*u)),e3=Math.max(1,Math.round(3*u)),ang=.06*Math.PI,ca=Math.cos(ang),sa=Math.sin(ang),t=time;
-      for(let y=0;y<h;y++){const o=y*w;for(let x=0;x<w;x++){const p=o+x,L1=o+ci(x-bY,0,w-1),R1=o+ci(x+bY,0,w-1);
-        let Y=A[p]*.5+(A[L1]+A[R1])*.25,I=C[p]*.5+(C[o+ci(x-sI,0,w-1)]+C[o+ci(x+sI,0,w-1)])*.25,Q=D[p]*.5+(D[o+ci(x-sQ,0,w-1)]+D[o+ci(x+sQ,0,w-1)])*.25;
-        const edge=(A[p]-A[o+ci(x+e3,0,w-1)])*.25*15;I+=Math.sin(x/u*.8+t*20)*edge*.5;Q+=Math.cos(x/u*.8+t*20)*edge*.5;
-        const nI=I*ca-Q*sa,nQ=I*sa+Q*ca;if(y&1)Y*=.94;Y+=(Math.random()-.5)*.03;const i=p*4;
-        a[i]=ci((Y+.956*nI+.621*nQ)*255,0,255);a[i+1]=ci((Y-.272*nI-.647*nQ)*255,0,255);a[i+2]=ci((Y-1.106*nI+1.703*nQ)*255,0,255);}}
-    }else if(F==='CRT'){
-      // CRT：荫栅条纹 + 自适应扫描线 + 屏幕暗角 + 轻微辉光
-      grade(R,G,L,n,2.4*bo,.3,1.12,0);put(b,a,w,h);g.putImageData(img,0,0);const bd=blurred(b.c,w,h,Math.max(2,w/60));
-      const per=Math.max(2,h/240),sw2=Math.max(1,Math.round(per/2));
-      for(let y=0;y<h;y++){const sl=Math.sin(y/per*Math.PI);for(let x=0;x<w;x++){const p=y*w+x,i=p*4;
-        let r=R[p]+Math.max(0,bd[i]/255-.6)*.6,g2=G[p]+Math.max(0,bd[i+1]/255-.6)*.6,bl=L[p]+Math.max(0,bd[i+2]/255-.6)*.6;const l=.299*r+.587*g2+.114*bl;
-        const sc=1-.6*(.9-.75*l*l)*(1-(sl*.5+.5)),ch=Math.floor(x/sw2)%3,m=.45;r*=sc*(ch===0?1:1-m*.8);g2*=sc*(ch===1?1:1-m*.8);bl*=sc*(ch===2?1:1-m*.8);
-        const dx=x/w-.5,dy=y/h-.5,vg=1-.5*sm(.1,.5,dx*dx+dy*dy),k3=1.32*vg;a[i]=ci(r*k3*255,0,255);a[i+1]=ci(g2*k3*255,0,255);a[i+2]=ci(bl*k3*255,0,255);}}
-    }else if(F==='FILM'){
-      // 胶片：暖调 + 高光扩散 + 红色 Halation 光晕 + 颗粒 + 灰尘
-      grade(R,G,L,n,2.2*bo,.2,.95,1);put(b,a,w,h);g.putImageData(img,0,0);const bd=blurred(b.c,w,h,Math.max(2,w/40));
-      const dust=n*.00006;
-      for(let p=0,i=0;p<n;p++,i+=4){const br=bd[i]/255,bg=bd[i+1]/255,bb=bd[i+2]/255;
-        let r=R[p]+Math.max(0,br-.7)/.3*.5+Math.max(0,br-.56)*.75,g2=G[p]+Math.max(0,bg-.7)/.3*.5+Math.max(0,bg-.56)*.075,bl=L[p]+Math.max(0,bb-.7)/.3*.5;
-        const gr=(Math.random()-.5)*.1;a[i]=ci((r+gr)*255,0,255);a[i+1]=ci((g2+gr)*255,0,255);a[i+2]=ci((bl+gr)*255,0,255);}
-      for(let k2=0;k2<dust;k2++){const p=Math.floor(Math.random()*n)*4,v=Math.random()<.5?30:235;a[p]=a[p+1]=a[p+2]=v;}
-    }else{
-      // PIXEL：低分辨率 + 色阶压缩 + 紫色暗部 / 暖色高光（最近邻放大，另叠 LED 缝隙）
-      grade(R,G,L,n,2.4*bo,.2,1.28,0);const st=14;
-      for(let p=0,i=0;p<n;p++,i+=4){let r=Math.floor(R[p]*st)/st,g2=Math.floor(G[p]*st)/st,bl=Math.floor(L[p]*st)/st;const l=.299*r+.587*g2+.114*bl;
-        r+=(1-r)*.14*l;g2+=(.95-g2)*.14*l;bl+=(.85-bl)*.14*l;r+=(1-r)*.076;g2+=(1-g2)*.028;bl+=(1-bl)*.114;a[i]=ci(r*255,0,255);a[i+1]=ci(g2*255,0,255);a[i+2]=ci(bl*255,0,255);}
-    }
+    const img=g.getImageData(0,0,w,h),a=img.data,raw=new Uint8ClampedArray(a);
+    const needBig=p.iblur||p.bloomInt||p.hal||p.glow,bigR=Math.max(p.iblur?Math.max(2,24*p.iblur):0,(p.bloomInt||p.hal)?10+50*Math.max(p.bloomRad||.4,p.hal||0):0,p.glow?4+56*(p.glowBlur||.5):0)*u;
+    const bd=needBig?blurred(g.canvas,w,h,Math.max(2,bigR/2.5)):null,tmp=[0,0,0],tmp2=[0,0,0];
+    const expo=Math.pow(2,ev)*(boost||1),cp=((p.cont!=null?p.cont:.5)-.5)*2,sat=(p.sat!=null?p.sat:.5)*2;
+    const lofi=p.lofi||0,steps=256+(4-256)*lofi,sharp=p.sharp||0,shR=(1+3*sharp)*Math.max(.6,u*1.2);
+    const gel=p.gelDens?hsv(p.gelHue,p.gelSat,1):null,ab=gel?gel.map(c=>Math.exp((c-1)*p.gelDens*4)):null;
+    for(let y=0;y<h;y++)for(let x=0;x<w;x++){const q=y*w+x,i=q*4;
+      let r=raw[i]/255,gg=raw[i+1]/255,bl=raw[i+2]/255;
+      if(p.iblur){ringAt(bd,w,h,x,y,Math.max(2,24*p.iblur)*u,tmp,1/255);r+=(tmp[0]-r)*p.iblur;gg+=(tmp[1]-gg)*p.iblur;bl+=(tmp[2]-bl)*p.iblur;}
+      if(sharp){ringAt(raw,w,h,x,y,shR,tmp,1/255);r+=(r-tmp[0])*sharp*6;gg+=(gg-tmp[1])*sharp*6;bl+=(bl-tmp[2])*sharp*6;r=ci(r,0,1);gg=ci(gg,0,1);bl=ci(bl,0,1);}
+      r*=expo;gg*=expo;bl*=expo;                                                              // Film Exposure
+      if(cp>0){r+=(sm(0,1,r)-r)*cp;gg+=(sm(0,1,gg)-gg)*cp;bl+=(sm(0,1,bl)-bl)*cp;}else if(cp<0){r+=((r-.5)*.5+.5-r)*-cp;gg+=((gg-.5)*.5+.5-gg)*-cp;bl+=((bl-.5)*.5+.5-bl)*-cp;}
+      const sl=.299*r+.587*gg+.114*bl;r=sl+(r-sl)*sat;gg=sl+(gg-sl)*sat;bl=sl+(bl-sl)*sat;
+      if(lofi){r=Math.floor(r*steps)/steps;gg=Math.floor(gg*steps)/steps;bl=Math.floor(bl*steps)/steps;const k2=lofi*.15*sl;
+        r+=(1-r)*k2;gg+=(.95-gg)*k2;bl+=(.85-bl)*k2;r+=Math.max(0,1-r)*.08*lofi;gg+=Math.max(0,1-gg)*.03*lofi;bl+=Math.max(0,1-bl)*.12*lofi;}
+      r=ci(r,0,1);gg=ci(gg,0,1);bl=ci(bl,0,1);
+      if(gel){const l=.299*r+.587*gg+.114*bl;let fr=r*ab[0],fg=gg*ab[1],fb=bl*ab[2];const len=Math.hypot(fr+.001,fg+.001,fb+.001);
+        fr+=((fr+.001)/len*l-fr)*p.gelLuma;fg+=((fg+.001)/len*l-fg)*p.gelLuma;fb+=((fb+.001)/len*l-fb)*p.gelLuma;const em=p.gelEmit*2*l*p.gelDens;
+        r=ci(fr+gel[0]*em,0,1);gg=ci(fg+gel[1]*em,0,1);bl=ci(fb+gel[2]*em,0,1);}
+      if(p.glow){ringAt(bd,w,h,x,y,(4+56*p.glowBlur)*u,tmp,1/255);const oL=.299*r+.587*gg+.114*bl,f=sm(.01,.3,(.299*tmp[0]+.587*tmp[1]+.114*tmp[2])-oL)*p.glow*3.5;
+        r=ci(r+.12*tmp[0]*f+tmp[0]*p.glow*.3,0,1);gg=ci(gg+.1*tmp[1]*f+tmp[1]*p.glow*.3,0,1);bl=ci(bl+tmp[2]*f+tmp[2]*p.glow*.3,0,1);}
+      R[q]=r;G[q]=gg;L[q]=bl;}
+    // NTSC（亮度/色度带宽、相位、Y/C 串扰）
+    if(p.ntscLuma!=null){for(let q=0;q<n;q++){Y[q]=.299*R[q]+.587*G[q]+.114*L[q];I[q]=.596*R[q]-.274*G[q]-.322*L[q];Q[q]=.211*R[q]-.523*G[q]+.312*L[q];}
+      const bY=Math.max(1,Math.round((1-p.ntscLuma)*15*u)),sI=Math.max(1,Math.round((1-p.ntscI)*40*u)),sQ=Math.max(1,Math.round((1-p.ntscQ)*60*u)),e3=Math.max(1,Math.round(3*u)),an=p.phase*Math.PI,ca=Math.cos(an),sa=Math.sin(an);
+      for(let y=0;y<h;y++){const o=y*w;for(let x=0;x<w;x++){const q=o+x;let yy=Y[q]*.5+(Y[o+ci(x-bY,0,w-1)]+Y[o+ci(x+bY,0,w-1)])*.25,ii=I[q]*.5+(I[o+ci(x-sI,0,w-1)]+I[o+ci(x+sI,0,w-1)])*.25,qq=Q[q]*.5+(Q[o+ci(x-sQ,0,w-1)]+Q[o+ci(x+sQ,0,w-1)])*.25;
+        const rb=(Y[q]-Y[o+ci(x+e3,0,w-1)])*p.cross*15;ii+=Math.sin(x/u*.8+t*20)*rb;qq+=Math.cos(x/u*.8+t*20)*rb;const ni=ii*ca-qq*sa,nq=ii*sa+qq*ca;
+        R[q]=ci(yy+.956*ni+.621*nq,0,1);G[q]=ci(yy-.272*ni-.647*nq,0,1);L[q]=ci(yy-1.106*ni+1.703*nq,0,1);}}}
+    // BLOOM / HALATION / FLARE / CRT 扫描线 / 暗角 / 颗粒 / 灰尘
+    const th=p.bloomThresh!=null?p.bloomThresh:.75,bR=(10+50*Math.max(p.bloomRad||.4,p.hal||0))*u,fl=p.flare||0,fR=(p.bloomRad||.4)*8*u;
+    for(let y=0;y<h;y++){const scan=p.scan?Math.sin(y/h*400*Math.PI):0;for(let x=0;x<w;x++){const q=y*w+x,i=q*4;let r=R[q],gg=G[q],bl=L[q];
+      if(p.bloomInt||p.hal){ringAt(bd,w,h,x,y,bR,tmp,1/255);if(p.bloomInt){const k2=p.bloomInt*2/Math.max(1-th,1e-4);r+=Math.max(0,tmp[0]-th)*k2;gg+=Math.max(0,tmp[1]-th)*k2;bl+=Math.max(0,tmp[2]-th)*k2;}
+        if(p.hal){const t8=th*.8;r+=Math.max(0,tmp[0]-t8)*p.hal*1.5;gg+=Math.max(0,tmp[1]-t8)*.1*p.hal*1.5;}}
+      if(fl){let f=0;const o=y*w;[[2,.15],[1,.35],[-1,.35],[-2,.15]].forEach(([m,wt])=>{const X=ci(Math.round(x+m*fR),0,w-1),j=(o+X)*4;f+=Math.max(0,(raw[j]+raw[j+1]+raw[j+2])/765-th)*wt;});r+=f*fl*.1;gg+=f*fl*.4;bl+=f*fl;}
+      if(p.scan){const wgt=.9-.75*Math.min(1,(.299*r+.587*gg+.114*bl)**2);const m=1+((scan*.5+.5)-1)*p.scan*wgt;r*=m;gg*=m;bl*=m;}
+      if(p.vig){const dx=x/w-.5,dy=y/h-.5,v=1-sm(.1,.5,dx*dx+dy*dy),m=1+(v-1)*p.vig;r*=m;gg*=m;bl*=m;}
+      if(p.nLuma){const nn=(Math.random()-.5)*p.nLuma*.4;r+=nn;gg+=nn;bl+=nn;}
+      if(p.nChroma){r+=(Math.random()-.5)*p.nChroma*.4;gg+=(Math.random()-.5)*p.nChroma*.4;bl+=(Math.random()-.5)*p.nChroma*.4;}
+      a[i]=ci(r*255,0,255);a[i+1]=ci(gg*255,0,255);a[i+2]=ci(bl*255,0,255);}}
+    if(p.dust){const k2=n*.00004*p.dust*4;for(let j=0;j<k2;j++){const q=Math.floor(Math.random()*n)*4,v=Math.random()<.5?25:240;a[q]=a[q+1]=a[q+2]=v;}}
     g.putImageData(img,0,0);return b.c;
   }
-  const WR={photo:{DEFAULT:[900,1200],VHS:[480,640],CRT:[1200,1600],FILM:[1200,1600],PIXEL:[150,200]},video:{DEFAULT:[360,480],VHS:[240,320],CRT:[360,480],FILM:[360,480],PIXEL:[90,120]},
-    view:{DEFAULT:[120,160],VHS:[120,160],CRT:[240,320],FILM:[120,160],PIXEL:[60,80]}};
-  function shoot(kind,src,sx,sy,sw,sh,dst,dg,mirror,boost){const F=FXS[fx],[w,h]=WR[kind][F],c=proc(src,sx,sy,sw,sh,w,h,mirror,boost,kind);
-    dg.imageSmoothingEnabled=F!=='PIXEL';dg.drawImage(c,0,0,dst.width,dst.height);dg.imageSmoothingEnabled=true;
-    if(F==='PIXEL'){const bx=dst.width/w;if(bx>=3){dg.fillStyle='rgba(0,0,0,.28)';for(let x=0;x<dst.width;x+=bx)dg.fillRect(Math.round(x),0,Math.max(1,Math.round(bx/6)),dst.height);for(let y=0;y<dst.height;y+=bx)dg.fillRect(0,Math.round(y),dst.width,Math.max(1,Math.round(bx/6)));}}}
+  const WR={photo:{DEFAULT:[900,1200],DV:[720,960],CCD:[600,800],VHS:[480,640],GEL:[600,800],FILM:[720,960]},video:[240,320],view:[120,160]};
+  function shoot(kind,src,sx,sy,sw,sh,dst,dg,mirror,boost){const F=FXS[fx],[w,h]=kind==='photo'?WR.photo[F]:WR[kind],c=proc(src,sx,sy,sw,sh,w,h,mirror,boost,kind);
+    dg.imageSmoothingEnabled=true;dg.drawImage(c,0,0,dst.width,dst.height);}
   function nextFx(){fx=(fx+1)%FXS.length;SFX.key();flash(FXS[fx]);}
+  function setEV(d){const nv=clamp(Math.round((ev+d)*3)/3,-2,2);if(nv===ev){SFX.err();return;}ev=nv;SFX.key();}
+  const evTxt=()=>'EV '+(ev>0?'+':ev<0?'-':'±')+Math.abs(ev).toFixed(1);
   async function openCam(){
     stopStream();phase='init';err='';torchOK=false;
     if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){phase='error';err='No camera support in this browser';App.refresh();return;}
@@ -2863,7 +2864,7 @@ const Camera=(()=>{
     const [out,og]=mk(1200,1600);
     const [sx,sy,sw,sh]=crop(vw,vh,3,4);shoot('photo',camV,sx,sy,sw,sh,out,og,facing==='user',boost);
     if(flashOn)setTorch(false);
-    photoBlob=await new Promise(r=>out.toBlob(r,'image/jpeg',{DEFAULT:.9,VHS:.85,CRT:.9,FILM:.88,PIXEL:.92}[FXS[fx]]));
+    photoBlob=await new Promise(r=>out.toBlob(r,'image/jpeg',{DEFAULT:.9,DV:.62,CCD:.86,VHS:.8,GEL:.88,FILM:.86}[FXS[fx]]));
     photoImg=new Image();photoImg.src=URL.createObjectURL(photoBlob);
     busy=false;phase='photoPreview';App.refresh();
   }
@@ -2900,16 +2901,17 @@ const Camera=(()=>{
   api.key=k=>{
     if(phase==='photoPreview'||phase==='videoPreview'){if(k==='L'||k==='ok'||k==='call')saveCur();else if(k==='R'||k==='C')discard();return;}
     if(phase==='error'){if(k==='ok'||k==='L')openCam();else if(k==='R')App.quitGame();return;}
-    if(phase==='rec'){if(k==='ok'||k==='L'||k==='call')stopRec();else if(k==='down')toggleFlash();return;}
+    if(phase==='rec'){if(k==='ok'||k==='L'||k==='call')stopRec();else if(k==='up')setEV(1/3);else if(k==='down')setEV(-1/3);return;}
     if(k==='left'||k==='right'){mode=mode==='photo'?'video':'photo';SFX.key();App.refresh();}
-    else if(k==='up')flip();
-    else if(k==='down')toggleFlash();
+    else if(k==='up')setEV(1/3);
+    else if(k==='down')setEV(-1/3);
     else if(k==='call'){if(phase==='view')nextFx();}
     else if(k==='ok'||k==='L'){if(phase!=='view')return;if(mode==='photo')takePhoto();else startRec();}
     else if(k==='R')App.quitGame();
   };
   api.pointer=(t,x,y)=>{if(t!=='up')return;
     if(phase==='view'&&y>268){nextFx();return;}
+    if((phase==='view'||phase==='rec')&&x>204&&y>60&&y<260){setEV(y<160?1/3:-1/3);return;}
     if((phase==='view'||phase==='rec')&&y<48){if(x<70){if(phase==='view')flip();}else if(x>170)toggleFlash();else if(phase==='view'){mode=mode==='photo'?'video':'photo';SFX.key();App.refresh();}return;}
     api.key(phase==='photoPreview'||phase==='videoPreview'?'L':'ok');};
   api.softs=()=>{
@@ -2932,17 +2934,22 @@ const Camera=(()=>{
       }else ptext('OPENING CAMERA...',120,160,12,'#fff','center');
       FR(0,16,240,30,'rgba(0,0,0,.5)');
       icon(10,24,'flip');ptext(facing==='user'?'FRONT':'MAIN',28,34,8,'#dfe6f5');
-      ptext(mode==='photo'?'< PHOTO 2MP >':'< VIDEO 360P 12FPS >',120,34,8,'#fff','center');
+      ptext(mode==='photo'?'< PHOTO 2MP >':'< VIDEO 240P 12FPS >',120,34,8,'#fff','center');
       icon(200,22,'flash',flashOn);ptext(flashOn?'ON':'OFF',232,34,8,flashOn?'#ffe85a':'#8a90a0','right');
       const c='rgba(255,255,255,.75)';[[18,60],[206,60],[18,280],[206,280]].forEach(([x,y],i)=>{FR(x,y,16,1,c);FR(i%2?x+15:x,i<2?y:y-15,1,16,c);});
       FR(114,168,12,1,c);FR(120,162,1,13,c);
       if(phase==='view'){FR(60,282,120,14,'rgba(0,0,0,.55)');ptext('< '+FXS[fx]+' >',120,292,8,'#ffe85a','center');}
+      // 曝光刻度（右侧）：+2EV 在上，-2EV 在下
+      FR(216,66,18,188,'rgba(0,0,0,.45)');ptext('+',225,78,8,'#fff','center');ptext('-',225,250,8,'#fff','center');
+      for(let k=-6;k<=6;k++){const yy=160-k*12;FR(k%3?222:219,yy,k%3?6:12,1,k?'rgba(255,255,255,.55)':'#fff');}
+      {const yy=Math.round(160-ev*3*12);FR(217,yy-2,16,5,'#ffe85a');}
+      ptext(evTxt(),204,62,8,ev?'#ffe85a':'#fff','right');
       if(phase==='rec'){if(Math.floor(time*2)%2)pball(18,62,4,'#ff2a2a');const s=Math.floor(recT);ptext('REC '+String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'),28,66,8,'#ff5a5a','left',null,'#000');}
     }else if(phase==='photoPreview'&&photoImg){
       ctx.imageSmoothingEnabled=true;if(photoImg.complete)ctx.drawImage(photoImg,0,0,240,320);ctx.imageSmoothingEnabled=false;
       FR(0,16,240,18,'rgba(0,0,0,.5)');ptext('PREVIEW 1200x1600 2MP',120,29,8,'#fff','center');
     }else if(phase==='videoPreview'){
-      FR(0,16,240,18,'rgba(0,0,0,.5)');ptext('VIDEO 360x480 12FPS',120,29,8,'#fff','center');
+      FR(0,16,240,18,'rgba(0,0,0,.5)');ptext('VIDEO 240x320 12FPS',120,29,8,'#fff','center');
     }else if(phase==='error'){
       ptext('CAMERA',120,110,16,'#fff','center');
       [err,'Open this page in Safari','or add it to the Home Screen.'].forEach((l,i)=>ptext(l,120,150+i*16,8,'#c8d4ff','center'));
