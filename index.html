@@ -1,407 +1,131 @@
-<title>🍍waveelab</title>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <!-- viewport-fit=cover:让页面延伸到状态栏和底部横条下面(全屏的关键) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>🍍waveelab</title>
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#87CEEB">
-    
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <!-- black-translucent:状态栏透明,页面内容画在状态栏下面 -->
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="waveelab">
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22white%22/><text y=%22.9em%22 font-size=%2290%22>🍍</text></svg>">
     <style>
-        /* 自动切换白天和黑夜模式的 CSS 变量 */
         :root {
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+            --safe-left: env(safe-area-inset-left, 0px);
+            --safe-right: env(safe-area-inset-right, 0px);
+            --bar-h: 26px;
+            --topbar-h: calc(var(--bar-h) + var(--safe-top));
+
             --bg-gradient: linear-gradient(to bottom, #ffffff, #87CEEB);
             --text-color: #333;
-            /* 优化：减弱白天模式的文字投影，更清爽 */
             --text-shadow: 0 1px 1px rgba(255,255,255,0.6);
             --window-bg: #ececec;
             --window-pinstripe: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.5) 2px, rgba(255,255,255,0.5) 4px);
             --title-bar: linear-gradient(to bottom, #fdfdfd, #c8c8c8);
             --dock-bg: rgba(255, 255, 255, 0.4);
-            --dock-border: rgba(255, 255, 255, 0.6);
             --topbar-bg: rgba(255, 255, 255, 0.75);
             --topbar-border: rgba(0, 0, 0, 0.15);
+            /* iOS 全屏模式下状态栏文字固定为白色,浅色主题需要一条稍深的底色才能看清时间和电量 */
+            --statusbar-bg: rgba(90, 150, 190, 0.55);
         }
-
         @media (prefers-color-scheme: dark) {
             :root {
-                /* 黑夜模式：黑色渐变低饱和深蓝色 */
                 --bg-gradient: linear-gradient(to bottom, #000000, #1a2332);
                 --text-color: #f0f0f0;
-                /* 优化：稍微柔和一点的暗黑文字投影 */
                 --text-shadow: 0 1px 2px rgba(0,0,0,0.8);
                 --window-bg: #2c2c2c;
                 --window-pinstripe: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.1) 2px, rgba(0,0,0,0.1) 4px);
                 --title-bar: linear-gradient(to bottom, #555, #222);
                 --dock-bg: rgba(0, 0, 0, 0.5);
-                --dock-border: rgba(255, 255, 255, 0.2);
                 --topbar-bg: rgba(0, 0, 0, 0.5);
                 --topbar-border: rgba(255, 255, 255, 0.15);
+                --statusbar-bg: rgba(0, 0, 0, 0.6);
             }
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            user-select: none; 
-            -webkit-user-select: none;
-            /* 修复：去除移动端点击时的默认方块半透明高亮阴影 */
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background: var(--bg-gradient);
-            height: 100vh;
-            width: 100vw;
-            overflow: hidden;
-            transition: background 0.5s ease;
-        }
-
-        /* 顶部导航栏 (Menu Bar) */
-        #top-bar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 26px;
-            background: var(--topbar-bg);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border-bottom: 1px solid var(--topbar-border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0 15px;
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--text-color);
-            z-index: 1000;
-        }
-
-        #top-bar .left-menu {
-            display: flex;
-            align-items: center;
-            cursor: pointer;
-            gap: 6px;
-        }
-
-        #top-bar .left-menu span.pineapple {
-            filter: contrast(0%) brightness(50%); 
-            font-size: 14px;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg-gradient); height: 100vh; width: 100vw; overflow: hidden; transition: background 0.5s ease; }
+        html { height: 100%; background: var(--bg-gradient); background-attachment: fixed; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg-gradient); position: fixed; inset: 0; overflow: hidden; overscroll-behavior: none; transition: background 0.5s ease; }
 
-        @media (prefers-color-scheme: dark) {
-            #top-bar .left-menu span.pineapple {
-                filter: contrast(0%) brightness(200%); 
-            }
-        }
-
-        #top-bar .left-menu:active {
-            opacity: 0.6;
-        }
-
-        /* 桌面图标区域 */
-        #desktop {
-            display: flex;
-            flex-direction: column;
-            flex-wrap: wrap;
-            height: calc(100vh - 120px);
-            padding: 15px;
-            margin-top: 26px; /* 避开顶部导航栏 */
-            gap: 20px;
-            align-content: flex-start;
-        }
-
-        .icon {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            width: 70px;
-            cursor: pointer;
-            transition: transform 0.2s;
-        }
-
-        .icon:active {
-            transform: scale(0.9);
-        }
-
-        .icon-emoji {
-            font-size: 40px;
-            /* 性能优化：用 text-shadow 替代 filter: drop-shadow，视觉相同但运算极小 */
-            text-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-            margin-bottom: 5px;
-        }
-
-        .icon-name {
-            font-size: 12px;
-            color: var(--text-color);
-            text-shadow: var(--text-shadow);
-            text-align: center;
-            word-wrap: break-word;
-            width: 100%;
-            font-weight: 500;
-        }
-
-        /* 窗口样式 (Aqua) */
-        .window {
-            position: absolute;
-            width: 80%;
-            height: 80%;
-            top: 10%;
-            left: 10%;
-            background-color: var(--window-bg);
-            background-image: var(--window-pinstripe);
-            border-radius: 8px 8px 0 0;
-            /* 优化：引入负扩散(-10px)制造高级弥散感，同时边缘加1px浅色描边增强立体感 */
-            box-shadow: 0 20px 40px -10px rgba(0,0,0,0.25), 0 0 1px rgba(0,0,0,0.3);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            opacity: 0;
-            transform: scale(0.95);
-            transition: opacity 0.2s ease, transform 0.2s ease, width 0.3s ease, height 0.3s ease, top 0.3s ease, left 0.3s ease;
-            pointer-events: none;
-            z-index: 10;
-        }
-
-        .window.active {
-            opacity: 1;
-            transform: scale(1);
-            pointer-events: auto;
-        }
-
-        .window.fullscreen {
-            width: 100% !important;
-            height: calc(100% - 26px) !important; 
-            top: 26px !important;
-            left: 0 !important;
-            border-radius: 0;
-            z-index: 1500 !important; /* 确保覆盖 Dock */
-        }
-
-        .window.minimized {
-            opacity: 0;
-            transform: scale(0.5) translateY(100vh);
-            pointer-events: none;
-        }
-
-        .title-bar {
-            height: 28px;
-            background: var(--title-bar);
-            display: flex;
-            align-items: center;
-            padding: 0 10px;
-            border-bottom: 1px solid rgba(0,0,0,0.3);
-            border-top-left-radius: 8px;
-            border-top-right-radius: 8px;
-            cursor: grab;
-            position: relative;
-        }
-
-        .title-bar:active {
-            cursor: grabbing;
-        }
-
-        .window.fullscreen .title-bar {
-            border-radius: 0;
-        }
-
-        .controls {
-            display: flex;
-            gap: 6px;
-            z-index: 2;
-        }
-
-        .btn {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            /* 优化：削弱高光和底纹的对比度，使其更有精致质感 */
-            box-shadow: inset 0 -1px 1px rgba(0,0,0,0.1), inset 0 1px 1px rgba(255,255,255,0.6), 0 1px 2px rgba(0,0,0,0.15);
-            cursor: pointer;
-        }
-
-        #top-bar { position: fixed; top: 0; left: 0; right: 0; height: 26px; background: var(--topbar-bg); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--topbar-border); display: flex; justify-content: space-between; align-items: center; padding: 0 15px; font-size: 14px; font-weight: 600; color: var(--text-color); z-index: 1000; }
+        /* 顶栏延伸到状态栏下方 */
+        #top-bar { position: fixed; top: 0; left: 0; right: 0; height: var(--topbar-h); padding: var(--safe-top) calc(15px + var(--safe-right)) 0 calc(15px + var(--safe-left)); background: var(--topbar-bg); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--topbar-border); display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 600; color: var(--text-color); z-index: 2000; }
+        #top-bar::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: var(--safe-top); background: var(--statusbar-bg); pointer-events: none; }
         #top-bar .left-menu { display: flex; align-items: center; cursor: pointer; gap: 6px; }
         #top-bar .left-menu span.pineapple { filter: contrast(0%) brightness(50%); font-size: 14px; }
         @media (prefers-color-scheme: dark) { #top-bar .left-menu span.pineapple { filter: contrast(0%) brightness(200%); } }
         #top-bar .left-menu:active { opacity: 0.6; }
-        
-        #desktop { display: flex; flex-direction: column; flex-wrap: wrap; height: calc(100vh - 120px); padding: 15px; margin-top: 26px; gap: 20px; align-content: flex-start; }
+
+        #desktop { position: fixed; top: var(--topbar-h); left: var(--safe-left); right: var(--safe-right); bottom: calc(95px + var(--safe-bottom)); display: flex; flex-direction: column; flex-wrap: wrap; padding: 15px; gap: 20px; align-content: flex-start; }
         .icon { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 70px; cursor: pointer; transition: transform 0.2s; }
         .icon:active { transform: scale(0.9); }
         .icon-emoji { font-size: 40px; text-shadow: 0 4px 8px rgba(0,0,0,0.15); margin-bottom: 5px; }
         .icon-name { font-size: 12px; color: var(--text-color); text-shadow: var(--text-shadow); text-align: center; word-wrap: break-word; width: 100%; font-weight: 500; }
-        
-        .window { position: absolute; width: 80%; height: 80%; top: 10%; left: 10%; background-color: var(--window-bg); background-image: var(--window-pinstripe); border-radius: 8px 8px 0 0; box-shadow: 0 20px 40px -10px rgba(0,0,0,0.25), 0 0 1px rgba(0,0,0,0.3); display: flex; flex-direction: column; overflow: hidden; opacity: 0; transform: scale(0.95); transition: opacity 0.2s, transform 0.2s, width 0.3s, height 0.3s, top 0.3s, left 0.3s; pointer-events: none; z-index: 10; }
+
+        .window { position: absolute; width: 80%; height: 75%; top: calc(var(--topbar-h) + 5%); left: 10%; min-width: 200px; min-height: 150px; background-color: var(--window-bg); background-image: var(--window-pinstripe); border-radius: 8px 8px 0 0; box-shadow: 0 20px 40px -10px rgba(0,0,0,0.25), 0 0 1px rgba(0,0,0,0.3); display: flex; flex-direction: column; overflow: hidden; opacity: 0; transform: scale(0.95); transition: opacity 0.2s, transform 0.2s, width 0.3s, height 0.3s, top 0.3s, left 0.3s; pointer-events: none; z-index: 10; }
         .window.active { opacity: 1; transform: scale(1); pointer-events: auto; }
-        .window.fullscreen { width: 100% !important; height: calc(100% - 26px) !important; top: 26px !important; left: 0 !important; border-radius: 0; z-index: 1500 !important; }
+        .window.no-anim { transition: opacity 0.2s, transform 0.2s !important; }
+        .window.fullscreen { width: 100% !important; height: calc(100% - var(--topbar-h)) !important; top: var(--topbar-h) !important; left: 0 !important; border-radius: 0; z-index: 1500 !important; }
+        .window.fullscreen .content { padding-bottom: var(--safe-bottom); }
+        .window.fullscreen .rz { display: none; }
         .window.minimized { opacity: 0; transform: scale(0.5) translateY(100vh); pointer-events: none; }
-        
-        .title-bar { height: 28px; background: var(--title-bar); display: flex; align-items: center; padding: 0 10px; border-bottom: 1px solid rgba(0,0,0,0.3); border-top-left-radius: 8px; border-top-right-radius: 8px; cursor: grab; position: relative; }
+
+        .title-bar { height: 28px; flex-shrink: 0; background: var(--title-bar); display: flex; align-items: center; padding: 0 10px; border-bottom: 1px solid rgba(0,0,0,0.3); border-top-left-radius: 8px; border-top-right-radius: 8px; cursor: grab; position: relative; touch-action: none; }
         .title-bar:active { cursor: grabbing; }
         .window.fullscreen .title-bar { border-radius: 0; }
         .controls { display: flex; gap: 6px; z-index: 2; }
-        .btn { width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 -1px 1px rgba(0,0,0,0.1), inset 0 1px 1px rgba(255,255,255,0.6), 0 1px 2px rgba(0,0,0,0.15); cursor: pointer; }
+        .btn { width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 -1px 1px rgba(0,0,0,0.1), inset 0 1px 1px rgba(255,255,255,0.6), 0 1px 2px rgba(0,0,0,0.15); cursor: pointer; position: relative; }
+        .btn::after { content: ''; position: absolute; inset: -6px; } /* 扩大手指点击范围 */
         .btn-close { background: #FF5F56; border: 1px solid #E0443E; }
         .btn-minimize { background: #FFBD2E; border: 1px solid #DEA123; }
         .btn-maximize { background: #27C93F; border: 1px solid #1AAB29; }
 
-        .window-title {
-            position: absolute;
-            left: 0;
-            right: 0;
-            text-align: center;
-            font-size: 13px;
-            font-weight: 600;
-            color: #333;
-            /* 优化：轻量级文字高光 */
-            text-shadow: 0 1px 0 rgba(255,255,255,0.6);
-            pointer-events: none;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .window-title {
-                color: #ddd;
-                /* 优化：暗色模式下的轻量级阴影 */
-                text-shadow: 0 1px 2px rgba(0,0,0,0.6);
-            }
-        }
-
-        .content {
-            flex: 1;
-            width: 100%;
-            background: #fff;
-            position: relative;
-        }
-
-        .content iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-            display: block;
-        }
-
-        /* Dock 栏 */
-        #dock-container {
-            position: fixed;
-            bottom: 10px;
-            width: 100%;
-            display: flex;
-            justify-content: center;
-            z-index: 999;
-        }
-
-        #dock {
-            display: flex;
-            gap: 15px;
-            padding: 10px 20px;
-            background: var(--dock-bg);
-            border: none; /* 修改：去掉了这里的 border 属性 */
-            border-radius: 20px;
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            /* 优化：增强悬浮感，利用负扩散和更柔和的透明度 */
-            box-shadow: 0 15px 30px -5px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.5);
-        }
-
-        .dock-icon {
-            font-size: 35px;
-            cursor: pointer;
-            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            /* 性能优化：同样替换为 text-shadow */
-            text-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-            position: relative;
-        }
-
-        .dock-icon:hover, .dock-icon:active {
-            transform: scale(1.3) translateY(-10px);
-        }
-
-        .dock-icon.open::after {
-            content: '';
-            position: absolute;
-            bottom: -8px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 4px;
-            height: 4px;
-            background: #fff;
-            border-radius: 50%;
-            /* 优化：光点更加自然发光 */
-            box-shadow: 0 1px 3px rgba(0,0,0,0.6);
-        }
-        
-        .window-title { position: absolute; left: 0; right: 0; text-align: center; font-size: 13px; font-weight: 600; color: #333; text-shadow: 0 1px 0 rgba(255,255,255,0.6); pointer-events: none; }
+        .window-title { position: absolute; left: 0; right: 0; text-align: center; font-size: 13px; font-weight: 600; color: #333; text-shadow: 0 1px 0 rgba(255,255,255,0.6); pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 70px; }
         @media (prefers-color-scheme: dark) { .window-title { color: #ddd; text-shadow: 0 1px 2px rgba(0,0,0,0.6); } }
-        
-        .content { flex: 1; width: 100%; background: #fff; position: relative; }
+
+        .content { flex: 1; min-height: 0; width: 100%; background: #fff; position: relative; }
         .content iframe { width: 100%; height: 100%; border: none; display: block; }
-        
-        #dock-container { position: fixed; bottom: 10px; width: 100%; display: flex; justify-content: center; z-index: 999; }
-        #dock { display: flex; gap: 15px; padding: 10px 20px; background: var(--dock-bg); border-radius: 20px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: 0 15px 30px -5px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.5); }
+
+        /* 缩放手柄:四边 + 四角 */
+        .rz { position: absolute; z-index: 20; touch-action: none; }
+        .rz-n  { top: 0; left: 16px; right: 16px; height: 6px; cursor: ns-resize; }
+        .rz-s  { bottom: 0; left: 16px; right: 16px; height: 10px; cursor: ns-resize; }
+        .rz-e  { right: 0; top: 16px; bottom: 16px; width: 10px; cursor: ew-resize; }
+        .rz-w  { left: 0; top: 16px; bottom: 16px; width: 10px; cursor: ew-resize; }
+        .rz-ne { top: 0; right: 0; width: 16px; height: 16px; cursor: nesw-resize; }
+        .rz-nw { top: 0; left: 0; width: 16px; height: 16px; cursor: nwse-resize; }
+        .rz-sw { bottom: 0; left: 0; width: 22px; height: 22px; cursor: nesw-resize; }
+        .rz-se { bottom: 0; right: 0; width: 26px; height: 26px; cursor: nwse-resize; }
+        /* 右下角可见的抓手,方便手机上找到 */
+        .rz-se::after { content: ''; position: absolute; right: 3px; bottom: 3px; width: 12px; height: 12px; background: linear-gradient(135deg, transparent 0 45%, rgba(0,0,0,0.35) 45% 52%, transparent 52% 65%, rgba(0,0,0,0.35) 65% 72%, transparent 72% 85%, rgba(0,0,0,0.35) 85% 92%, transparent 92%); pointer-events: none; }
+
+        /* 拖动/缩放时盖住所有 iframe,防止事件被吞 */
+        #drag-shield { position: fixed; inset: 0; z-index: 99999; display: none; touch-action: none; }
+
+        #dock-container { position: fixed; bottom: calc(10px + var(--safe-bottom)); width: 100%; display: flex; justify-content: center; z-index: 999; pointer-events: none; }
+        #dock { display: flex; gap: 15px; padding: 10px 20px; background: var(--dock-bg); border-radius: 20px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: 0 15px 30px -5px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.5); pointer-events: auto; }
         .dock-icon { font-size: 35px; cursor: pointer; transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); text-shadow: 0 4px 8px rgba(0,0,0,0.2); position: relative; }
         .dock-icon:hover, .dock-icon:active { transform: scale(1.3) translateY(-10px); }
         .dock-icon.open::after { content: ''; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); width: 4px; height: 4px; background: #fff; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.6); }
     </style>
 </head>
 <body>
-
     <div id="top-bar">
-        <div class="left-menu" onclick="showDesktop()">
-            <span class="pineapple">🍍</span>
-            <span>waveelab</span>
-        </div>
         <div class="left-menu" onclick="showDesktop()"><span class="pineapple">🍍</span><span>waveelab</span></div>
         <div class="right-menu" id="clock">00:00</div>
     </div>
-
     <div id="desktop"></div>
-
-    <div id="dock-container">
-        <div id="dock"></div>
-    </div>
     <div id="dock-container"><div id="dock"></div></div>
+    <div id="drag-shield"></div>
 
     <script>
-        // ==========================================
-        // 1. 系统时钟更新逻辑
-        // ==========================================
-        function updateClock() {
-            const now = new Date();
-            let hours = now.getHours();
-            let minutes = now.getMinutes();
-            const ampm = hours >= 12 ? 'PM' : 'AM';
-            hours = hours % 12 || 12; 
-            minutes = minutes < 10 ? '0' + minutes : minutes;
-            document.getElementById('clock').innerText = `${hours}:${minutes} ${ampm}`;
-        }
-        setInterval(updateClock, 1000);
-        updateClock();
-
-        // ==========================================
-        // 2. 独立的应用注册表 (区分桌面与Dock)
-        // ==========================================
         const $ = id => document.getElementById(id);
 
-        // 桌面应用列表 (可无限添加)
-        const desktopApps = [
-            { id: 'facewavee', name: 'facewavee', emoji: '😊', url: '/tool/facewavee.html' },
-            { id: 'retroeditor', name: ' retro editor', emoji: '🦄', url: '/tool/retroeditor.html' },
-            { id: 'exchanger', name: 'exchanger', emoji: '🪙', url: '/tool/exchanger.html' },
-            { id: 'poemmaker', name: 'poemmaker', emoji: '🖋️', url: '/art/poemmaker.html' }
-        ];
-
-        // Dock应用列表 (固定四个)
-        const dockApps = [
-            { id: 'dock_files', name: 'Cloud', emoji: '☁️', url: 'https://jianguoyun.com' },
-            { id: 'dock_safari', name: ' Gallery', emoji: '📔', url: 'https://koobone.com' },
-            { id: 'dock_chat', name: 'Memo', emoji: '📝', url: 'memo.html' },
-            { id: 'dock_poolsuite', name: 'POOLSUITE', emoji: '📻', url: 'https://poolsuite.net' }
         setInterval(function updateClock() {
             let d = new Date(), h = d.getHours(), m = d.getMinutes().toString().padStart(2, '0');
             $('clock').innerText = `${h % 12 || 12}:${m} ${h >= 12 ? 'PM' : 'AM'}`;
@@ -419,253 +143,109 @@
             { id: 'dock_poolsuite', name: 'POOLSUITE', emoji: '📻', url: 'https://poolsuite.net', isDock: true }
         ];
 
-        // 状态管理
-        let highestZIndex = 10;
-        const openWindows = {};
-
-        const desktopEl = document.getElementById('desktop');
-        const dockEl = document.getElementById('dock');
         let zIndex = 10, openWins = {};
         const appMap = apps.reduce((acc, app) => ({...acc, [app.id]: app}), {});
+        const MIN_W = 200, MIN_H = 150;
+        const shield = $('drag-shield');
+        const topbarH = () => $('top-bar').getBoundingClientRect().height;
 
-        // ==========================================
-        // 3. 初始化桌面和 Dock
-        // ==========================================
-        function initOS() {
-            // 生成桌面图标
-            desktopApps.forEach(app => {
-                const icon = document.createElement('div');
-                icon.className = 'icon';
-                icon.innerHTML = `
-                    <div class="icon-emoji">${app.emoji}</div>
-                    <div class="icon-name">${app.name}</div>
-                `;
-                icon.onclick = () => handleAppClick(app);
-                desktopEl.appendChild(icon);
-            });
-        // 批量渲染 DOM
         $('desktop').innerHTML = apps.filter(a => !a.isDock).map(a => `<div class="icon" onclick="handleApp('${a.id}')"><div class="icon-emoji">${a.emoji}</div><div class="icon-name">${a.name}</div></div>`).join('');
         $('dock').innerHTML = apps.filter(a => a.isDock).map(a => `<div class="dock-icon" id="dock-${a.id}" onclick="handleApp('${a.id}')">${a.emoji}</div>`).join('');
 
-            // 生成 Dock 图标
-            dockApps.forEach(app => {
-                const dockIcon = document.createElement('div');
-                dockIcon.className = 'dock-icon';
-                dockIcon.id = `dock-${app.id}`;
-                dockIcon.innerText = app.emoji;
-                dockIcon.onclick = () => handleAppClick(app);
-                dockEl.appendChild(dockIcon);
-            });
-        }
         const handleApp = id => {
             let win = openWins[id];
-            if (win) { win.classList.remove('minimized'); bringUp(win); } 
+            if (win) { win.classList.remove('minimized'); bringUp(win); }
             else openApp(appMap[id]);
         };
 
-        // ==========================================
-        // 4. 窗口管理逻辑
-        // ==========================================
-        function handleAppClick(app) {
-            const win = openWindows[app.id];
-            if (win) {
-                win.classList.remove('minimized');
-                bringToFront(win);
-            } else {
-                openApp(app);
-            }
-        }
-
-        function showDesktop() {
-            Object.values(openWindows).forEach(win => {
-                win.classList.add('minimized');
-            });
-        }
         const showDesktop = () => Object.values(openWins).forEach(w => w.classList.add('minimized'));
         const bringUp = win => win.style.zIndex = ++zIndex;
-        const setDock = (id, open) => { let d = $(`dock-${id}`); if(d) d.classList.toggle('open', open); };
+        const setDock = (id, open) => { let d = $(`dock-${id}`); if (d) d.classList.toggle('open', open); };
 
         function openApp(app) {
-            const win = document.createElement('div');
-            win.className = 'window';
-            win.id = `win-${app.id}`;
-            
-            win.innerHTML = `
-                <div class="title-bar" id="title-${app.id}">
-                    <div class="controls">
-                        <div class="btn btn-close" onclick="closeApp('${app.id}', event)"></div>
-                        <div class="btn btn-minimize" onclick="minimizeApp('${app.id}', event)"></div>
-                        <div class="btn btn-maximize" onclick="toggleFullscreen('${app.id}', event)"></div>
-                    </div>
-                    <div class="window-title">${app.name}</div>
-                </div>
-                <div class="content">
-                    <iframe src="${app.url}"></iframe>
-                    <div class="iframe-shield" style="position:absolute; top:0; left:0; width:100%; height:100%; display:none; z-index:5;"></div>
-                </div>
-            `;
-
             let win = document.createElement('div');
             win.className = 'window'; win.id = `win-${app.id}`;
-            win.innerHTML = `<div class="title-bar" id="title-${app.id}"><div class="controls"><div class="btn btn-close" onclick="closeApp('${app.id}',event)"></div><div class="btn btn-minimize" onclick="minApp('${app.id}',event)"></div><div class="btn btn-maximize" onclick="maxApp('${app.id}',event)"></div></div><div class="window-title">${app.name}</div></div><div class="content"><iframe src="${app.url}"></iframe><div class="iframe-shield" style="position:absolute;top:0;left:0;width:100%;height:100%;display:none;z-index:5;"></div></div>`;
+            const handles = ['n','s','e','w','ne','nw','se','sw'].map(d => `<div class="rz rz-${d}" data-dir="${d}"></div>`).join('');
+            win.innerHTML = `<div class="title-bar"><div class="controls"><div class="btn btn-close" onclick="closeApp('${app.id}',event)"></div><div class="btn btn-minimize" onclick="minApp('${app.id}',event)"></div><div class="btn btn-maximize" onclick="maxApp('${app.id}',event)"></div></div><div class="window-title">${app.name}</div></div><div class="content"><iframe src="${app.url}"></iframe></div>${handles}`;
             document.body.appendChild(win);
-            openWindows[app.id] = win;
             openWins[app.id] = win;
             requestAnimationFrame(() => { win.classList.add('active'); bringUp(win); });
 
-            requestAnimationFrame(() => {
-                win.classList.add('active');
-                bringToFront(win);
-            });
-
-            makeDraggable(win, document.getElementById(`title-${app.id}`));
-            
-            win.addEventListener('mousedown', () => bringToFront(win));
-            win.addEventListener('touchstart', () => bringToFront(win), {passive: true});
-
-            updateDockStatus(app.id, true);
-        }
-
-        function closeApp(appId, e) {
-            e.stopPropagation();
-            const win = openWindows[appId];
-            if (win) {
-                win.classList.remove('active');
-                setTimeout(() => {
-                    win.remove();
-                    delete openWindows[appId];
-                    updateDockStatus(appId, false);
-                }, 200);
-            }
-        }
-
-        function minimizeApp(appId, e) {
-            e.stopPropagation();
-            const win = openWindows[appId];
-            if (win) {
-                win.classList.add('minimized');
-            }
-        }
-
-        function toggleFullscreen(appId, e) {
-            e.stopPropagation();
-            const win = openWindows[appId];
-            if (win) {
-                win.classList.toggle('fullscreen');
-                if (!win.classList.contains('fullscreen')) {
-                    win.style.top = '10%';
-                    win.style.left = '10%';
-                } else {
-                    bringToFront(win); 
-                }
-            }
-            makeDrag(win, win.querySelector('.title-bar'));
-            ['mousedown', 'touchstart'].forEach(e => win.addEventListener(e, () => bringUp(win), {passive: true}));
+            const bar = win.querySelector('.title-bar');
+            makeDrag(win, bar);
+            win.querySelectorAll('.rz').forEach(h => makeResize(win, h));
+            bar.addEventListener('dblclick', e => maxApp(app.id, e));
+            win.addEventListener('pointerdown', () => bringUp(win));
             setDock(app.id, true);
         }
 
-        function bringToFront(win) {
-            highestZIndex++;
-            win.style.zIndex = highestZIndex;
-        }
-
-        function updateDockStatus(appId, isOpen) {
-            const dockIcon = document.getElementById(`dock-${appId}`);
-            if (dockIcon) {
-                if (isOpen) dockIcon.classList.add('open');
-                else dockIcon.classList.remove('open');
-            }
-        }
-
-        // ==========================================
-        // 5. 拖拽逻辑 
-        // ==========================================
-        function makeDraggable(win, titleBar) {
-            let isDragging = false;
-            let startX, startY, initialLeft, initialTop;
-            const shield = win.querySelector('.iframe-shield');
-
-            titleBar.addEventListener('touchstart', dragStart, {passive: false});
-            document.addEventListener('touchmove', drag, {passive: false});
-            document.addEventListener('touchend', dragEnd);
-
-            titleBar.addEventListener('mousedown', dragStart);
-            document.addEventListener('mousemove', drag);
-            document.addEventListener('mouseup', dragEnd);
-        const closeApp = (id, e) => { e.stopPropagation(); let w = openWins[id]; if(!w) return; w.classList.remove('active'); setTimeout(() => { w.remove(); delete openWins[id]; setDock(id, false); }, 200); };
+        const closeApp = (id, e) => { e.stopPropagation(); let w = openWins[id]; if (!w) return; w.classList.remove('active'); setTimeout(() => { w.remove(); delete openWins[id]; setDock(id, false); }, 200); };
         const minApp = (id, e) => { e.stopPropagation(); openWins[id]?.classList.add('minimized'); };
-        const maxApp = (id, e) => { e.stopPropagation(); let w = openWins[id]; if(!w) return; w.classList.toggle('fullscreen'); if(!w.classList.contains('fullscreen')) { w.style.top='10%'; w.style.left='10%'; } else bringUp(w); };
+        // 还原时保留原来拖动/缩放后的位置和大小
+        const maxApp = (id, e) => { e.stopPropagation(); let w = openWins[id]; if (!w) return; w.classList.toggle('fullscreen'); bringUp(w); };
 
-            function dragStart(e) {
-                if (e.target.classList.contains('btn')) return; 
-                if (win.classList.contains('fullscreen')) return;
-
-                isDragging = true;
-                shield.style.display = 'block'; 
-
-                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-
-                startX = clientX;
-                startY = clientY;
-                
-                const rect = win.getBoundingClientRect();
-                initialLeft = rect.left;
-                initialTop = rect.top;
-
-                win.style.transition = 'none';
-            }
-
-            function drag(e) {
-                if (!isDragging) return;
-                e.preventDefault(); 
-
-                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-
-                const dx = clientX - startX;
-                const dy = clientY - startY;
-
-                win.style.left = `${initialLeft + dx}px`;
-                win.style.top = `${initialTop + dy}px`;
-            }
-
-            function dragEnd() {
-                if (!isDragging) return;
-                isDragging = false;
+        // 通用的指针交互:按下后显示遮罩,在遮罩上跟踪移动
+        function track(e, cursor, onMove) {
+            e.preventDefault(); e.stopPropagation();
+            shield.style.display = 'block';
+            shield.style.cursor = cursor;
+            const move = ev => { ev.preventDefault(); onMove(ev.clientX, ev.clientY); };
+            const end = () => {
                 shield.style.display = 'none';
-                win.style.transition = 'opacity 0.2s ease, transform 0.2s ease, width 0.3s ease, height 0.3s ease';
-            }
-        function makeDrag(win, bar) {
-            let isDrag = false, sx, sy, il, it, shield = win.querySelector('.iframe-shield');
-            const getE = e => e.touches ? e.touches[0] : e;
-            const start = e => { if(e.target.classList.contains('btn') || win.classList.contains('fullscreen')) return; isDrag=true; shield.style.display='block'; let ev=getE(e), r=win.getBoundingClientRect(); sx=ev.clientX; sy=ev.clientY; il=r.left; it=r.top; win.style.transition='none'; };
-            const move = e => { if(!isDrag) return; e.preventDefault(); let ev=getE(e); win.style.left=`${il+ev.clientX-sx}px`; win.style.top=`${it+ev.clientY-sy}px`; };
-            const end = () => { if(!isDrag) return; isDrag=false; shield.style.display='none'; win.style.transition='opacity 0.2s, transform 0.2s, width 0.3s, height 0.3s'; };
-            
-            bar.addEventListener('touchstart', start, {passive: false}); bar.addEventListener('mousedown', start);
-            document.addEventListener('touchmove', move, {passive: false}); document.addEventListener('mousemove', move);
-            document.addEventListener('touchend', end); document.addEventListener('mouseup', end);
+                shield.removeEventListener('pointermove', move);
+                shield.removeEventListener('pointerup', end);
+                shield.removeEventListener('pointercancel', end);
+                document.querySelectorAll('.window.no-anim').forEach(w => w.classList.remove('no-anim'));
+            };
+            shield.addEventListener('pointermove', move);
+            shield.addEventListener('pointerup', end);
+            shield.addEventListener('pointercancel', end);
         }
 
-        // 启动系统
-        initOS();
+        function freezeRect(win) {
+            const r = win.getBoundingClientRect();
+            win.classList.add('no-anim');
+            Object.assign(win.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
+            return r;
+        }
 
-        // ==========================================
-        // 6. PWA Service Worker 注册逻辑
-        // ==========================================
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                    .then(registration => {
-                        console.log('ServiceWorker 注册成功，作用域为: ', registration.scope);
-                    })
-                    .catch(err => {
-                        console.log('ServiceWorker 注册失败: ', err);
-                    });
+        function makeDrag(win, bar) {
+            bar.addEventListener('pointerdown', e => {
+                if (e.target.closest('.btn') || win.classList.contains('fullscreen')) return;
+                bringUp(win);
+                const r = freezeRect(win), sx = e.clientX, sy = e.clientY, minTop = topbarH();
+                track(e, 'grabbing', (x, y) => {
+                    let left = r.left + x - sx, top = r.top + y - sy;
+                    // 标题栏不能拖到顶栏/状态栏下面,也至少留 60px 在屏幕内
+                    top = Math.min(Math.max(top, minTop), window.innerHeight - 40);
+                    left = Math.min(Math.max(left, 60 - r.width), window.innerWidth - 60);
+                    win.style.left = left + 'px'; win.style.top = top + 'px';
+                });
             });
         }
-        if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+
+        function makeResize(win, handle) {
+            const dir = handle.dataset.dir;
+            handle.addEventListener('pointerdown', e => {
+                if (win.classList.contains('fullscreen')) return;
+                bringUp(win);
+                const r = freezeRect(win), sx = e.clientX, sy = e.clientY, minTop = topbarH();
+                track(e, getComputedStyle(handle).cursor, (x, y) => {
+                    const dx = x - sx, dy = y - sy;
+                    let { left, top, width, height } = r;
+                    if (dir.includes('e')) width = Math.max(MIN_W, r.width + dx);
+                    if (dir.includes('s')) height = Math.max(MIN_H, r.height + dy);
+                    if (dir.includes('w')) { width = Math.max(MIN_W, r.width - dx); left = r.right - width; }
+                    if (dir.includes('n')) {
+                        top = Math.max(minTop, Math.min(r.top + dy, r.bottom - MIN_H));
+                        height = r.bottom - top;
+                    }
+                    Object.assign(win.style, { left: left + 'px', top: top + 'px', width: width + 'px', height: height + 'px' });
+                });
+            });
+        }
+
+        if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
     </script>
 </body>
 </html>
