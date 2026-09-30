@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>🍍waveelab</title>
     <link rel="manifest" href="manifest.json">
+    <meta name="color-scheme" content="light dark">
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
     <meta name="mobile-web-app-capable" content="yes">
@@ -23,7 +24,11 @@
             --bar-h: 26px;
             --topbar-h: calc(var(--bar-h) + var(--safe-top));
 
-            --bg-gradient: linear-gradient(to bottom, #ffffff, #87CEEB);
+            color-scheme: light dark;
+            --bg-top: #ffffff;
+            --bg-bottom: #87CEEB;
+            --bg-gradient: linear-gradient(to bottom, var(--bg-top), var(--bg-bottom));
+            --content-bg: #ffffff;
             --text-color: #333;
             --text-shadow: 0 1px 1px rgba(255,255,255,0.6);
             --window-bg: #ececec;
@@ -37,7 +42,9 @@
         }
         @media (prefers-color-scheme: dark) {
             :root {
-                --bg-gradient: linear-gradient(to bottom, #000000, #1a2332);
+                --bg-top: #000000;
+                --bg-bottom: #1a2332;
+                --content-bg: #1e1e1e;
                 --text-color: #f0f0f0;
                 --text-shadow: 0 1px 2px rgba(0,0,0,0.8);
                 --window-bg: #2c2c2c;
@@ -50,8 +57,10 @@
             }
         }
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
-        html { height: 100%; background: var(--bg-gradient); background-attachment: fixed; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg-gradient); position: fixed; inset: 0; overflow: hidden; overscroll-behavior: none; transition: background 0.5s ease; }
+        html { height: 100%; background-color: var(--bg-bottom); }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg-bottom); position: fixed; inset: 0; overflow: hidden; overscroll-behavior: none; }
+        /* 背景层上下各多伸出 150px,确保底部横条和状态栏区域都被覆盖,不会露出白底 */
+        #bg { position: fixed; left: 0; right: 0; top: -150px; bottom: -150px; background: var(--bg-gradient); z-index: -1; pointer-events: none; }
 
         /* 顶栏延伸到状态栏下方 */
         #top-bar { position: fixed; top: 0; left: 0; right: 0; height: var(--topbar-h); padding: var(--safe-top) calc(15px + var(--safe-right)) 0 calc(15px + var(--safe-left)); background: var(--topbar-bg); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--topbar-border); display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 600; color: var(--text-color); z-index: 2000; }
@@ -70,8 +79,7 @@
         .window { position: absolute; width: 80%; height: 75%; top: calc(var(--topbar-h) + 5%); left: 10%; min-width: 200px; min-height: 150px; background-color: var(--window-bg); background-image: var(--window-pinstripe); border-radius: 8px 8px 0 0; box-shadow: 0 20px 40px -10px rgba(0,0,0,0.25), 0 0 1px rgba(0,0,0,0.3); display: flex; flex-direction: column; overflow: hidden; opacity: 0; transform: scale(0.95); transition: opacity 0.2s, transform 0.2s, width 0.3s, height 0.3s, top 0.3s, left 0.3s; pointer-events: none; z-index: 10; }
         .window.active { opacity: 1; transform: scale(1); pointer-events: auto; }
         .window.no-anim { transition: opacity 0.2s, transform 0.2s !important; }
-        .window.fullscreen { width: 100% !important; height: calc(100% - var(--topbar-h)) !important; top: var(--topbar-h) !important; left: 0 !important; border-radius: 0; z-index: 1500 !important; }
-        .window.fullscreen .content { padding-bottom: var(--safe-bottom); }
+        .window.fullscreen { width: 100% !important; height: auto !important; bottom: 0 !important; top: var(--topbar-h) !important; left: 0 !important; border-radius: 0; z-index: 1500 !important; }
         .window.fullscreen .rz { display: none; }
         .window.minimized { opacity: 0; transform: scale(0.5) translateY(100vh); pointer-events: none; }
 
@@ -88,7 +96,7 @@
         .window-title { position: absolute; left: 0; right: 0; text-align: center; font-size: 13px; font-weight: 600; color: #333; text-shadow: 0 1px 0 rgba(255,255,255,0.6); pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 70px; }
         @media (prefers-color-scheme: dark) { .window-title { color: #ddd; text-shadow: 0 1px 2px rgba(0,0,0,0.6); } }
 
-        .content { flex: 1; min-height: 0; width: 100%; background: #fff; position: relative; }
+        .content { flex: 1; min-height: 0; width: 100%; background: var(--content-bg); position: relative; }
         .content iframe { width: 100%; height: 100%; border: none; display: block; }
 
         /* 缩放手柄:四边 + 四角 */
@@ -115,6 +123,7 @@
     </style>
 </head>
 <body>
+    <div id="bg"></div>
     <div id="top-bar">
         <div class="left-menu" onclick="showDesktop()"><span class="pineapple">🍍</span><span>waveelab</span></div>
         <div class="right-menu" id="clock">00:00</div>
