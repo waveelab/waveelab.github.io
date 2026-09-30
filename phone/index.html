@@ -1143,7 +1143,7 @@ function applySkin(){const r=document.documentElement,lk0=effLook(),lk=lk0==='ip
 let ac=null;
 function ensureAC(){
   // 音效走「环境声」会话：不会在灵动岛 / 锁屏出现播放器
-  try{if(navigator.audioSession&&navigator.audioSession.type!=='ambient')navigator.audioSession.type='ambient';}catch(e){}
+  try{if(navigator.audioSession&&!window.__micMode&&navigator.audioSession.type!=='ambient')navigator.audioSession.type='ambient';}catch(e){}
   if(!ac){try{ac=new (window.AudioContext||window.webkitAudioContext)()}catch(e){}}
   if(ac&&ac.state==='suspended')ac.resume();
 }
@@ -2886,11 +2886,17 @@ const Camera=(()=>{
   function nextFx(){fx=(fx+1)%FXS.length;SFX.key();flash(FXS[fx]);}
   function setEV(d){const nv=clamp(Math.round((ev+d)*3)/3,-2,2);if(nv===ev){SFX.err();return;}ev=nv;SFX.key();}
   const evTxt=()=>'EV '+(ev>0?'+':ev<0?'-':'±')+Math.abs(ev).toFixed(1);
+  function micMode(on){window.__micMode=on;try{if(navigator.audioSession)navigator.audioSession.type=on?'play-and-record':'ambient';}catch(e){}}
+  // iOS 上 canvas 视频轨 + 麦克风原始音轨经常录不进声音：把麦克风先接入 WebAudio，再从 MediaStreamDestination 取一条新的音轨
+  let micSrc=null,micDst=null;
+  function micTrack(src){try{ensureAC();if(!ac||!ac.createMediaStreamDestination)return src.getAudioTracks()[0];if(ac.state==='suspended')ac.resume();
+    micSrc&&micSrc.disconnect();micSrc=ac.createMediaStreamSource(src);micDst=ac.createMediaStreamDestination();micSrc.connect(micDst);return micDst.stream.getAudioTracks()[0];}catch(e){return src.getAudioTracks()[0];}}
   async function openCam(){
     stopStream();phase='init';err='';torchOK=false;
     if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){phase='error';err='No camera support in this browser';App.refresh();return;}
     try{
       const vcon={facingMode:facing,width:{ideal:1280},height:{ideal:960}};
+      micMode(mode==='video');
       if(mode==='video'){try{stream=await navigator.mediaDevices.getUserMedia({video:vcon,audio:true});}catch(e){stream=null;flash('NO MIC ACCESS','bad');}}
       if(!stream)stream=await navigator.mediaDevices.getUserMedia({video:vcon,audio:false});
       camV.muted=true;camV.setAttribute('muted','');camV.srcObject=stream;await camV.play().catch(()=>{});
@@ -2921,7 +2927,7 @@ const Camera=(()=>{
     const own=stream&&stream.getAudioTracks().length?stream:null;audioStream=null;
     if(!own){try{audioStream=await navigator.mediaDevices.getUserMedia({audio:true});}catch(e){audioStream=null;flash('NO MIC ACCESS','bad');}}
     if(flashOn)await setTorch(true);
-    const s=vc.captureStream(12);(own||audioStream)&&(own||audioStream).getAudioTracks().forEach(t=>{t.enabled=true;s.addTrack(t);});
+    const s=vc.captureStream(12),asrc=own||audioStream;if(asrc&&asrc.getAudioTracks().length){asrc.getAudioTracks().forEach(t=>t.enabled=true);const at=micTrack(asrc);if(at)s.addTrack(at);}else flash('NO MIC ACCESS','bad');
     mime=pickMime();chunks=[];
     try{rec=new MediaRecorder(s,mime?{mimeType:mime,videoBitsPerSecond:700000,audioBitsPerSecond:96000}:{});}catch(e){rec=new MediaRecorder(s);}
     rec.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data);};
@@ -2939,7 +2945,7 @@ const Camera=(()=>{
   function flip(){facing=facing==='environment'?'user':'environment';SFX.key();openCam();}
   function toggleFlash(){flashOn=!flashOn;SFX.key();flash(flashOn?(torchOK?'FLASH ON':'SCREEN FLASH ON'):'FLASH OFF');if(phase==='rec')setTorch(flashOn);}
   api.start=()=>{mode='photo';zoom=1;openCam();};
-  api.stop=()=>{stopRec();stopStream();pv.pause();pv.style.display='none';};
+  api.stop=()=>{stopRec();stopStream();micMode(false);if(micSrc){try{micSrc.disconnect();}catch(e){}micSrc=null;}pv.pause();pv.style.display='none';};
   api.update=dt=>{
     if(flashT>0)flashT-=dt*3;if(whiteT>0)whiteT-=dt*2.5;
     if(phase==='rec'){recT+=dt;frameAcc+=dt;
