@@ -13,8 +13,49 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <!-- black-translucent:状态栏透明,页面内容画在状态栏下面 -->
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="waveelab">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22white%22/><text y=%22.9em%22 font-size=%2290%22>🍍</text></svg>">
+    <meta name="apple-mobile-web-app-title" content="🍍waveelab">
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+    <script>
+        // 按 Safari 的规则自动生成图标:取应用名的第一个字(完整字素,emoji 不会被拆开),字母转大写
+        // 名字来源顺序同 Safari:apple-mobile-web-app-title → <title>
+        (function () {
+            try {
+                const meta = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+                const name = ((meta && meta.content) || document.title || '').trim();
+                if (!name) return;
+                let ch = window.Intl && Intl.Segmenter
+                    ? new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(name)[Symbol.iterator]().next().value.segment
+                    : Array.from(name)[0];
+                const isEmoji = /\p{Extended_Pictographic}/u.test(ch);
+                if (!isEmoji) ch = ch.toLocaleUpperCase();
+
+                const draw = size => {
+                    const c = document.createElement('canvas');
+                    c.width = c.height = size;
+                    const x = c.getContext('2d');
+                    // 浅蓝 → 白 渐变底,铺满(iOS 会自己裁圆角)
+                    const g = x.createLinearGradient(0, 0, 0, size);
+                    g.addColorStop(0, '#87CEEB');
+                    g.addColorStop(1, '#ffffff');
+                    x.fillStyle = g;
+                    x.fillRect(0, 0, size, size);
+                    x.font = `${isEmoji ? 600 : 500} ${Math.round(size * (isEmoji ? 0.6 : 0.56))}px -apple-system, "SF Pro Rounded", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "PingFang SC", sans-serif`;
+                    x.textAlign = 'center';
+                    x.textBaseline = 'alphabetic';
+                    x.fillStyle = '#2f6f90';
+                    // 按字形的实际边界垂直居中
+                    const m = x.measureText(ch);
+                    const asc = m.actualBoundingBoxAscent || size * 0.45, desc = m.actualBoundingBoxDescent || 0;
+                    x.fillText(ch, size / 2, size / 2 + (asc - desc) / 2);
+                    return c.toDataURL('image/png');
+                };
+
+                document.querySelector('link[rel="apple-touch-icon"]').href = draw(180);
+                document.querySelector('link[rel="icon"]').href = draw(64);
+            } catch (e) { /* 失败时保留静态 PNG 图标 */ }
+        })();
+    </script>
     <style>
         :root {
             --safe-top: env(safe-area-inset-top, 0px);
@@ -58,7 +99,7 @@
         }
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
         html { height: 100%; background-color: var(--bg-bottom); }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg-bottom); position: fixed; inset: 0; overflow: hidden; overscroll-behavior: none; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg-bottom); position: fixed; top: 0; left: 0; right: 0; height: var(--app-h, 100%); overflow: hidden; overscroll-behavior: none; }
         /* 背景层上下各多伸出 150px,确保底部横条和状态栏区域都被覆盖,不会露出白底 */
         #bg { position: fixed; left: 0; right: 0; top: -150px; bottom: -150px; background: var(--bg-gradient); z-index: -1; pointer-events: none; }
 
@@ -76,8 +117,8 @@
         .icon-emoji { font-size: 40px; text-shadow: 0 4px 8px rgba(0,0,0,0.15); margin-bottom: 5px; }
         .icon-name { font-size: 12px; color: var(--text-color); text-shadow: var(--text-shadow); text-align: center; word-wrap: break-word; width: 100%; font-weight: 500; }
 
-        .window { position: absolute; width: 80%; height: 75%; top: calc(var(--topbar-h) + 5%); left: 10%; min-width: 200px; min-height: 150px; background-color: var(--window-bg); background-image: var(--window-pinstripe); border-radius: 8px 8px 0 0; box-shadow: 0 20px 40px -10px rgba(0,0,0,0.25), 0 0 1px rgba(0,0,0,0.3); display: flex; flex-direction: column; overflow: hidden; opacity: 0; transform: scale(0.95); transition: opacity 0.2s, transform 0.2s, width 0.3s, height 0.3s, top 0.3s, left 0.3s; pointer-events: none; z-index: 10; }
-        .window.active { opacity: 1; transform: scale(1); pointer-events: auto; }
+        .window { position: absolute; width: 80%; height: 75%; top: calc(var(--topbar-h) + 5%); left: 10%; min-width: 200px; min-height: 150px; background-color: var(--window-bg); background-image: var(--window-pinstripe); border-radius: 8px 8px 0 0; box-shadow: 0 20px 40px -10px rgba(0,0,0,0.25), 0 0 1px rgba(0,0,0,0.3); display: flex; flex-direction: column; overflow: hidden; opacity: 0; transform: scale(0.95); transition: opacity 0.2s, transform 0.2s, width 0.25s, height 0.25s, top 0.25s, left 0.25s; pointer-events: none; z-index: 10; contain: layout paint; }
+        .window.active { opacity: 1; transform: none; pointer-events: auto; }
         .window.no-anim { transition: opacity 0.2s, transform 0.2s !important; }
         .window.fullscreen { width: 100% !important; height: auto !important; bottom: 0 !important; top: var(--topbar-h) !important; left: 0 !important; border-radius: 0; z-index: 1500 !important; }
         .window.fullscreen .rz { display: none; }
@@ -96,8 +137,8 @@
         .window-title { position: absolute; left: 0; right: 0; text-align: center; font-size: 13px; font-weight: 600; color: #333; text-shadow: 0 1px 0 rgba(255,255,255,0.6); pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 70px; }
         @media (prefers-color-scheme: dark) { .window-title { color: #ddd; text-shadow: 0 1px 2px rgba(0,0,0,0.6); } }
 
-        .content { flex: 1; min-height: 0; width: 100%; background: var(--content-bg); position: relative; }
-        .content iframe { width: 100%; height: 100%; border: none; display: block; }
+        .content { flex: 1; min-height: 0; width: 100%; background: var(--content-bg); position: relative; overflow: hidden; }
+        .content iframe { position: absolute; top: 0; left: 0; width: 1px; min-width: 100%; height: 100%; border: none; display: block; }
 
         /* 缩放手柄:四边 + 四角 */
         .rz { position: absolute; z-index: 20; touch-action: none; }
@@ -147,7 +188,7 @@
             { id: 'exchanger', name: 'exchanger', emoji: '🪙', url: '/tool/exchanger.html', isDock: false },
             { id: 'poemmaker', name: 'poemmaker', emoji: '🖋️', url: '/art/poemmaker.html', isDock: false },
             { id: 'dock_files', name: 'Cloud', emoji: '☁️', url: 'https://jianguoyun.com', isDock: true },
-            { id: 'dock_safari', name: ' Gallery', emoji: '📱', url: 'phone/index.html', isDock: true },
+            { id: 'dock_safari', name: ' Gallery', emoji: '📔', url: 'https://koobone.com', isDock: true },
             { id: 'dock_chat', name: 'Memo', emoji: '📝', url: 'memo.html', isDock: true },
             { id: 'dock_poolsuite', name: 'POOLSUITE', emoji: '📻', url: 'https://poolsuite.net', isDock: true }
         ];
@@ -157,6 +198,46 @@
         const MIN_W = 200, MIN_H = 150;
         const shield = $('drag-shield');
         const topbarH = () => $('top-bar').getBoundingClientRect().height;
+        const vw = () => document.documentElement.clientWidth;
+        const vh = () => window.innerHeight;
+        const dockTop = () => $('dock').getBoundingClientRect().top;
+
+        // iOS 主屏幕模式下 100% / 100vh 常常和真实可视高度不一致,改为实时测量
+        function syncViewport() {
+            document.documentElement.style.setProperty('--app-h', vh() + 'px');
+            Object.values(openWins).forEach(clampWin);
+        }
+        ['resize', 'orientationchange', 'pageshow'].forEach(ev => window.addEventListener(ev, () => requestAnimationFrame(syncViewport)));
+        window.visualViewport?.addEventListener('resize', syncViewport);
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(syncViewport, 100); });
+        syncViewport();
+        setTimeout(syncViewport, 300); // 部分 iOS 版本启动时首次测量不准
+
+        // 默认窗口位置:放在顶栏和 Dock 之间,手机竖屏几乎占满宽度
+        function defaultRect() {
+            const top0 = topbarH() + 8, bottom0 = dockTop() - 8, w0 = vw();
+            const n = Object.keys(openWins).length % 5, off = n * 20;
+            if (w0 < 700) {
+                const left = 8 + off / 2, width = w0 - 16 - off / 2;
+                return { left, top: top0 + off, width, height: Math.max(MIN_H, bottom0 - top0 - off) };
+            }
+            const width = Math.round(w0 * 0.8), height = Math.round((bottom0 - top0) * 0.9);
+            return { left: Math.round((w0 - width) / 2) + off, top: top0 + off, width, height };
+        }
+
+        function applyRect(win, r) {
+            Object.assign(win.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
+        }
+
+        // 屏幕尺寸变化(旋转、键盘弹出等)时把窗口拉回可见范围
+        function clampWin(win) {
+            if (win.classList.contains('fullscreen') || !win.style.width) return;
+            const minTop = topbarH(), W = vw(), H = vh();
+            let width = Math.min(parseFloat(win.style.width), W), height = Math.min(parseFloat(win.style.height), H - minTop);
+            let left = Math.min(Math.max(parseFloat(win.style.left), 60 - width), W - 60);
+            let top = Math.min(Math.max(parseFloat(win.style.top), minTop), H - 40);
+            applyRect(win, { left, top, width: Math.max(MIN_W, width), height: Math.max(MIN_H, height) });
+        }
 
         $('desktop').innerHTML = apps.filter(a => !a.isDock).map(a => `<div class="icon" onclick="handleApp('${a.id}')"><div class="icon-emoji">${a.emoji}</div><div class="icon-name">${a.name}</div></div>`).join('');
         $('dock').innerHTML = apps.filter(a => a.isDock).map(a => `<div class="dock-icon" id="dock-${a.id}" onclick="handleApp('${a.id}')">${a.emoji}</div>`).join('');
@@ -176,6 +257,7 @@
             win.className = 'window'; win.id = `win-${app.id}`;
             const handles = ['n','s','e','w','ne','nw','se','sw'].map(d => `<div class="rz rz-${d}" data-dir="${d}"></div>`).join('');
             win.innerHTML = `<div class="title-bar"><div class="controls"><div class="btn btn-close" onclick="closeApp('${app.id}',event)"></div><div class="btn btn-minimize" onclick="minApp('${app.id}',event)"></div><div class="btn btn-maximize" onclick="maxApp('${app.id}',event)"></div></div><div class="window-title">${app.name}</div></div><div class="content"><iframe src="${app.url}"></iframe></div>${handles}`;
+            applyRect(win, defaultRect());
             document.body.appendChild(win);
             openWins[app.id] = win;
             requestAnimationFrame(() => { win.classList.add('active'); bringUp(win); });
@@ -214,7 +296,7 @@
         function freezeRect(win) {
             const r = win.getBoundingClientRect();
             win.classList.add('no-anim');
-            Object.assign(win.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
+            applyRect(win, r);
             return r;
         }
 
@@ -226,8 +308,8 @@
                 track(e, 'grabbing', (x, y) => {
                     let left = r.left + x - sx, top = r.top + y - sy;
                     // 标题栏不能拖到顶栏/状态栏下面,也至少留 60px 在屏幕内
-                    top = Math.min(Math.max(top, minTop), window.innerHeight - 40);
-                    left = Math.min(Math.max(left, 60 - r.width), window.innerWidth - 60);
+                    top = Math.min(Math.max(top, minTop), vh() - 40);
+                    left = Math.min(Math.max(left, 60 - r.width), vw() - 60);
                     win.style.left = left + 'px'; win.style.top = top + 'px';
                 });
             });
