@@ -1,5 +1,5 @@
 // WAV PHONE 离线缓存：首次打开后即可离线使用。发布新版本时把 VERSION 改一下即可让用户更新。
-const VERSION = 'wavphone-v28';
+const VERSION = 'wavphone-v29';
 const CORE = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {

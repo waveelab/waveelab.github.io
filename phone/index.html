@@ -1079,9 +1079,9 @@ html[data-look="pearl"] .dlg.resdlg,html[data-look="ipod"] .dlg.resdlg,html[data
 .resdlg .grade{text-shadow:calc(var(--u)*2) calc(var(--u)*2) 0 #ff5a8a,calc(var(--u)*4) calc(var(--u)*4) 0 #5ad8ff,calc(var(--u)*6) calc(var(--u)*6) 0 rgba(0,0,0,.5)!important;-webkit-text-fill-color:#fff8c0!important;background:none!important;filter:none!important}
 .resdlg .res::before,.resdlg .res::after{content:"✦";position:absolute;color:#ffe878;font-size:calc(var(--u)*12);animation:twk 1.2s steps(2) infinite}
 .resdlg .res::before{left:12%;top:calc(var(--u)*6)}.resdlg .res::after{right:12%;top:calc(var(--u)*22);animation-delay:.6s}
-.fresh .stats span{animation:rowIn .35s steps(4) both}
+.fresh .stats span{animation:resRowIn .35s steps(4) both}
 .fresh .stats span:nth-child(1){animation-delay:.5s}.fresh .stats span:nth-child(2){animation-delay:.6s}.fresh .stats span:nth-child(3){animation-delay:.7s}.fresh .stats span:nth-child(4){animation-delay:.8s}
-@keyframes rowIn{from{transform:translateX(calc(var(--u)*-30));opacity:0}to{transform:none;opacity:1}}
+@keyframes resRowIn{from{transform:translateX(calc(var(--u)*-30));opacity:0}to{transform:none;opacity:1}}
 .resdlg .bigsc b{font-size:calc(var(--u)*38)!important;text-shadow:none}
 .resdlg .rkb{border-radius:0!important;box-shadow:0 0 0 1px #000,inset 0 0 0 1px rgba(255,255,255,.15)!important}
 .resdlg .rkb i{background:repeating-linear-gradient(90deg,#ffd048 0 3px,#f0a030 3px 6px)!important}
@@ -1101,7 +1101,7 @@ html[data-look="pearl"] .resdlg .bdg b,html[data-look="ipod"] .resdlg .bdg b,htm
 .rz .chips span{display:flex;flex-direction:column;align-items:center;min-width:calc(var(--u)*62);padding:calc(var(--u)*2) calc(var(--u)*5);box-shadow:0 0 0 1px #000,inset 0 0 0 1px color-mix(in srgb,var(--gc) 60%,transparent);background:rgba(255,255,255,.06)}
 .rz .chips i{font-style:normal;font-size:calc(var(--u)*10);opacity:.7}.rz .chips b{font-size:calc(var(--u)*16);color:#fff;font-weight:400}
 html[data-look="pearl"] .rz .chips b,html[data-look="ipod"] .rz .chips b,html[data-look="wm"] .rz .chips b,html[data-look="nokia"] .rz .chips b{color:#2a2010}
-.fresh .rz .chips span{animation:rowIn .35s steps(4) both .5s}.fresh .rz .chips span:nth-child(2){animation-delay:.62s}
+.fresh .rz .chips span{animation:resRowIn .35s steps(4) both .5s}.fresh .rz .chips span:nth-child(2){animation-delay:.62s}
 .rz .xpl{display:flex;align-items:center;gap:calc(var(--u)*4);font-size:calc(var(--u)*11);margin:0 calc(var(--u)*6)}
 .rz .xpl .rkb{flex:1}.rz .xpl em{font-style:normal;color:var(--gc)}
 .rz .rays{background:repeating-conic-gradient(from 0deg,color-mix(in srgb,var(--gc) 55%,transparent) 0 9deg,transparent 9deg 22deg)!important;top:calc(var(--u)*-4)!important}
@@ -1161,6 +1161,16 @@ html[data-look="pearl"] .rz .chips b,html[data-look="ipod"] .rz .chips b,html[da
 .nkm .nki{animation:none!important}
 .kb,.nav button{transition:transform .05s ease,filter .05s ease!important}
 @media (prefers-reduced-motion:reduce){.anim-in,.anim-back,.dlg.pop,.dim{animation:none!important}}
+/* 菜单上下选择：完全即时，无过渡动画 */
+.row,.mi,.mi .ic3d,.mi svg,.mi span,.sbar i,.row .v{transition:none!important;animation:none!important}
+.mi.on .ic3d{transform:none!important}
+.lst,.mgrid{scroll-behavior:auto!important}
+/* 上下选择时不再有任何横向移动的动画（列表行、图标格、iPod 封面滑动、Nokia 单项菜单） */
+.row.on,.mi.on,.cfi,.cfi.on,.nkm .nki,.nkm .nka,.row.on .v,.mi.on span,.hdr{animation:none!important;transition:none!important}
+.row.on::before,.row.on::after,.mi.on::before,.mi.on::after{animation:none!important;transition:none!important}
+html .mgrid .mi.on .ic3d svg,html .mgrid .mi.on svg,html .mgrid .mi .ic3d svg{animation:none!important;transition:none!important}
+/* 菜单上下选择：不再有从左向右滑入的光标动画 */
+.row.on,.lst .row.on,.dlg .row.on{animation:none!important}
 </style>
 </head>
 <body>
@@ -4002,7 +4012,7 @@ function render(){
         <div class="chips">${chips.map(([k2,v])=>`<span><i>${k2}</i><b>${v}</b></span>`).join('')}</div>
         ${w?`<div class="xpl"><span>LV ${w.after.l}</span><div class="rkb xp"><i style="--p:${(w.after.rest/w.after.need*100).toFixed(0)}%"></i></div><em>+${w.gain}</em></div>`:''}</div>`;}
     ui.innerHTML=`<div class="dim"></div><div class="dlg"><h3>${d.title}</h3>${body}<div class="rows" style="max-height:calc(var(--u)*170);overflow:auto">${rowsHTML(d)}</div></div>`;
-    const on=ui.querySelector('.row.on');on&&on.scrollIntoView({block:'nearest'});
+    const on=ui.querySelector('.row.on');on&&on.scrollIntoView({block:'nearest',behavior:'instant'});
     if(d.res){const dl0=ui.querySelector('.dlg');dl0&&dl0.classList.add('resdlg');}
     if(d!==lastDlg){const dl=ui.querySelector('.dlg');dl&&dl.classList.add('pop');lastDlg=d;
       if(d.res){ui.querySelector('.res').classList.add('fresh');ui.querySelectorAll('[data-cu]').forEach(el=>{const v=+el.dataset.cu;if(!el.dataset.cu||!v)return;const t0=performance.now();
@@ -4035,12 +4045,12 @@ function render(){
       setSoft('Select','','Back');return;}
     ui.innerHTML=`<div class="scr"><div class="hdr">${MENU[App.menuSel][1]}</div><div class="mgrid">${MENU.map(([id,n],i)=>
       `<div class="mi${i===App.menuSel?' on':''}" data-mi="${i}" style="--tc:${(TILEC[id]||TILEC.set)[1]}"><i class="ic3d">${ICONS[id]}</i><span>${n}</span></div>`).join('')}</div></div>`;
-    const on=ui.querySelector('.mi.on');on&&on.scrollIntoView({block:'nearest'});animate(ui,'menu',1);
+    const on=ui.querySelector('.mi.on');on&&on.scrollIntoView({block:'nearest',behavior:'instant'});animate(ui,'menu',1);
     setSoft('Select','','Back');return;
   }
   if(top.type==='list'){
     ui.innerHTML=`<div class="scr"><div class="hdr">${top.title}</div><div class="lst">${rowsHTML(top)}</div><div class="sbar"><i></i></div></div>`;
-    const on=ui.querySelector('.row.on');on&&on.scrollIntoView({block:'nearest'});sbar();const ls=ui.querySelector('.lst');ls&&ls.addEventListener('scroll',sbar,{passive:true});animate(ui,'l'+App.stack.length+top.title,App.stack.length+1);
+    const on=ui.querySelector('.row.on');on&&on.scrollIntoView({block:'nearest',behavior:'instant'});sbar();const ls=ui.querySelector('.lst');ls&&ls.addEventListener('scroll',sbar,{passive:true});animate(ui,'l'+App.stack.length+top.title,App.stack.length+1);
     setSoft('Select','','Back');return;
   }
   ui.innerHTML=`<div class="scr"><div class="hdr">${top.title}</div><div class="txt">${top.html}</div><div class="sbar"><i></i></div></div>`;
