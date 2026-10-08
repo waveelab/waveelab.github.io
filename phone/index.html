@@ -990,7 +990,7 @@ html[data-look="ipod"][data-tone="dark"] .kb{background:linear-gradient(180deg,#
 html[data-look="ipod"][data-tone="dark"] .kb.sl::after,html[data-look="ipod"][data-tone="dark"] .kb.sr::after{background:#c8cad2!important}
 
 /* 屏幕滤镜：Game Boy Color（在 Game Boy 绿的基础上保留一点点原色） */
-.lcd.f-gbc{filter:sepia(.5) hue-rotate(38deg) saturate(1.4) contrast(1.28) brightness(.98)}
+.lcd.f-gbc{filter:grayscale(.62) contrast(1.38) brightness(1.04) sepia(.32) hue-rotate(28deg) saturate(1.35)}
 /* 除 iPod 外都去掉顶部听筒；除 Nokia 外，屏幕与键盘排布与 iPod 一致 */
 .ear{display:none!important}
 html:not([data-look="nokia"]) .nav{width:clamp(168px,52vw,214px)!important}
@@ -1178,7 +1178,7 @@ html .cfi,html .cfi.on{transition:transform .26s cubic-bezier(.22,.8,.32,1),opac
 .row.on,.lst .row.on,.dlg .row.on{animation:none!important;transition:none!important}
 
 /* 液晶纵深：边缘内阴影 + 斜向反光 + 极细像素网格（Game Boy / Grey LCD / PDA） */
-.lcd.f-gameboy::after,.lcd.f-grey::after,html[data-look="pda"] .lcd::after{display:block!important;content:"";position:absolute;inset:0;pointer-events:none;z-index:60;
+.lcd.f-gameboy::after,.lcd.f-gbc::after,.lcd.f-grey::after,html[data-look="pda"] .lcd::after{display:block!important;content:"";position:absolute;inset:0;pointer-events:none;z-index:60;
   box-shadow:inset 0 0 0 1px rgba(0,0,0,.35),inset 0 calc(var(--u)*3) calc(var(--u)*6) rgba(0,0,0,.38),inset 0 0 calc(var(--u)*16) rgba(20,24,16,.38);
   background:linear-gradient(125deg,rgba(255,255,255,.10) 0,rgba(255,255,255,0) 32%,rgba(0,0,0,0) 70%,rgba(0,0,0,.10) 100%),
     repeating-linear-gradient(0deg,rgba(0,0,0,.05) 0 1px,transparent 1px 3px),repeating-linear-gradient(90deg,rgba(0,0,0,.035) 0 1px,transparent 1px 3px)}
