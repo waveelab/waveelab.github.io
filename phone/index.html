@@ -1106,6 +1106,38 @@ html[data-look="pearl"] .rz .chips b,html[data-look="ipod"] .rz .chips b,html[da
 .rz .xpl .rkb{flex:1}.rz .xpl em{font-style:normal;color:var(--gc)}
 .rz .rays{background:repeating-conic-gradient(from 0deg,color-mix(in srgb,var(--gc) 55%,transparent) 0 9deg,transparent 9deg 22deg)!important;top:calc(var(--u)*-4)!important}
 .erain i{position:absolute;top:-8%;font-style:normal;line-height:1;animation:cfFall 2.4s linear forwards;background:none!important;width:auto!important;height:auto!important}
+
+/* ===== 系统动效：轻盈 · 优雅 · 流畅（只用 transform / opacity，统一缓动曲线）===== */
+:root{--ease:cubic-bezier(.22,.8,.24,1);--ease-out:cubic-bezier(.16,1,.3,1);--spring:cubic-bezier(.34,1.36,.64,1)}
+@keyframes scrIn2{from{opacity:0;transform:translate3d(9%,0,0) scale(.985)}to{opacity:1;transform:none}}
+@keyframes scrBack2{from{opacity:0;transform:translate3d(-7%,0,0) scale(.985)}to{opacity:1;transform:none}}
+@keyframes dlgPop2{from{opacity:0;transform:translateY(-49%) scale(.94)}to{opacity:1;transform:translateY(-52%) scale(1)}}
+@keyframes dimIn{from{opacity:0}to{opacity:1}}
+@keyframes iconBreath{0%,100%{transform:translate3d(0,0,0) scale(1.06)}50%{transform:translate3d(0,calc(var(--u)*-1.5),0) scale(1.085)}}
+.anim-in{animation:scrIn2 .32s var(--ease-out) both!important}
+.anim-back{animation:scrBack2 .3s var(--ease-out) both!important}
+.dlg.pop{animation:dlgPop2 .28s var(--ease-out) both!important}
+.dim{animation:dimIn .22s var(--ease) both}
+.mi.on svg,.mi.on .ic3d svg{animation:iconBreath 2.6s var(--ease) infinite!important}
+.mi .ic3d,.mi svg{transition:transform .28s var(--spring),filter .25s var(--ease)!important}
+.mi{transition:background-color .22s var(--ease),box-shadow .22s var(--ease),transform .22s var(--ease)!important}
+.row{transition:background .18s var(--ease),box-shadow .18s var(--ease),color .18s var(--ease),transform .18s var(--ease)!important}
+.row.on{transform:translate3d(calc(var(--u)*1),0,0)}
+.soft span{transition:color .2s var(--ease),opacity .2s var(--ease)}
+.kb,.nav button,.nav .ok{transition:transform .12s var(--ease),filter .12s var(--ease),box-shadow .12s var(--ease)!important}
+.kb.down{transform:translate3d(0,1.5px,0) scale(.985)!important}
+.cfi{transition:transform .42s var(--ease-out),opacity .32s var(--ease)!important}
+.sbar i{transition:top .22s var(--ease),height .22s var(--ease)!important}
+.bigclock .colon{animation-timing-function:ease-in-out!important}
+/* 结算开场：柔和展开（保留复古味道） */
+@keyframes crtSoft{0%{opacity:0;transform:translateY(-52%) scale(1,.04);filter:brightness(2.2)}55%{opacity:1;transform:translateY(-52%) scale(1,1.02);filter:brightness(1.25)}100%{transform:translateY(-52%);filter:none}}
+.dlg.resdlg.pop{animation:crtSoft .5s var(--ease-out) both!important}
+.fresh .stats span,.fresh .rz .chips span{animation-timing-function:var(--ease-out)!important;animation-name:rowIn2!important}
+@keyframes rowIn2{from{transform:translate3d(calc(var(--u)*-14),0,0);opacity:0}to{transform:none;opacity:1}}
+.fresh .rz .remo,.fresh .grade{animation:stamp2 .55s var(--spring) both!important}
+@keyframes stamp2{0%{transform:scale(1.6);opacity:0}100%{transform:none;opacity:1}}
+#cdn b{animation:cdPop .5s var(--spring) both!important}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 </style>
 </head>
 <body>
