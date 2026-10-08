@@ -1138,6 +1138,29 @@ html[data-look="pearl"] .rz .chips b,html[data-look="ipod"] .rz .chips b,html[da
 @keyframes stamp2{0%{transform:scale(1.6);opacity:0}100%{transform:none;opacity:1}}
 #cdn b{animation:cdPop .5s var(--spring) both!important}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+/* ===== 系统动画：轻盈、短促、只用 transform/opacity ===== */
+:root{--ease-soft:cubic-bezier(.22,.8,.32,1)}
+@keyframes wpIn{from{opacity:0;transform:translate3d(10px,0,0)}to{opacity:1;transform:none}}
+@keyframes wpBack{from{opacity:0;transform:translate3d(-10px,0,0)}to{opacity:1;transform:none}}
+@keyframes wpDlg{from{opacity:0;transform:translateY(-50%) scale(.97)}to{opacity:1;transform:translateY(-52%) scale(1)}}
+@keyframes wpDim{from{opacity:0}to{opacity:1}}
+.anim-in{animation:wpIn .2s var(--ease-soft) both!important}
+.anim-back{animation:wpBack .2s var(--ease-soft) both!important}
+.dlg.pop:not(.resdlg){animation:wpDlg .18s var(--ease-soft) both!important}
+.dim{animation:wpDim .16s ease-out both!important}
+/* 选中态：不再上下跳动、不再扫光，只做一次轻柔的过渡 */
+.mi.on svg,.mi.on .ic3d,.mi svg,.mi .ic3d{animation:none!important}
+.mi .ic3d,.mi svg{transition:transform .16s var(--ease-soft),filter .16s ease!important}
+.mi.on .ic3d{transform:translateY(calc(var(--u)*-1)) scale(1.04)!important}
+.mi.on svg{transform:none!important}
+.row.on::after{display:none!important;animation:none!important}
+.row,.mi{transition:background-color .12s ease,box-shadow .12s ease,color .12s ease!important}
+.sbar i{transition:top .14s var(--ease-soft),height .14s var(--ease-soft)!important}
+.cfi{transition:transform .26s var(--ease-soft),opacity .2s ease!important}
+.nkm .nki{animation:none!important}
+.kb,.nav button{transition:transform .05s ease,filter .05s ease!important}
+@media (prefers-reduced-motion:reduce){.anim-in,.anim-back,.dlg.pop,.dim{animation:none!important}}
 </style>
 </head>
 <body>
