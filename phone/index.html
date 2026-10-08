@@ -1171,6 +1171,11 @@ html[data-look="pearl"] .rz .chips b,html[data-look="ipod"] .rz .chips b,html[da
 html .mgrid .mi.on .ic3d svg,html .mgrid .mi.on svg,html .mgrid .mi .ic3d svg{animation:none!important;transition:none!important}
 /* 菜单上下选择：不再有从左向右滑入的光标动画 */
 .row.on,.lst .row.on,.dlg .row.on{animation:none!important}
+/* 保留：选中图标轻轻放大、iPod 图标滑动；仅去掉列表光标的横向滑动 */
+@keyframes icoUp{from{transform:none}to{transform:translateY(calc(var(--u)*-1)) scale(1.08)}}
+.mi.on .ic3d{animation:icoUp .16s cubic-bezier(.22,.8,.32,1) both!important;transform:translateY(calc(var(--u)*-1)) scale(1.08)!important}
+html .cfi,html .cfi.on{transition:transform .26s cubic-bezier(.22,.8,.32,1),opacity .2s ease!important}
+.row.on,.lst .row.on,.dlg .row.on{animation:none!important;transition:none!important}
 </style>
 </head>
 <body>
