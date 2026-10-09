@@ -2711,7 +2711,6 @@ const Suika=(()=>{
     im.data.set(o);g.putImageData(im,0,0);
     const hs=Math.max(2,Math.round(r*.22));g.fillStyle='rgba(255,255,255,.9)';g.fillRect(cx-Math.round(r*.48),cy-Math.round(r*.5),hs,Math.max(1,hs>>1));g.fillRect(cx-Math.round(r*.48),cy-Math.round(r*.5)+(hs>>1),Math.max(1,hs>>1),Math.max(1,hs>>1));
     g.fillStyle='rgba(255,255,255,.6)';g.fillRect(cx-Math.round(r*.2),cy-Math.round(r*.62),Math.max(1,hs>>1),1);
-    {const g2=g;g2.save();g2.globalCompositeOperation='destination-over';g2.fillStyle='rgba(90,50,20,.22)';g2.beginPath();g2.ellipse(cx+r*.12,cy+r*.92,r*.78,Math.max(2,r*.16),0,0,6.283);g2.fill();g2.restore();}
     c.pad=P;return spr[t]=c;
   }
   const rollT=()=>{if(drops<3)return[0,0,1][drops];const r=Math.random();return r<.3?0:r<.55?1:r<.75?2:r<.9?3:4;};
@@ -3853,7 +3852,7 @@ const Metro=(()=>{
   const SH=['circle','tri','square','star','diamond','cross'];
   const LC=['#e2462f','#f2b134','#2f7fd8','#38a856','#8a4fbf','#e86fa6','#4fbfd2'];
   const TOP=34,BOT=270,DAY=20;
-  let MODE='normal',uz=1,pan=[0,0],ptr=new Map(),pinch=null,act=null,showX=-1,speed=1,paused=false,cards=null;
+  let flies=[],endS=null,endT=0,MODE='normal',uz=1,pan=[0,0],ptr=new Map(),pinch=null,act=null,showX=-1,speed=1,paused=false,cards=null;
   let st,lines,trains,river,tunnels,maxLines,locoInv,carInv,hubInv,day,week,clock,spawnT,paxT,delivered,over,zoom,seed,msgT,msg,shapesOn,pops;
   function R(){seed=(seed*16807)%2147483647;return(seed-1)/2147483646;}
   // ---------- 世界与镜头 ----------
@@ -3870,6 +3869,7 @@ const Metro=(()=>{
     const Rc=cityR(),minD=clock<300?42:clock<900?38:34,ideal=clock<300?58:66;let best=null,bs=-1e9;
     const sides=[0,0];st.forEach(q=>{sides[side(q.x,q.y)>0?0:1]++;});const want=sides[0]>sides[1]+1?-1:sides[1]>sides[0]+1?1:0;
     for(let k=0;k<70;k++){
+      if(k<46){const cc=corridorCandidate();if(cc){const [x,y]=cc;if(inCity(x,y,Rc)&&!nearRiver(x,y,15)){let nd=1e9;for(const q of st)nd=Math.min(nd,Math.hypot(q.x-x,q.y-y));if(nd>=minD){const sc=18-Math.abs(Math.min(nd,140)-ideal)*.6+R()*12-(want&&side(x,y)!==want?10:0);if(sc>bs){bs=sc;best=[x,y];}}}}continue;}
       // 以城区中心为种子做高斯采样：市中心权重最高，越往后外围城区权重越大
       const D=districts[pickDistrict()],g1=Math.sqrt(-2*Math.log(R()+1e-9))*Math.cos(6.283*R()),g2=Math.sqrt(-2*Math.log(R()+1e-9))*Math.sin(6.283*R());
       const x=D.x+g1*D.s,y=D.y+g2*D.s*1.15;
@@ -3888,7 +3888,20 @@ const Metro=(()=>{
     if(shapesOn>3&&R()<.11){const sp=SH.slice(3,shapesOn).filter(sh=>st.filter(o=>o.shape===sh).length<(clock>1300?2:1));if(sp.length)return sp[Math.floor(R()*sp.length)];}
     const T={circle:.58,tri:.28,square:.14},n=st.length+1;let pickS='circle',gap=-1e9;
     for(const sh in T){const have=st.filter(o=>o.shape===sh).length,g=T[sh]*n-have+R()*.9;if(g>gap){gap=g;pickS=sh;}}return pickS;}
-  let districts=[],planned=null;
+  let districts=[],planned=null,corr=[];
+  function polyLen(P){const c=[0];for(let i=1;i<P.length;i++)c.push(c[i-1]+Math.hypot(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]));return c;}
+  function polyAt(C,s2){const P=C.pts,c=C.cum;s2=clamp(s2,0,c[c.length-1]);let i=1;while(i<c.length-1&&c[i]<s2)i++;const t=(s2-c[i-1])/((c[i]-c[i-1])||1),x=P[i-1][0]+(P[i][0]-P[i-1][0])*t,y=P[i-1][1]+(P[i][1]-P[i-1][1])*t,a=Math.atan2(P[i][1]-P[i-1][1],P[i][0]-P[i-1][0]);return[x,y,a];}
+  function polyProj(C,x,y){const P=C.pts,c=C.cum;let bd=1e9,bs=0;for(let i=1;i<P.length;i++){const [ax,ay]=P[i-1],[bx,by]=P[i],vx=bx-ax,vy=by-ay,t=clamp(((x-ax)*vx+(y-ay)*vy)/((vx*vx+vy*vy)||1),0,1),d=Math.hypot(ax+vx*t-x,ay+vy*t-y);if(d<bd){bd=d;bs=c[i-1]+t*(c[i]-c[i-1]);}}return[bs,bd];}
+  function genCorridors(){corr=[];const n=4+Math.floor(R()*3),a0=R()*6.283;
+    for(let i=0;i<n;i++){let ang=a0+i*6.283/n+(R()-.5)*.45,x=120+Math.cos(ang)*12,y=160+Math.sin(ang)*12;const pts=[[x,y]];
+      for(let k=0;k<14;k++){ang+=(R()-.5)*.32;x+=Math.cos(ang)*26;y+=Math.sin(ang)*26*1.18;pts.push([x,y]);}corr.push({pts,cum:polyLen(pts),w:.8+R()*.7,ring:false,sp:52+R()*18});}
+    const rr=105+R()*35,pts=[];for(let k=0;k<=28;k++){const t=k/28*6.283,rj=rr*(1+Math.sin(t*3+R())*.06);pts.push([120+Math.cos(t)*rj,160+Math.sin(t)*rj*1.18]);}corr.push({pts,cum:polyLen(pts),w:.9,ring:true,sp:60+R()*14});}
+  function corridorCandidate(){const pool=corr.filter(c=>!c.ring||clock>280);if(!pool.length)return null;let tw=pool.reduce((x,c)=>x+c.w,0),r2=R()*tw,C=pool[0];for(const c of pool){r2-=c.w;if(r2<=0){C=c;break;}}
+    const on=[];for(const q of st){const [ss,dd]=polyProj(C,q.x,q.y);if(dd<20)on.push(ss);}on.sort((x,y)=>x-y);let target;
+    if(!on.length)target=C.ring?R()*C.cum[C.cum.length-1]:C.sp*(.8+R()*.5);
+    else{const gaps=[];for(let i=1;i<on.length;i++)if(on[i]-on[i-1]>C.sp*1.8)gaps.push((on[i]+on[i-1])/2);
+      if(gaps.length&&R()<.45)target=gaps[Math.floor(R()*gaps.length)];else target=(C.ring&&R()<.5?on[0]-C.sp:on[on.length-1]+C.sp)*(1+(R()-.5)*.12);}
+    const [x,y,a]=polyAt(C,target),j=(R()-.5)*16;return[x-Math.sin(a)*j,y+Math.cos(a)*j,true];}
   function genDistricts(){districts=[{x:120,y:160,s:34,w:3,grow:0}];const n=4+Math.floor(R()*3);
     for(let k=0;k<n*20&&districts.length<n+1;k++){const a=R()*6.283,d=70+R()*170,x=120+Math.cos(a)*d,y=160+Math.sin(a)*d*1.2;
       if(districts.every(q=>Math.hypot(q.x-x,q.y-y)>75))districts.push({x,y,s:26+R()*18,w:.4+R()*.6,grow:.6+R()*1.2});}}
@@ -3916,9 +3929,9 @@ const Metro=(()=>{
   function atStation(T){const L=lines[T.li],si=L.s[T.k],S=st[si],D=dists();let moved=0;
     // 下车：到达目的形状，或下一站离目的地更远（换乘）
     const nk=trainNext(T),nsi=L.s[nk];
-    T.pax=T.pax.filter(p=>{if(p===S.shape){delivered++;if(delivered%100===0){flash(delivered+' PASSENGERS','good');SFX.bonus();}moved++;pops.push({x:S.x,y:S.y,t:0});if(S.snd!==clock){S.snd=clock;tone([523,587,659,784,880,988,1047][T.li]||660,.09,{type:'sine',vol:.035});}return false;}if(D[p][nsi]>=D[p][si]&&D[p][si]<Infinity&&S.pax.length<12){S.pax.push(p);moved++;return false;}return true;});
+    T.pax=T.pax.filter(p=>{if(p===S.shape){delivered++;if(delivered%100===0){flash(delivered+' PASSENGERS','good');SFX.bonus();}moved++;pops.push({x:S.x,y:S.y,t:0,sh:p});if(S.snd!==clock){S.snd=clock;tone([523,587,659,784,880,988,1047][T.li]||660,.09,{type:'sine',vol:.035});}return false;}if(D[p][nsi]>=D[p][si]&&D[p][si]<Infinity&&S.pax.length<12){S.pax.push(p);moved++;return false;}return true;});
     // 上车：下一站能更接近目的地
-    const cap=T.cap+T.car*6,fast=S.hub?.5:1;for(let i=0;i<S.pax.length&&T.pax.length<cap;i++){const p=S.pax[i];if(D[p][nsi]<D[p][si]){T.pax.push(p);S.pax.splice(i,1);i--;moved++;}}
+    const cap=T.cap+T.car*6,fast=S.hub?.5:1;for(let i=0;i<S.pax.length&&T.pax.length<cap;i++){const p=S.pax[i];if(D[p][nsi]<D[p][si]){flies.push({sh:p,s:S,i,t:0});T.pax.push(p);S.pax.splice(i,1);i--;moved++;}}
     return moved;}
   // ---------- 资源 / 线路操作 ----------
   const lineOf=i=>lines[i];
@@ -3981,12 +3994,12 @@ const Metro=(()=>{
       if(act.type==='newline'){const P=act.path;if(!P.length){P.push(s);return;}const last=P[P.length-1];if(s===last)return;
         if(P.length>=2&&s===P[P.length-2]){refundSeg(P[P.length-2],last);P.pop();if(P.length<2){lines[act.slot]=null;trains=trains.filter(T=>{if(T.li===act.slot){locoInv++;return false;}return true;});}else{lines[act.slot].s=P.slice();fixTrains(act.slot);}distCache=null;SFX.tap();return;}
         if(P.includes(s))return;if(!useTunnel(last,s))return;P.push(s);SFX.tap();
-        if(!lines[act.slot]){lines[act.slot]={s:P.slice(),c:LC[act.slot],loop:false};if(locoInv>0){locoInv--;addTrain(act.slot);}}else lines[act.slot].s=P.slice();distCache=null;return;}
+        if(!lines[act.slot]){lines[act.slot]={s:P.slice(),c:LC[act.slot],loop:false};if(locoInv>0){locoInv--;addTrain(act.slot);}}else lines[act.slot].s=P.slice();lines[act.slot].grow={end:'tail',t:time};distCache=null;return;}
       if(act.type==='extend'){const L=lines[act.li];if(!L){act=null;return;}const head=act.end==='head',e=head?L.s[0]:L.s[L.s.length-1],prev=head?L.s[1]:L.s[L.s.length-2];
         if(s===e)return;
         if(s===prev){if(MODE==='extreme')return;refundSeg(e,prev);head?L.s.shift():L.s.pop();if(L.s.length<2){deleteLine(act.li);act=null;}else fixTrains(act.li);distCache=null;SFX.tap();return;}
         const other=head?L.s[L.s.length-1]:L.s[0];if(s===other&&L.s.length>2){if(!useTunnel(e,s))return;L.loop=true;distCache=null;act=null;SFX.tap();return;}
-        if(L.s.includes(s))return;if(!useTunnel(e,s))return;if(head){L.s.unshift(s);trains.forEach(T=>{if(T.li===act.li)T.k++;});}else L.s.push(s);distCache=null;SFX.tap();return;}
+        if(L.s.includes(s))return;if(!useTunnel(e,s))return;if(head){L.s.unshift(s);trains.forEach(T=>{if(T.li===act.li)T.k++;});}else L.s.push(s);L.grow={end:head?'head':'tail',t:time};distCache=null;SFX.tap();return;}
       return;}
     if(t==='up'){ptr.delete(id);if(ptr.size<2)pinch=null;if(!act||ptr.size)return;const a=act;act=null;
       if(a.type==='newline'&&a.path.length<2&&!lines[a.slot])return;
@@ -4005,13 +4018,13 @@ const Metro=(()=>{
   api.key=()=>{};
   api.softs=()=>['','','Pause'];
   // ---------- 流程 ----------
-  function newGame(){uz=1;pan=[0,0];ptr.clear();pinch=null;act=null;showX=-1;speed=1;paused=false;cards=null;seed=Math.floor(Math.random()*2e9)+1;st=[];lines=new Array(LC.length).fill(null);trains=[];river=genRiver();river2=R()<.4?(()=>{let r2;for(let k=0;k<6;k++){r2=genRiver();const d=Math.abs(r2[7][0]-river[7][0])+Math.abs(r2[7][1]-river[7][1]);if(d>110)break;}return r2;})():null;
+  function newGame(){uz=1;pan=[0,0];ptr.clear();pinch=null;act=null;showX=-1;speed=1;paused=false;cards=null;seed=Math.floor(Math.random()*2e9)+1;st=[];lines=new Array(LC.length).fill(null);trains=[];river=genRiver();river2=R()<.2?(()=>{let r2;for(let k=0;k<6;k++){r2=genRiver();const d=Math.abs(r2[7][0]-river[7][0])+Math.abs(r2[7][1]-river[7][1]);if(d>110)break;}return r2;})():null;
     tunnels=3+(river2?2:0);maxLines=3;locoInv=3;carInv=1;hubInv=0;day=0;week=1;clock=0;spawnT=20;paxT=3;delivered=0;over=false;zoom=1.3;shapesOn=3;msg='';msgT=0;pops=[];distCache=null;
-    genDistricts();planned=null;spawnT=18;const a0=R()*6.283;['circle','tri','square'].forEach((sh,i)=>{let ok=false;for(let k=0;k<60&&!ok;k++){const a=a0+i*2.094+(R()-.5)*.6,d=38+R()*16,x=120+Math.cos(a)*d,y=160+Math.sin(a)*d*1.15;if(!nearRiver(x,y,15)&&st.every(q=>Math.hypot(q.x-x,q.y-y)>44)){addStation(sh,[x,y]);ok=true;}}if(!ok){for(let k=0;k<200&&!addStation(sh);k++);}});}
+    genDistricts();genCorridors();planned=null;spawnT=18;const a0=R()*6.283;['circle','tri','square'].forEach((sh,i)=>{let ok=false;for(let k=0;k<60&&!ok;k++){const a=a0+i*2.094+(R()-.5)*.6,d=38+R()*16,x=120+Math.cos(a)*d,y=160+Math.sin(a)*d*1.15;if(!nearRiver(x,y,15)&&st.every(q=>Math.hypot(q.x-x,q.y-y)>44)){addStation(sh,[x,y]);ok=true;}}if(!ok){for(let k=0;k<200&&!addStation(sh);k++);}});}
   function weekly(){week++;api._wk0=api._wk||0;locoInv++;const pool=['car','tunnel','hub'];if(maxLines<LC.length)pool.push('line','line');const a=pick(pool);let b2=pick(pool);let g=0;while(b2===a&&g++<10)b2=pick(pool);
     cards=[{k:a,x:24,y:120,w:90,h:90},{k:b2,x:126,y:120,w:90,h:90}];SFX.bonus();}
   function applyUp(k){if(k==='line')maxLines=Math.min(LC.length,maxLines+1);else if(k==='car')carInv++;else if(k==='tunnel')tunnels+=2;else hubInv++;}
-  function finish(){over=true;SFX.over();const gd=grade(delivered,[900,500,250,100]);const titles={S:'Network Legend',A:'Master Planner',B:'Line Manager',C:'Conductor',D:'Trainee'};
+  function finish(){if(!endS&&!api._fin){endS=st.slice().sort((x,y)=>y.crowd-x.crowd)[0];endT=2.2;over=true;SFX.over();return;}api._fin=0;over=true;SFX.over();const gd=grade(delivered,[900,500,250,100]);const titles={S:'Network Legend',A:'Master Planner',B:'Line Manager',C:'Conductor',D:'Trainee'};
     App.gameOver({grade:gd,title:titles[gd],stats:[['Passengers',delivered],['Week',week],['Stations',st.length],['Lines',lines.filter(Boolean).length]],comment:'A station overflowed. Pause the clock, loop busy lines and add carriages.',score:delivered,
       items:[{label:'Continue (endless)',act:()=>{over=false;st.forEach(q=>{q.crowd=0;q.pax=q.pax.slice(0,3);});App.closeDialog();flash('ENDLESS MODE','good');}},{label:'New map',act:()=>{App.closeDialog();newGame();}},{label:'Quit game',act:()=>App.quitGame()}]});}
   api.start=o=>{MODE=(o&&o.mode)||'normal';newGame();api._wk=0;SFX.start();tips=[];msgT=0;};
@@ -4019,7 +4032,8 @@ const Metro=(()=>{
   api.stop=()=>{};
   api.countdown=()=>false;
   api.update=dt0=>{
-    if(over)return;if(msgT>0)msgT-=dt0;if(tips.length&&clock<120){tipT+=dt0;if(tipT>7){tipT=0;tips.shift();if(tips.length){msg=tips[0];msgT=4.5;}}}pops.forEach(p=>p.t+=dt0);pops=pops.filter(p=>p.t<.8);st.forEach(s=>s.born=Math.min(1,s.born+dt0*2));
+    if(endS){endT-=dt0;const tx=endS.x-120,ty=endS.y-160;pan=[pan[0]+(tx-pan[0])*Math.min(1,dt0*3),pan[1]+(ty-pan[1])*Math.min(1,dt0*3)];uz+=(Math.max(uz,1.2)-uz)*Math.min(1,dt0*2);if(endT<=0){endS=null;api._fin=1;finish();}return;}
+    if(over)return;if(msgT>0)msgT-=dt0;if(tips.length&&clock<120){tipT+=dt0;if(tipT>7){tipT=0;tips.shift();if(tips.length){msg=tips[0];msgT=4.5;}}}pops.forEach(p=>p.t+=dt0);pops=pops.filter(p=>p.t<.8);flies.forEach(f=>f.t+=dt0);flies=flies.filter(f=>f.t<.22);st.forEach(s=>s.born=Math.min(1,s.born+dt0*2));
     if(paused||cards)return;const dt=dt0*speed;clock+=dt;
     const nd=Math.floor(clock/DAY);if(nd>day){day=nd;if(day%7===0)weekly();}
     zoom+=(clamp(118/(cityR()*1.12),.42,1.3)-zoom)*Math.min(1,dt*.35);
@@ -4028,7 +4042,7 @@ const Metro=(()=>{
     paxT-=dt;if(paxT<=0){paxT=Math.max(1.15,4.2-clock/560);st.forEach(q=>q.age=(q.age||0));
       const wsum=st.reduce((a,q)=>a+Math.min(1,.35+q.age/90),0);let r=Math.random()*wsum,s=st[0];for(const q of st){r-=Math.min(1,.35+q.age/90);if(r<=0){s=q;break;}}
       const opts=SH.slice(0,shapesOn).filter(sh=>sh!==s.shape&&st.some(o=>o.shape===sh));
-      if(opts.length){const W=opts.map(sh=>{const c=st.filter(o=>o.shape===sh).length;return sh==='circle'?1:sh==='tri'?1.25:sh==='square'?1.6:2.4/Math.max(1,c);});let t=W.reduce((x,y)=>x+y,0),q=Math.random()*t,pick=opts[0];for(let i=0;i<opts.length;i++){q-=W[i];if(q<=0){pick=opts[i];break;}}s.pax.push(pick);}}
+      if(opts.length){s.lastPax=time;const W=opts.map(sh=>{const c=st.filter(o=>o.shape===sh).length;return sh==='circle'?1:sh==='tri'?1.25:sh==='square'?1.6:2.4/Math.max(1,c);});let t=W.reduce((x,y)=>x+y,0),q=Math.random()*t,pick=opts[0];for(let i=0;i<opts.length;i++){q-=W[i];if(q<=0){pick=opts[i];break;}}s.pax.push(pick);}}
     st.forEach(q=>q.age=(q.age||0)+dt);
     st.forEach(s=>{if(s.pulse>0)s.pulse-=dt;const lim=s.hub?12:6;if(s.pax.length>lim){if(s.crowd<.5&&s.crowd+dt/45>=.5)SFX.err();s.crowd+=dt/60;if(s.crowd>=1){if(MODE==='endless')s.crowd=.999;else finish();}}else s.crowd=Math.max(0,s.crowd-dt/14);});
     trains.forEach((T,ti)=>{if(act&&act.type==='train'&&act.ti===ti)return;const L=lines[T.li];if(!L||L.s.length<2)return;if(T.wait>0){T.wait-=dt;return;}
@@ -4046,7 +4060,10 @@ const Metro=(()=>{
     const Z=ZZ();FR(0,0,240,320,'#f3f0e7');RIVS().forEach(rv=>strokePath(rv,Math.max(12,24*Z),'#bcdcec'));
     ctx.save();ctx.beginPath();ctx.rect(0,TOP,240,BOT-TOP);ctx.clip();
     const lw=Math.max(4.5,6.5*Z);
-    lines.forEach((L,li)=>{if(!L)return;const P=linePath(L);if(L.loop)P.push(...legPts(st[L.s[L.s.length-1]],st[L.s[0]]).slice(1));
+    lines.forEach((L,li)=>{if(!L)return;let P=linePath(L);if(L.loop)P.push(...legPts(st[L.s[L.s.length-1]],st[L.s[0]]).slice(1));
+      if(L.grow&&time-L.grow.t<.28&&L.s.length>=2&&!L.loop){const f=(time-L.grow.t)/.28,ee=f*f*(3-2*f),tail=L.grow.end==='tail',n2=L.s.length,leg=tail?legPts(st[L.s[n2-2]],st[L.s[n2-1]]):legPts(st[L.s[1]],st[L.s[0]]),len=pathLen(leg),pp=posAt(leg,len*ee);
+        const base=tail?linePath({s:L.s.slice(0,-1)}):linePath({s:L.s.slice(1)});const part=[];let acc=0;for(let k=0;k<leg.length;k++){if(k===0){part.push(leg[0]);continue;}const dl=Math.hypot(leg[k][0]-leg[k-1][0],leg[k][1]-leg[k-1][1]);if(acc+dl<len*ee){part.push(leg[k]);acc+=dl;}else{part.push([pp[0],pp[1]]);break;}}
+        P=tail?(L.s.length>2?base.concat(part.slice(1)):part):(L.s.length>2?part.slice().reverse().concat(base.slice(1)):part);}
       if(showX===li&&Math.floor(time*4)%2)strokePath(P,lw+4,'rgba(43,43,43,.25)');strokePath(P,lw,L.c);
       const n=L.s.length+(L.loop?1:0);for(let i=1;i<n;i++){const a=L.s[i-1],b=L.s[i%L.s.length];riverHits(st[a],st[b]).forEach(h=>{const len=Math.hypot(h.B[0]-h.A[0],h.B[1]-h.A[1])||1,hw=16/len,t0=Math.max(0,h.t-hw),t1=Math.min(1,h.t+hw);
         const p0=W2S(h.A[0]+(h.B[0]-h.A[0])*t0,h.A[1]+(h.B[1]-h.A[1])*t0),p1=W2S(h.A[0]+(h.B[0]-h.A[0])*t1,h.A[1]+(h.B[1]-h.A[1])*t1),ux=(p1[0]-p0[0]),uy=(p1[1]-p0[1]),ul=Math.hypot(ux,uy)||1,nx=-uy/ul,ny=ux/ul,ww=lw*.95;
@@ -4065,7 +4082,8 @@ const Metro=(()=>{
           ctx.moveTo(px,py);ctx.lineTo(qx,qy);ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=.9;ctx.strokeStyle='#d8402a';ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx2,cy2,13,0,6.283);ctx.stroke();ctx.beginPath();ctx.moveTo(cx2-5,cy2-5);ctx.lineTo(cx2+5,cy2+5);ctx.moveTo(cx2+5,cy2-5);ctx.lineTo(cx2-5,cy2+5);ctx.stroke();}
         else{ctx.moveTo(ax,ay);ctx.lineTo(act.x,act.y);ctx.lineTo(bx,by);ctx.stroke();}ctx.setLineDash([]);}}
       ctx.globalAlpha=1;}
-    trains.forEach((T,ti)=>{const L=lines[T.li];if(!L)return;let p=trainScreen(T);if(!p)return;if(act&&act.type==='train'&&act.ti===ti)p=[act.x,act.y,p[2]];const [x,y,a]=p;
+    trains.forEach((T,ti)=>{const L=lines[T.li];if(!L)return;let p=trainScreen(T);if(!p)return;if(act&&act.type==='train'&&act.ti===ti)p=[act.x,act.y,p[2]];const [x,y,a0]=p;
+      if(T.ra==null)T.ra=a0;let dA=Math.atan2(Math.sin(a0-T.ra),Math.cos(a0-T.ra));T.ra+=dA*.25;const a=T.ra;
       ctx.save();ctx.translate(x,y);ctx.rotate(a);const n=1+T.car,cw=18*Math.max(.85,Z),ch=10*Math.max(.85,Z);
       for(let c=0;c<n;c++){ctx.fillStyle=L.c;ctx.beginPath();ctx.roundRect(-cw/2-c*(cw+2),-ch/2,cw,ch,2);ctx.fill();}
       T.pax.forEach((q,i)=>{const car=Math.floor(i/6),k=i%6;ctx.fillStyle='#fff';shapePath(q,-cw/2+3.2+(k%3)*(cw-6)/2.4-car*(cw+2),-ch/4+Math.floor(k/3)*ch/2,1.5*Math.max(.85,Z));ctx.fill();});ctx.restore();});
@@ -4075,13 +4093,15 @@ const Metro=(()=>{
       if(s2.pulse>0){ctx.strokeStyle='rgba(43,43,43,'+(s2.pulse/1.5*.5)+')';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(x,y,r+4+(1.5-s2.pulse)*14,0,6.283);ctx.stroke();}
       if(s2.hub){ctx.fillStyle='#fff';ctx.strokeStyle=INK;ctx.lineWidth=2.8;ctx.beginPath();ctx.roundRect(x-r-4,y-r-4,(r+4)*2,(r+4)*2,r);ctx.fill();ctx.stroke();}
       ctx.fillStyle='#fff';ctx.strokeStyle=INK;ctx.lineWidth=2.8;shapePath(s2.shape,x,y,r);ctx.fill();ctx.stroke();
-      s2.pax.slice(0,s2.hub?18:12).forEach((p,i)=>{ctx.fillStyle=INK;shapePath(p,x+r+(s2.hub?9:6)+(i%6)*6,y-3.5+Math.floor(i/6)*6.5,2.3);ctx.fill();});});
+      const nn=Math.min(s2.pax.length,s2.hub?18:12);s2.pax.slice(0,nn).forEach((p,i)=>{let sc=1;if(i===s2.pax.length-1&&s2.lastPax&&time-s2.lastPax<.3){const f=(time-s2.lastPax)/.3;sc=f<.7?f/.7*1.35:1.35-(f-.7)/.3*.35;}ctx.fillStyle=INK;shapePath(p,x+r+(s2.hub?9:6)+(i%6)*6,y-3.5+Math.floor(i/6)*6.5,2.3*sc);ctx.fill();});});
+    flies.forEach(f=>{const S=f.s,[sx,sy]=W2S(S.x,S.y),r=7.6*Math.max(.9,Math.min(1.4,Z)),qx=sx+r+6+(f.i%6)*6,qy=sy-3.5+Math.floor(f.i/6)*6.5,k=Math.min(1,f.t/.22),e=k*k;ctx.globalAlpha=1-k*.6;ctx.fillStyle=INK;shapePath(f.sh,qx+(sx-qx)*e,qy+(sy-qy)*e,2.3*(1-k*.4));ctx.fill();ctx.globalAlpha=1;});
     st.forEach(s2=>{const [x,y]=W2S(s2.x,s2.y);if(x>-4&&x<244&&y>TOP-4&&y<BOT+4)return;const ex=clamp(x,8,232),ey=clamp(y,TOP+8,BOT-8),a=Math.atan2(y-ey,x-ex);
       ctx.save();ctx.translate(ex,ey);ctx.rotate(a);ctx.fillStyle=s2.crowd>0?'#d8402a':'#9a958a';ctx.beginPath();ctx.moveTo(6,0);ctx.lineTo(-3,-4);ctx.lineTo(-3,4);ctx.fill();ctx.restore();});
-    pops.forEach(p=>{const [x,y]=W2S(p.x,p.y);ctx.globalAlpha=1-p.t/.8;ctx.strokeStyle=INK;ctx.lineWidth=1.2;ctx.beginPath();ctx.arc(x,y,8+p.t*16,0,6.283);ctx.stroke();});ctx.globalAlpha=1;
+    pops.forEach(p=>{const [x,y]=W2S(p.x,p.y);ctx.globalAlpha=1-p.t/.8;ctx.strokeStyle=INK;ctx.lineWidth=1.2;ctx.beginPath();ctx.arc(x,y,8+p.t*16,0,6.283);ctx.stroke();if(p.sh){ctx.fillStyle=INK;shapePath(p.sh,x,y-12-p.t*14,2.4+p.t*2);ctx.fill();}});ctx.globalAlpha=1;
     ctx.restore();
     st.forEach(s2=>{if(lines.some(L=>L&&L.s.includes(s2.id)))return;const [x,y]=W2S(s2.x,s2.y);ctx.strokeStyle='rgba(43,43,43,'+(.25+.2*Math.sin(time*3))+')';ctx.lineWidth=1.2;ctx.setLineDash([2,3]);ctx.beginPath();ctx.arc(x,y,13,0,6.283);ctx.stroke();ctx.setLineDash([]);});
     if(paused&&!cards){ctx.fillStyle='rgba(43,43,43,.78)';ctx.beginPath();ctx.roundRect(92,TOP+4,56,14,7);ctx.fill();txt('PAUSED',120,TOP+14,8,'#fff','center');}
+    if(endS){const [x,y]=W2S(endS.x,endS.y),k=(Math.sin(time*10)+1)/2;ctx.strokeStyle='rgba(216,64,42,'+(.5+.5*k)+')';ctx.lineWidth=3;ctx.beginPath();ctx.arc(x,y,16+k*6,0,6.283);ctx.stroke();}
     // 顶栏：乘客数 · 星期 · 时钟（暂停/倍速）
     FR(0,16,240,18,'rgba(243,240,231,.94)');
     {ctx.fillStyle=INK;ctx.beginPath();ctx.arc(9,21.5,2.3,0,6.283);ctx.fill();ctx.beginPath();ctx.roundRect(6,24.5,6,6,2);ctx.fill();txt(String(delivered),16,31,13,INK);}
