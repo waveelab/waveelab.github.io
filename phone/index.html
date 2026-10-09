@@ -1475,6 +1475,48 @@ html[data-tone="aero"]{background:
   radial-gradient(140% 45% at 50% 118%,#26b04e 0,#168a38 34%,rgba(22,138,56,0) 36%),
   linear-gradient(180deg,#062e74 0,#0f5cb8 35%,#2e94e0 70%,#7cc8ee 100%)!important}
 html[data-tone="aero"] .phone{box-shadow:inset 8px 0 12px -4px rgba(255,255,255,.35),inset -10px 0 16px -4px rgba(0,20,60,.35)!important}
+
+/* ===================== 横屏：屏幕竖着居中；左侧大 OK + Select/Back；右侧十字方向键 ===================== */
+html.land #landov{display:none!important}
+html.land .phone{visibility:visible!important;position:fixed!important;inset:0!important;width:auto!important;height:auto!important;max-width:none!important;transform:none!important;padding:0!important;display:block!important}
+html.land .head,html.land .status,html.land .stripe,html.land .wheel,html.land .kb.call,html.land .kb.end,html.land .phone::after{display:none!important}
+html.land{--LH:var(--vh,100vh);--LW:var(--vw,100vw);--SW:calc((var(--LH) - 22px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))*.76);--CX:calc((var(--LW) - var(--SW))/4);--A:min(calc(var(--LH)*.16),calc(var(--LW)*.085))}
+html.land .wrap{position:fixed!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;width:var(--SW)!important;height:calc(var(--LH) - 22px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))!important;padding:0!important;margin:0!important}
+html.land .keys{display:contents!important}
+html.land .keys::before,html.land .keys::after{display:none!important}
+html.land body .phone .keys .nav{display:contents!important}
+html.land body .phone .keys .nav::before{display:none!important}
+/* 十字键（右侧） */
+html.land body .phone .keys .nav .u,html.land body .phone .keys .nav .d,html.land body .phone .keys .nav .l,html.land body .phone .keys .nav .r,html.land body .phone .keys .nav::after{
+  position:fixed!important;width:var(--A)!important;height:var(--A)!important;margin:0!important;transform:none!important;
+  background:linear-gradient(180deg,var(--lk1,#3a3d46),var(--lk2,#1f2127))!important;color:var(--lkT,#cfd6e4)!important;text-shadow:none!important;
+  box-shadow:0 0 0 1px var(--lkB,#0a0b0e),inset 0 1px 0 rgba(255,255,255,.22)!important;font-size:calc(var(--A)*.32)!important;display:grid!important;place-items:center!important}
+html.land body .phone .keys .nav::after{content:""!important;left:calc(var(--LW) - var(--CX) - var(--A)/2)!important;top:calc(var(--LH)/2 - var(--A)/2)!important;border-radius:0!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.12)!important;z-index:1;pointer-events:none}
+html.land body .phone .keys .nav .u{left:calc(var(--LW) - var(--CX) - var(--A)/2)!important;top:calc(var(--LH)/2 - var(--A)*1.5)!important;border-radius:calc(var(--A)*.28) calc(var(--A)*.28) 0 0!important}
+html.land body .phone .keys .nav .d{left:calc(var(--LW) - var(--CX) - var(--A)/2)!important;top:calc(var(--LH)/2 + var(--A)/2)!important;border-radius:0 0 calc(var(--A)*.28) calc(var(--A)*.28)!important}
+html.land body .phone .keys .nav .l{left:calc(var(--LW) - var(--CX) - var(--A)*1.5)!important;top:calc(var(--LH)/2 - var(--A)/2)!important;border-radius:calc(var(--A)*.28) 0 0 calc(var(--A)*.28)!important}
+html.land body .phone .keys .nav .r{left:calc(var(--LW) - var(--CX) + var(--A)/2)!important;top:calc(var(--LH)/2 - var(--A)/2)!important;border-radius:0 calc(var(--A)*.28) calc(var(--A)*.28) 0!important}
+html.land body .phone .keys .nav .u,html.land body .phone .keys .nav .d,html.land body .phone .keys .nav .l,html.land body .phone .keys .nav .r{z-index:2}
+html.land body .phone .keys .nav button.down{filter:brightness(.82)!important}
+/* 大 OK（左侧） */
+html.land body .phone .keys .nav .ok{position:fixed!important;width:calc(var(--A)*1.75)!important;height:calc(var(--A)*1.75)!important;left:calc(var(--CX) - var(--A)*.875)!important;top:calc(var(--LH)*.42 - var(--A)*.875)!important;border-radius:50%!important;font-size:calc(var(--A)*.36)!important;transform:none!important;margin:0!important;z-index:2}
+/* Select / Back（左下两颗胶囊键） */
+html.land body .phone .keys .kb.sl,html.land body .phone .keys .kb.sr{position:fixed!important;width:calc(var(--A)*.95)!important;height:calc(var(--A)*.5)!important;border-radius:999px!important;top:calc(var(--LH)*.42 + var(--A)*1.25)!important;margin:0!important;transform:none!important}
+html.land body .phone .keys .kb.sl{left:calc(var(--CX) - var(--A)*1.05)!important}
+html.land body .phone .keys .kb.sr{left:calc(var(--CX) + var(--A)*.1)!important}
+html.land body .phone .keys .kb.sl::after,html.land body .phone .keys .kb.sr::after{width:36%!important;left:32%!important}
+/* 横屏状态栏去掉后，屏幕顶部不再留白 */
+html.land .lcd .status{display:none!important}
+/* 各主题的横屏十字键配色 */
+html[data-look="pearl"][data-tone=""]{--lk1:#ffffff;--lk2:#cfe0f6;--lkT:#4a90d8;--lkB:#8ab6e6}
+html[data-tone="silver"]{--lk1:#eef1fb;--lk2:#b9c4ec;--lkT:#3e4fa8;--lkB:#6f82cc}
+html[data-tone="aero"]{--lk1:#bff0ff;--lk2:#2aa8e8;--lkT:#ffffff;--lkB:rgba(0,90,180,.6)}
+html[data-look="nokia"]{--lk1:#4a4d55;--lk2:#2a2c32;--lkT:#e0e4ec;--lkB:#0a0b0e}
+html[data-look="wm"]{--lk1:#3a3e48;--lk2:#1e2128;--lkT:#ffffff;--lkB:#0a0c12}
+html[data-look="ipod"]{--lk1:#ffffff;--lk2:#d6d9df;--lkT:#9aa0aa;--lkB:rgba(0,0,0,.22)}
+html[data-look="ipod"][data-tone="dark"]{--lk1:#4a4b52;--lk2:#26272c;--lkT:#c8cad2;--lkB:#000}
+html[data-look="pda"]{--lk1:#f2f0e8;--lk2:#c9c6bb;--lkT:#5a5850;--lkB:#77746a}
+html[data-look="pda"][data-tone="dark"]{--lk1:#6a6b72;--lk2:#47484d;--lkT:#d8d6ce;--lkB:#1e1f22}
 </style>
 </head>
 <body>
