@@ -990,7 +990,7 @@ html[data-look="ipod"][data-tone="dark"] .kb{background:linear-gradient(180deg,#
 html[data-look="ipod"][data-tone="dark"] .kb.sl::after,html[data-look="ipod"][data-tone="dark"] .kb.sr::after{background:#c8cad2!important}
 
 /* 屏幕滤镜：Game Boy Color（在 Game Boy 绿的基础上保留一点点原色） */
-.lcd.f-gbc{filter:grayscale(.62) contrast(1.38) brightness(1.04) sepia(.32) hue-rotate(28deg) saturate(1.35)}
+.lcd.f-gbc{filter:grayscale(.28) contrast(1) brightness(1.05) sepia(.22) hue-rotate(18deg) saturate(1.6)}
 /* 除 iPod 外都去掉顶部听筒；除 Nokia 外，屏幕与键盘排布与 iPod 一致 */
 .ear{display:none!important}
 html:not([data-look="nokia"]) .nav{width:clamp(168px,52vw,214px)!important}
@@ -1476,47 +1476,88 @@ html[data-tone="aero"]{background:
   linear-gradient(180deg,#062e74 0,#0f5cb8 35%,#2e94e0 70%,#7cc8ee 100%)!important}
 html[data-tone="aero"] .phone{box-shadow:inset 8px 0 12px -4px rgba(255,255,255,.35),inset -10px 0 16px -4px rgba(0,20,60,.35)!important}
 
-/* ===================== 横屏：屏幕竖着居中；左侧大 OK + Select/Back；右侧十字方向键 ===================== */
-html.land #landov{display:none!important}
-html.land .phone{visibility:visible!important;position:fixed!important;inset:0!important;width:auto!important;height:auto!important;max-width:none!important;transform:none!important;padding:0!important;display:block!important}
-html.land .head,html.land .status,html.land .stripe,html.land .wheel,html.land .kb.call,html.land .kb.end,html.land .phone::after{display:none!important}
-html.land{--LH:var(--vh,100vh);--LW:var(--vw,100vw);--SW:calc((var(--LH) - 22px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))*.76);--CX:calc((var(--LW) - var(--SW))/4);--A:min(calc(var(--LH)*.16),calc(var(--LW)*.085))}
-html.land .wrap{position:fixed!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;width:var(--SW)!important;height:calc(var(--LH) - 22px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))!important;padding:0!important;margin:0!important}
-html.land .keys{display:contents!important}
-html.land .keys::before,html.land .keys::after{display:none!important}
-html.land body .phone .keys .nav{display:contents!important}
-html.land body .phone .keys .nav::before{display:none!important}
-/* 十字键（右侧） */
-html.land body .phone .keys .nav .u,html.land body .phone .keys .nav .d,html.land body .phone .keys .nav .l,html.land body .phone .keys .nav .r,html.land body .phone .keys .nav::after{
-  position:fixed!important;width:var(--A)!important;height:var(--A)!important;margin:0!important;transform:none!important;
-  background:linear-gradient(180deg,var(--lk1,#3a3d46),var(--lk2,#1f2127))!important;color:var(--lkT,#cfd6e4)!important;text-shadow:none!important;
-  box-shadow:0 0 0 1px var(--lkB,#0a0b0e),inset 0 1px 0 rgba(255,255,255,.22)!important;font-size:calc(var(--A)*.32)!important;display:grid!important;place-items:center!important}
-html.land body .phone .keys .nav::after{content:""!important;left:calc(var(--LW) - var(--CX) - var(--A)/2)!important;top:calc(var(--LH)/2 - var(--A)/2)!important;border-radius:0!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.12)!important;z-index:1;pointer-events:none}
-html.land body .phone .keys .nav .u{left:calc(var(--LW) - var(--CX) - var(--A)/2)!important;top:calc(var(--LH)/2 - var(--A)*1.5)!important;border-radius:calc(var(--A)*.28) calc(var(--A)*.28) 0 0!important}
-html.land body .phone .keys .nav .d{left:calc(var(--LW) - var(--CX) - var(--A)/2)!important;top:calc(var(--LH)/2 + var(--A)/2)!important;border-radius:0 0 calc(var(--A)*.28) calc(var(--A)*.28)!important}
-html.land body .phone .keys .nav .l{left:calc(var(--LW) - var(--CX) - var(--A)*1.5)!important;top:calc(var(--LH)/2 - var(--A)/2)!important;border-radius:calc(var(--A)*.28) 0 0 calc(var(--A)*.28)!important}
-html.land body .phone .keys .nav .r{left:calc(var(--LW) - var(--CX) + var(--A)/2)!important;top:calc(var(--LH)/2 - var(--A)/2)!important;border-radius:0 calc(var(--A)*.28) calc(var(--A)*.28) 0!important}
-html.land body .phone .keys .nav .u,html.land body .phone .keys .nav .d,html.land body .phone .keys .nav .l,html.land body .phone .keys .nav .r{z-index:2}
-html.land body .phone .keys .nav button.down{filter:brightness(.82)!important}
-/* 大 OK（左侧） */
-html.land body .phone .keys .nav .ok{position:fixed!important;width:calc(var(--A)*1.75)!important;height:calc(var(--A)*1.75)!important;left:calc(var(--CX) - var(--A)*.875)!important;top:calc(var(--LH)*.42 - var(--A)*.875)!important;border-radius:50%!important;font-size:calc(var(--A)*.36)!important;transform:none!important;margin:0!important;z-index:2}
-/* Select / Back（左下两颗胶囊键） */
-html.land body .phone .keys .kb.sl,html.land body .phone .keys .kb.sr{position:fixed!important;width:calc(var(--A)*.95)!important;height:calc(var(--A)*.5)!important;border-radius:999px!important;top:calc(var(--LH)*.42 + var(--A)*1.25)!important;margin:0!important;transform:none!important}
-html.land body .phone .keys .kb.sl{left:calc(var(--CX) - var(--A)*1.05)!important}
-html.land body .phone .keys .kb.sr{left:calc(var(--CX) + var(--A)*.1)!important}
-html.land body .phone .keys .kb.sl::after,html.land body .phone .keys .kb.sr::after{width:36%!important;left:32%!important}
-/* 横屏状态栏去掉后，屏幕顶部不再留白 */
-html.land .lcd .status{display:none!important}
-/* 各主题的横屏十字键配色 */
-html[data-look="pearl"][data-tone=""]{--lk1:#ffffff;--lk2:#cfe0f6;--lkT:#4a90d8;--lkB:#8ab6e6}
-html[data-tone="silver"]{--lk1:#eef1fb;--lk2:#b9c4ec;--lkT:#3e4fa8;--lkB:#6f82cc}
-html[data-tone="aero"]{--lk1:#bff0ff;--lk2:#2aa8e8;--lkT:#ffffff;--lkB:rgba(0,90,180,.6)}
-html[data-look="nokia"]{--lk1:#4a4d55;--lk2:#2a2c32;--lkT:#e0e4ec;--lkB:#0a0b0e}
-html[data-look="wm"]{--lk1:#3a3e48;--lk2:#1e2128;--lkT:#ffffff;--lkB:#0a0c12}
-html[data-look="ipod"]{--lk1:#ffffff;--lk2:#d6d9df;--lkT:#9aa0aa;--lkB:rgba(0,0,0,.22)}
-html[data-look="ipod"][data-tone="dark"]{--lk1:#4a4b52;--lk2:#26272c;--lkT:#c8cad2;--lkB:#000}
-html[data-look="pda"]{--lk1:#f2f0e8;--lk2:#c9c6bb;--lkT:#5a5850;--lkB:#77746a}
-html[data-look="pda"][data-tone="dark"]{--lk1:#6a6b72;--lk2:#47484d;--lkT:#d8d6ce;--lkB:#1e1f22}
+
+/* ===================== Windows Mobile · Y2K Silver ===================== */
+html[data-look="wm"][data-tone="wms"]{background:repeating-linear-gradient(90deg,rgba(255,255,255,.18) 0 1px,rgba(0,0,0,.04) 1px 3px),linear-gradient(110deg,rgba(255,255,255,0) 30%,rgba(255,255,255,.55) 42%,rgba(255,255,255,0) 54%),linear-gradient(180deg,#d9dce2 0,#b7bcc6 50%,#9aa0ac 100%)!important}
+html[data-look="wm"][data-tone="wms"] body{background-color:transparent!important}
+html[data-look="wm"][data-tone="wms"] .stripe{background:linear-gradient(180deg,#7a808c,#ffffff 30%,#8a909c 55%,#ffffff 80%,#7a808c)!important}
+html[data-look="wm"][data-tone="wms"] .brand{-webkit-text-fill-color:#3a4a6a!important;color:#3a4a6a!important;filter:none!important;background:none!important}
+html[data-look="wm"][data-tone="wms"] .keys{background:linear-gradient(180deg,#eef0f4,#c6cad4 60%,#aab0bc)!important;box-shadow:inset 0 1px 0 #fff,0 0 0 1px #7a808c,0 6px 14px rgba(40,50,70,.3)!important}
+html[data-look="wm"][data-tone="wms"] .kb{background:linear-gradient(180deg,#ffffff,#dfe2e8 48%,#b4b9c4 52%,#e2e5ea)!important;box-shadow:inset 0 1px 0 #fff,0 0 0 1px #6a7080,0 2px 0 #8a909c!important}
+html[data-look="wm"][data-tone="wms"] .nav{background:linear-gradient(180deg,#f4f5f8,#c4c8d2 50%,#a8adb8 52%,#dfe2e8)!important;box-shadow:0 0 0 1px #6a7080,0 4px 8px rgba(40,50,70,.3)!important}
+html[data-look="wm"][data-tone="wms"] .nav button{color:#2a4a8a!important;text-shadow:0 1px 0 #fff!important}
+html[data-look="wm"][data-tone="wms"] .scr{background:linear-gradient(180deg,#f6f7fa,#dfe3ea 60%,#c9ced8)!important}
+html[data-look="wm"][data-tone="wms"] .row{background:linear-gradient(180deg,#ffffff,#eceef3)!important;color:#1a2a4a!important;text-shadow:none!important;border-bottom:1px solid #c4c9d4!important}
+html[data-look="wm"][data-tone="wms"] .row .v{color:#4a5a7a!important}
+html[data-look="wm"][data-tone="wms"] .row.on{background:linear-gradient(180deg,#6a9ae8,#2a5ac0)!important;color:#fff!important}
+html[data-look="wm"][data-tone="wms"] .row.on .v{color:#fff!important}
+html[data-look="wm"][data-tone="wms"] .mi span{color:#1a2a4a!important;text-shadow:0 1px 0 #fff!important}
+html[data-look="wm"][data-tone="wms"] .mi.on{background:linear-gradient(180deg,#ffffff,#d6dae4)!important;box-shadow:inset 0 0 0 1px #6a7a9a!important}
+html[data-look="wm"][data-tone="wms"] .soft{background:linear-gradient(180deg,#eceef3,#b9beca)!important;border-top:1px solid #fff!important}
+html[data-look="wm"][data-tone="wms"] .soft span:not(:empty){color:#1a2a4a!important}
+/* ===================== Windows Mobile · Retro Blue ===================== */
+html[data-look="wm"][data-tone="wmb"]{background:radial-gradient(90% 40% at 50% 0,rgba(140,190,255,.35),rgba(140,190,255,0) 70%),linear-gradient(180deg,#2a4ea8 0,#1a3a8a 50%,#0e2662 100%)!important}
+html[data-look="wm"][data-tone="wmb"] body{background-color:transparent!important}
+html[data-look="wm"][data-tone="wmb"] .stripe{background:linear-gradient(180deg,#3a6ad8,#9ac0ff 40%,#3a6ad8)!important}
+html[data-look="wm"][data-tone="wmb"] .keys{background:linear-gradient(180deg,#3a5cb8,#24448e 60%,#162e6a)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 0 0 1px #0a1a4a,0 6px 14px rgba(0,0,40,.5)!important}
+html[data-look="wm"][data-tone="wmb"] .kb{background:linear-gradient(180deg,#5a82e0,#2a52b8 50%,#1a3a90 52%,#3a62c8)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 0 0 1px #0a1a4a,0 2px 0 #0a1a4a!important}
+html[data-look="wm"][data-tone="wmb"] .kb.sl::after,html[data-look="wm"][data-tone="wmb"] .kb.sr::after{background:#dfe8ff!important}
+html[data-look="wm"][data-tone="wmb"] .nav{background:linear-gradient(180deg,#5a82e0,#1a3a90)!important;box-shadow:0 0 0 1px #0a1a4a,0 0 0 3px rgba(150,190,255,.5)!important}
+html[data-look="wm"][data-tone="wmb"] .nav button{color:#dfe8ff!important}
+html[data-look="wm"][data-tone="wmb"] .scr{background:linear-gradient(180deg,#0a2470 0,#1a46b0 55%,#3a72dc 100%)!important}
+html[data-look="wm"][data-tone="wmb"] .row{background:rgba(255,255,255,.08)!important;color:#fff!important;border-bottom:1px solid rgba(255,255,255,.2)!important}
+html[data-look="wm"][data-tone="wmb"] .row.on{background:linear-gradient(180deg,#ffd84a,#f0a820)!important;color:#1a1a3a!important;text-shadow:none!important}
+html[data-look="wm"][data-tone="wmb"] .row.on .v{color:#1a1a3a!important}
+html[data-look="wm"][data-tone="wmb"] .mi.on{background:rgba(255,216,74,.25)!important;box-shadow:inset 0 0 0 1px #ffd84a!important}
+html[data-look="wm"][data-tone="wmb"] .soft{background:linear-gradient(180deg,#3a62c8,#1a3a90)!important;border-top:1px solid #9ac0ff!important}
+html[data-look="wm"][data-tone="wmb"] .soft span:not(:empty){color:#fff!important}
+/* ===================== Nokia Classic · Color（彩色屏） ===================== */
+html[data-look="nokia"][data-tone="color"] .scr{background:linear-gradient(180deg,#ffffff 0,#e6f2ff 55%,#c8e0fa 100%)!important;color:#0a2a5a!important}
+html[data-look="nokia"][data-tone="color"] .scr *{color:#0a2a5a}
+html[data-look="nokia"][data-tone="color"] .status{background:linear-gradient(180deg,#2a6ad8,#1a4aa8)!important}
+html[data-look="nokia"][data-tone="color"] .status *,html[data-look="nokia"][data-tone="color"] #clock{color:#fff!important}
+html[data-look="nokia"][data-tone="color"] .hdr,html[data-look="nokia"][data-tone="color"] .nkm .nkt{background:linear-gradient(180deg,#4a8af0,#1a5ad0)!important;color:#fff!important;-webkit-text-fill-color:#fff!important}
+html[data-look="nokia"][data-tone="color"] .row.on{background:linear-gradient(180deg,#ffb44a,#f07a10)!important;color:#fff!important}
+html[data-look="nokia"][data-tone="color"] .row.on *{color:#fff!important}
+html[data-look="nokia"][data-tone="color"] .soft{background:linear-gradient(180deg,#e6f0ff,#b4d0f4)!important}
+html[data-look="nokia"][data-tone="color"] .soft span:not(:empty){color:#0a2a5a!important}
+html[data-look="nokia"][data-tone="color"] .nkm .nki img{image-rendering:auto!important}
+/* ===================== Nokia Classic · Matrix（黑客帝国终端） ===================== */
+html[data-look="nokia"][data-tone="matrix"]{background:radial-gradient(90% 40% at 50% 0,rgba(40,255,110,.08),rgba(40,255,110,0) 70%),linear-gradient(180deg,#0c120c,#050805)!important}
+html[data-look="nokia"][data-tone="matrix"] body{background-color:transparent!important}
+html[data-look="nokia"][data-tone="matrix"] .scr,html[data-look="nokia"][data-tone="matrix"] .stby{background:repeating-linear-gradient(0deg,rgba(0,0,0,.25) 0 1px,transparent 1px 3px),#020a04!important;color:#3aff6a!important}
+html[data-look="nokia"][data-tone="matrix"] .scr *,html[data-look="nokia"][data-tone="matrix"] .stby *{color:#3aff6a!important;-webkit-text-fill-color:#3aff6a!important;text-shadow:0 0 4px rgba(58,255,106,.8)!important;background-image:none}
+html[data-look="nokia"][data-tone="matrix"] .status{background:#010501!important;border-bottom:1px solid #1a6a2a!important}
+html[data-look="nokia"][data-tone="matrix"] .hdr{background:#031a08!important;border-bottom:1px solid #2aff5a!important}
+html[data-look="nokia"][data-tone="matrix"] .row{background:transparent!important;border-bottom:1px dashed rgba(58,255,106,.3)!important}
+html[data-look="nokia"][data-tone="matrix"] .row.on{background:#0a4a1a!important;box-shadow:inset 0 0 0 1px #3aff6a!important}
+html[data-look="nokia"][data-tone="matrix"] .soft{background:#010501!important;border-top:1px solid #1a6a2a!important}
+html[data-look="nokia"][data-tone="matrix"] .nkm .nki img{filter:invert(1) sepia(1) saturate(6) hue-rotate(70deg) brightness(1.05) drop-shadow(0 0 3px rgba(58,255,106,.8))}
+html[data-look="nokia"][data-tone="matrix"] .lcd{box-shadow:0 0 0 2px #0a2a10,0 0 0 8px #101a12,0 0 0 9px #000,0 0 18px rgba(58,255,106,.25)!important}
+html[data-look="nokia"][data-tone="matrix"] .keys{background:linear-gradient(180deg,#1a1f1a,#0c100c)!important;box-shadow:inset 0 1px 0 rgba(58,255,106,.2),0 0 0 1px #000!important}
+html[data-look="nokia"][data-tone="matrix"] .kb{background:linear-gradient(180deg,#1e261e,#0e140e)!important;box-shadow:inset 0 1px 0 rgba(58,255,106,.25),0 0 0 1px #000,0 3px 0 #000!important}
+html[data-look="nokia"][data-tone="matrix"] .kb.sl::after,html[data-look="nokia"][data-tone="matrix"] .kb.sr::after{background:#3aff6a!important;box-shadow:0 0 6px #3aff6a!important}
+html[data-look="nokia"][data-tone="matrix"] .nav{background:linear-gradient(180deg,#141c14,#070a07)!important;box-shadow:0 0 0 1px #000,0 0 10px rgba(58,255,106,.2)!important}
+html[data-look="nokia"][data-tone="matrix"] .nav button{color:#3aff6a!important;text-shadow:0 0 4px #3aff6a!important}
+html[data-look="nokia"][data-tone="matrix"] .nav .ok{background:#0a2a10!important;color:#3aff6a!important;box-shadow:0 0 0 1px #3aff6a!important}
+html[data-look="nokia"][data-tone="matrix"] .brand{-webkit-text-fill-color:#3aff6a!important;color:#3aff6a!important;background:none!important;filter:drop-shadow(0 0 4px rgba(58,255,106,.7))!important}
+html[data-look="wm"][data-tone="wms"] .nav::before{background:linear-gradient(180deg,#f2f4f8,#c9ced8)!important;box-shadow:inset 0 1px 2px rgba(40,50,70,.35)!important}
+html[data-look="wm"][data-tone="wms"] .nav .ok{background:radial-gradient(circle at 50% 30%,#ffffff,#d6dae4 60%,#a8aeba)!important;color:#2a4a8a!important;box-shadow:0 0 0 1px #6a7080,0 2px 3px rgba(0,0,0,.25)!important}
+html[data-look="wm"][data-tone="wmb"] .nav::before{background:linear-gradient(180deg,#2a52b8,#132e78)!important;box-shadow:inset 0 1px 3px rgba(0,0,40,.6)!important}
+html[data-look="wm"][data-tone="wmb"] .nav .ok{background:radial-gradient(circle at 50% 30%,#fff6c8,#ffd84a 55%,#e09a10)!important;color:#3a2a00!important;box-shadow:0 0 0 1px #8a5a00,0 2px 3px rgba(0,0,0,.35)!important}
+html[data-look="nokia"][data-tone="color"] .nkm .nkt,html[data-look="nokia"][data-tone="color"] .nkm .nkn{color:#1a4aa8!important}
+html[data-look="wm"][data-tone="wms"] .kb.sl::after,html[data-look="wm"][data-tone="wms"] .kb.sr::after{background:#3a4a6a!important;box-shadow:none!important}
+
+/* Nokia Classic · Color：彩色待机桌面（蓝天渐变壁纸 + 光晕 + 白色大时钟） */
+html[data-look="nokia"][data-tone="color"] .stby{background:
+  radial-gradient(60% 30% at 25% 22%,rgba(255,255,255,.75),rgba(255,255,255,0) 70%),
+  radial-gradient(45% 22% at 78% 30%,rgba(255,255,255,.55),rgba(255,255,255,0) 70%),
+  radial-gradient(120% 45% at 50% 115%,#5ad84a 0,#2aa83a 38%,rgba(42,168,58,0) 40%),
+  radial-gradient(80% 50% at 85% 85%,rgba(255,180,80,.55),rgba(255,180,80,0) 70%),
+  linear-gradient(180deg,#1a5ad8 0,#4a9af0 45%,#a8dcff 100%)!important}
+html[data-look="nokia"][data-tone="color"] .stby::before,html[data-look="nokia"][data-tone="color"] .stby::after{display:none!important}
+html[data-look="nokia"][data-tone="color"] .stby *{color:#ffffff!important;-webkit-text-fill-color:#ffffff!important;text-shadow:0 1px 0 rgba(0,40,120,.7),0 2px 6px rgba(0,40,120,.5)!important;background:none!important;filter:none!important}
+html[data-look="nokia"][data-tone="color"] .stby .bigclock{text-shadow:0 2px 0 rgba(0,40,120,.6),0 4px 12px rgba(0,30,100,.5)!important}
 </style>
 </head>
 <body>
@@ -1574,21 +1615,28 @@ const SKEY='pixelfone-settings';
 const S={xp:0,snd:true,music:true,vib:true,green:false,filter:'none',skin:'blue',look:'auto',solDraw:1,solSuits:1,snakeLevel:5,snakeMaze:0,m3diff:'normal'};
 try{const o=JSON.parse(localStorage.getItem(SKEY)||'{}');if(o&&typeof o==='object')Object.assign(S,o);}catch(e){}
 const saveS=()=>{try{localStorage.setItem(SKEY,JSON.stringify(S))}catch(e){}};
-const LOOKS=['auto','black','pearl','silver','aero','nokia','wm','ipod','ipodd','pda','pdad'],LOOKN={auto:'Auto',black:'Black',pearl:'Pearl',silver:'Y2K',aero:'Frutiger Aero',nokia:'Nokia Classic',wm:'Windows Mobile',ipod:'iPod Silver',ipodd:'iPod Graphite',pda:'PDA',pdad:'PDA Graphite'};
+const LOOKS=['black','pearl','silver','aero','ipod','ipodd','pda','pdad','wm','wms','wmb','nokia','nokiac','matrix'];
+// 主题 → 皮肤（每个主题下的几种外观）
+const FAMS={original:['black','pearl','silver','aero'],ipod:['ipod','ipodd'],pda:['pda','pdad'],wm:['wm','wms','wmb'],nokia:['nokia','nokiac','matrix']};
+const FAMN={original:'Original',ipod:'iPod',pda:'PDA',wm:'Windows Mobile',nokia:'Nokia Classic'};
+const SKINN={black:'Black',pearl:'Pearl',silver:'Y2K',aero:'Frutiger Aero',ipod:'Silver',ipodd:'Graphite',pda:'Light',pdad:'Dark',wm:'Classic',wms:'Y2K Silver',wmb:'Retro Blue',nokia:'Mono',nokiac:'Color',matrix:'Matrix'};
+const LOOKN=SKINN;const famOf=l=>Object.keys(FAMS).find(f=>FAMS[f].includes(l))||'original';
 if(S.look==='gb'){S.look='auto';if(S.filter==='gameboy')S.filter='none';}
 if(S.look==='iphone')S.look='gb';
 if(S.look==='wp')S.look='wm';if(S.look==='webos')S.look='nokia';
 if(!S.v14){S.look='auto';S.v13=1;S.v14=1;if(S.filter==='gameboy')S.filter='none';try{localStorage.setItem(SKEY,JSON.stringify(S))}catch(e){}}
-const FILTERS=['none','gameboy','gbc','grey','cool'],FILTN={none:'None',gameboy:'Game Boy',gbc:'Game Boy Color',grey:'Grey LCD',cool:'Blue backlight'};
-if(['green','amber','vivid'].includes(S.filter))S.filter='none';
+const FILTERS=['none','gameboy','gbc','cool'],FILTN={none:'None',gameboy:'Game Boy',gbc:'Game Boy Color',cool:'Blue backlight'};
+if(['green','amber','vivid','grey'].includes(S.filter))S.filter='none';
 if(!S.v12){S.look='auto';if(S.green)S.filter='green';S.v12=1;try{localStorage.setItem(SKEY,JSON.stringify(S))}catch(e){}}
-const effLook=()=>(!S.look||S.look==='auto')?(matchMedia('(prefers-color-scheme: dark)').matches?'black':'pearl'):S.look;
+if(!S.look||S.look==='auto'||!LOOKS.includes(S.look))S.look='black';S.skin='blue';
+const effLook=()=>S.look;
 try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{if(!S.look||S.look==='auto')applySkin();});}catch(e){}
 if(S.skin==='red')S.skin='orange';
-function applySkin(){const r=document.documentElement,lk0=effLook(),lk=lk0==='ipodd'?'ipod':lk0==='pdad'?'pda':(lk0==='silver'||lk0==='aero')?'pearl':lk0;r.dataset.skin=S.skin==='blue'?'':S.skin;r.dataset.look=lk;r.dataset.tone=lk0==='ipodd'||lk0==='pdad'?'dark':lk0==='silver'?'silver':lk0==='aero'?'aero':'';
+function setLook(n){const prev=S.look;S.look=n;if(n==='nokia')S.filter='gameboy';else if(prev==='nokia'&&S.filter==='gameboy')S.filter='none';applySkin();saveS();}
+function applySkin(){const r=document.documentElement,lk0=effLook(),lk=lk0==='ipodd'?'ipod':lk0==='pdad'?'pda':(lk0==='silver'||lk0==='aero')?'pearl':(lk0==='wms'||lk0==='wmb')?'wm':(lk0==='nokiac'||lk0==='matrix')?'nokia':lk0;r.dataset.skin='';r.dataset.look=lk;r.dataset.tone=lk0==='ipodd'||lk0==='pdad'?'dark':lk0==='silver'?'silver':lk0==='aero'?'aero':lk0==='wms'?'wms':lk0==='wmb'?'wmb':lk0==='nokiac'?'color':lk0==='matrix'?'matrix':'';
   const f=S.filter||'none';FILTERS.forEach(x=>$('#lcd').classList.toggle('f-'+x,x===f));$('#lcd').classList.toggle('green',f==='green');
   // iOS Safari 的地址栏/状态栏颜色取自 theme-color 与页面背景色（不读渐变），两者都要跟随皮肤
-  const light=lk==='pearl'||(lk==='pda'&&lk0!=='pdad')||(lk==='ipod'&&lk0!=='ipodd'),tc=lk0==='ipodd'?'#26272b':lk0==='silver'?'#8c98c8':lk0==='pda'?'#c9c6b8':lk0==='pdad'?'#36373c':lk0==='aero'?'#0f5cb8':({pearl:'#9cadc9',ipod:'#dcdfe4',nokia:'#1c1d22',wm:'#0a0c12'}[lk]||'#050506');
+  const light=lk==='pearl'||lk0==='wms'||(lk==='pda'&&lk0!=='pdad')||(lk==='ipod'&&lk0!=='ipodd'),tc=lk0==='wms'?'#b9bdc6':lk0==='wmb'?'#16327a':lk0==='matrix'?'#030803':lk0==='ipodd'?'#26272b':lk0==='silver'?'#8c98c8':lk0==='pda'?'#c9c6b8':lk0==='pdad'?'#36373c':lk0==='aero'?'#0f5cb8':({pearl:'#9cadc9',ipod:'#dcdfe4',nokia:'#1c1d22',wm:'#0a0c12'}[lk]||'#050506');
   document.querySelectorAll('meta[name=theme-color]').forEach(m=>m.content=tc);
   r.style.backgroundColor=tc;document.body.style.backgroundColor=tc;r.style.colorScheme=light?'light':'dark';pixKey='';if(typeof layout==='function')try{layout()}catch(e){}}
 
@@ -4365,9 +4413,8 @@ function settingsMenu(){
     const a=[
       {label:'Sound',value:()=>S.snd?'On':'Off',adj:()=>{S.snd=!S.snd;saveS();}},
       {label:'Screen filter',value:()=>FILTN[S.filter||'none'],adj:d=>{const i=FILTERS.indexOf(S.filter||'none');S.filter=FILTERS[(i+(d||1)+FILTERS.length)%FILTERS.length];applySkin();saveS();}},
-      {label:'Theme',value:()=>LOOKN[S.look||'auto'],adj:d=>{const prev=S.look,i=LOOKS.indexOf(S.look||'auto');S.look=LOOKS[(i+(d||1)+LOOKS.length)%LOOKS.length];
-        if(S.look==='nokia')S.filter='gameboy';else if(prev==='nokia'&&S.filter==='gameboy')S.filter='none';applySkin();saveS();}},
-      {label:'Accent',value:()=>skinN[S.skin],adj:d=>{S.skin=skins[(skins.indexOf(S.skin)+(d||1)+3)%3];applySkin();saveS();}}];
+      {label:'Theme',value:()=>FAMN[famOf(S.look)],adj:d=>{const fs=Object.keys(FAMS),i=fs.indexOf(famOf(S.look));setLook(FAMS[fs[(i+(d||1)+fs.length)%fs.length]][0]);}},
+      {label:'Skin',value:()=>SKINN[S.look],adj:d=>{const f=FAMS[famOf(S.look)],i=f.indexOf(S.look);setLook(f[(i+(d||1)+f.length)%f.length]);}}];
     if(deferredPrompt)a.push({label:'Install app',act:install});
     else if(isIOS&&!isStandalone)a.push({label:'Add to Home Screen',act:()=>push({type:'text',title:'Home Screen',
       html:'<p>1. Open this page in Safari.</p><p>2. Tap the <b>Share</b> button.</p><p>3. Choose <b>Add to Home Screen</b>.</p><p>Launch it from the icon for a full-screen phone.</p>'})});
@@ -4468,7 +4515,7 @@ function render(){
     if(['nokia','gb'].includes(document.documentElement.dataset.look)){
       // 诺基亚经典单项菜单：大图标 + 标题 + 序号 + 右侧滚动条
       const s=App.menuSel,[id,n]=MENU[s],N=MENU.length,pv=(s+N-1)%N,nx=(s+1)%N;
-      ui.innerHTML=`<div class="scr nkm"><div class="nkh">${n}</div><b class="nkn">${s+1}</b><div class="nki" data-mi="${s}"><img alt="" src="${nkURL(id)}"></div>
+      ui.innerHTML=`<div class="scr nkm"><div class="nkh">${n}</div><b class="nkn">${s+1}</b><div class="nki" data-mi="${s}"><img alt="" src="${document.documentElement.dataset.tone==='color'&&typeof ICONIMG!=='undefined'?ICONIMG[id]:nkURL(id)}"></div>
         <div class="nka l" data-mi="${pv}">◀</div><div class="nka r" data-mi="${nx}">▶</div><div class="nksb"><i style="top:${(s/(N-1)*82).toFixed(1)}%"></i></div></div>`;
       animate(ui,'menu',1);setSoft('','Select','');return;}
     if(document.documentElement.dataset.look==='ipod'){
