@@ -1434,6 +1434,25 @@ html[data-look="black"] .dlg h3{background:linear-gradient(180deg,rgba(60,120,21
 .eic{background:none!important;box-shadow:none!important;overflow:visible!important}
 .eic::after{display:none!important}
 .eic img{left:0!important;top:0!important;width:100%!important;height:100%!important;filter:drop-shadow(0 calc(var(--u)*4) calc(var(--u)*5) rgba(0,0,0,.4))!important}
+
+/* Pearl 机身：加深到与 PDA 相近的明度（冰蓝灰），保留晶体光束 */
+html[data-look="pearl"][data-tone=""]{background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .15  0 0 0 0 .2  0 0 0 0 .35  0 0 0 .07 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"),
+  linear-gradient(118deg,rgba(255,255,255,0) 38%,rgba(255,255,255,.45) 41%,rgba(255,255,255,0) 44%),
+  linear-gradient(64deg,rgba(255,255,255,0) 60%,rgba(220,236,255,.35) 62%,rgba(255,255,255,0) 66%),
+  radial-gradient(60% 35% at 80% 8%,rgba(170,210,250,.45),rgba(170,210,250,0) 70%),
+  linear-gradient(180deg,#d3dcea 0,#bfcbe0 50%,#a9b8d2 100%)!important}
+html[data-look="pearl"][data-tone=""] .keys{background:linear-gradient(180deg,#e8eef8 0,#d2dcec 55%,#bfcbe0 100%)!important}
+/* Y2K 机身：更深的拉丝金属薰衣草蓝，细颗粒 + 横向拉丝纹 + 斜向反光 */
+html[data-tone="silver"]{background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .15  0 0 0 0 .2  0 0 0 0 .35  0 0 0 .07 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"),
+  repeating-linear-gradient(0deg,rgba(255,255,255,.07) 0 1px,rgba(40,50,120,.05) 1px 3px),
+  linear-gradient(115deg,rgba(255,255,255,0) 30%,rgba(255,255,255,.28) 40%,rgba(255,255,255,0) 50%),
+  radial-gradient(120% 55% at 50% -10%,rgba(255,255,255,.45) 0,rgba(255,255,255,0) 60%),
+  linear-gradient(180deg,#c3cbe8 0,#a9b4dc 50%,#8f9bcc 100%)!important}
+html[data-tone="silver"] .keys{background:linear-gradient(180deg,#e6eaf8 0,#ccd3ee 55%,#b3bde4 100%)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.8),0 0 0 1px #7a8ad0,0 6px 14px rgba(40,50,130,.3)!important}
+html[data-tone="silver"] .brand{-webkit-text-fill-color:#2e3c94!important;color:#2e3c94!important;text-shadow:0 1px 0 rgba(255,255,255,.6)!important}
+/* 让机身渐变（画在 html 上）不被 body 的纯色底盖住 */
+html[data-look="pearl"] body,html[data-look="black"] body{background-color:transparent!important}
+html[data-look="pearl"][data-tone=""] .phone::before,html[data-tone="silver"] .phone::before{background:linear-gradient(168deg,rgba(255,255,255,.16),rgba(255,255,255,0) 30%)!important}
 </style>
 </head>
 <body>
@@ -1505,7 +1524,7 @@ if(S.skin==='red')S.skin='orange';
 function applySkin(){const r=document.documentElement,lk0=effLook(),lk=lk0==='ipodd'?'ipod':lk0==='pdad'?'pda':(lk0==='silver'||lk0==='aero')?'pearl':lk0;r.dataset.skin=S.skin==='blue'?'':S.skin;r.dataset.look=lk;r.dataset.tone=lk0==='ipodd'||lk0==='pdad'?'dark':lk0==='silver'?'silver':lk0==='aero'?'aero':'';
   const f=S.filter||'none';FILTERS.forEach(x=>$('#lcd').classList.toggle('f-'+x,x===f));$('#lcd').classList.toggle('green',f==='green');
   // iOS Safari 的地址栏/状态栏颜色取自 theme-color 与页面背景色（不读渐变），两者都要跟随皮肤
-  const light=lk==='pearl'||(lk==='pda'&&lk0!=='pdad')||(lk==='ipod'&&lk0!=='ipodd'),tc=lk0==='ipodd'?'#26272b':lk0==='silver'?'#d6dae1':lk0==='pda'?'#c9c6b8':lk0==='pdad'?'#36373c':lk0==='aero'?'#bfe8ff':({pearl:'#eef1f7',ipod:'#dcdfe4',nokia:'#1c1d22',wm:'#0a0c12'}[lk]||'#050506');
+  const light=lk==='pearl'||(lk==='pda'&&lk0!=='pdad')||(lk==='ipod'&&lk0!=='ipodd'),tc=lk0==='ipodd'?'#26272b':lk0==='silver'?'#a9b4dc':lk0==='pda'?'#c9c6b8':lk0==='pdad'?'#36373c':lk0==='aero'?'#bfe8ff':({pearl:'#bfcbe0',ipod:'#dcdfe4',nokia:'#1c1d22',wm:'#0a0c12'}[lk]||'#050506');
   document.querySelectorAll('meta[name=theme-color]').forEach(m=>m.content=tc);
   r.style.backgroundColor=tc;document.body.style.backgroundColor=tc;r.style.colorScheme=light?'light':'dark';pixKey='';if(typeof layout==='function')try{layout()}catch(e){}}
 
