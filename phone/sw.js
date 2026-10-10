@@ -25,6 +25,6 @@ self.addEventListener('fetch', e => {
     e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(r => {
       if (r && (r.ok || r.type === 'opaque')) { const cp = r.clone(); caches.open(VERSION).then(c => c.put(req, cp)); }
       return r;
-    })));
+    })).catch(() => caches.match(req)));
   }
 });
